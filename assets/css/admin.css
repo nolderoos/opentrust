@@ -1,0 +1,102 @@
+/**
+ * OpenTrust admin styles.
+ */
+
+/* Logo upload */
+.ot-logo-upload {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ot-logo-preview img {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px;
+    background: #fff;
+}
+
+/* Certification meta box */
+.ot-meta-field {
+    margin-bottom: 16px;
+}
+
+.ot-meta-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.ot-meta-field input[type="text"],
+.ot-meta-field input[type="url"],
+.ot-meta-field input[type="number"],
+.ot-meta-field input[type="date"],
+.ot-meta-field select,
+.ot-meta-field textarea {
+    width: 100%;
+    max-width: 400px;
+}
+
+.ot-meta-field textarea {
+    min-height: 80px;
+}
+
+.ot-meta-field .description {
+    color: #666;
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* Badge upload in meta box */
+.ot-badge-preview {
+    max-width: 80px;
+    max-height: 80px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px;
+    margin-bottom: 8px;
+}
+
+/* Version history meta box */
+.ot-version-history {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.ot-version-history table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ot-version-history th,
+.ot-version-history td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+}
+
+.ot-version-history th {
+    font-weight: 600;
+    background: #f9f9f9;
+    position: sticky;
+    top: 0;
+}
+
+.ot-version-badge {
+    display: inline-block;
+    background: #2563eb;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* Settings page tweaks */
+.wrap h1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
