@@ -16,6 +16,9 @@
         initScrollSpy();
         initSearch();
         initTableSort();
+        initDpCards();
+        initVersionHistory();
+        initClampToggles();
     }
 
     // ── Smooth Scroll ──────────────────────────────
@@ -89,6 +92,62 @@
         var input = document.getElementById('ot-search');
         if (!input) return;
 
+        // Dual-mode: if AI is enabled on this site, upgrade the search input
+        // into an "Ask AI" affordance. Otherwise keep the substring filter.
+        var cfg = window.OT_CFG || {};
+        if (cfg.ai_enabled && cfg.ask_url) {
+            initAiSearch(input, cfg);
+        } else {
+            initSubstringSearch(input);
+        }
+    }
+
+    function initAiSearch(input, cfg) {
+        input.setAttribute('placeholder', (cfg.ask_placeholder) || 'Ask anything about our security…');
+        input.setAttribute('aria-label', (cfg.ask_label) || 'Ask AI');
+        input.autocomplete = 'off';
+
+        var askUrl = cfg.ask_url;
+
+        // Below 480px the input is useless inline — clicking opens the chat page.
+        if (window.matchMedia && window.matchMedia('(max-width: 480px)').matches) {
+            input.addEventListener('focus', function (e) {
+                e.preventDefault();
+                input.blur();
+                window.location.href = askUrl;
+            });
+        }
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var q = (input.value || '').trim();
+                if (q) {
+                    window.location.href = askUrl + '?q=' + encodeURIComponent(q);
+                } else {
+                    window.location.href = askUrl;
+                }
+            }
+        });
+
+        // Rotating placeholder — disabled when reduced-motion is requested.
+        if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            var prompts = (cfg.ask_prompts && cfg.ask_prompts.length) ? cfg.ask_prompts : [
+                'Are you SOC 2 compliant?',
+                'Where is customer data stored?',
+                'Which subprocessors do you use?',
+                'What is your incident response process?'
+            ];
+            var idx = 0;
+            setInterval(function () {
+                if (document.activeElement === input) return;
+                idx = (idx + 1) % prompts.length;
+                input.setAttribute('placeholder', prompts[idx]);
+            }, 4000);
+        }
+    }
+
+    function initSubstringSearch(input) {
         input.addEventListener('input', function () {
             var query = this.value.toLowerCase().trim();
 
@@ -104,13 +163,19 @@
                 row.classList.toggle('ot-table-row--hidden', query !== '' && !text.includes(query));
             });
 
+            // Filter data practice cards.
+            document.querySelectorAll('.ot-dp-card').forEach(function (card) {
+                var text = card.textContent.toLowerCase();
+                card.classList.toggle('ot-dp-card--hidden', query !== '' && !text.includes(query));
+            });
+
             // Show/hide empty sections.
             document.querySelectorAll('.ot-section').forEach(function (section) {
                 var visibleCards = section.querySelectorAll('.ot-card:not(.ot-card--hidden)').length;
                 var visibleRows = section.querySelectorAll('.ot-table tbody tr:not(.ot-table-row--hidden)').length;
-                var hasContent = visibleCards > 0 || visibleRows > 0;
+                var visibleDp = section.querySelectorAll('.ot-dp-card:not(.ot-dp-card--hidden)').length;
+                var hasContent = visibleCards > 0 || visibleRows > 0 || visibleDp > 0;
 
-                // Only hide if searching.
                 if (query) {
                     section.style.display = hasContent ? '' : 'none';
                 } else {
@@ -155,6 +220,81 @@
         var fragment = document.createDocumentFragment();
         rows.forEach(function (row) { fragment.appendChild(row); });
         tbody.appendChild(fragment);
+    }
+
+    // ── Data Practice Cards ─────────────────────────
+
+    function initDpCards() {
+        // Card header toggle — expand/collapse details.
+        document.querySelectorAll('[data-ot-dp-toggle]').forEach(function (head) {
+            function toggle() {
+                var detailId = head.getAttribute('data-ot-dp-toggle');
+                var detail = document.getElementById(detailId);
+                if (!detail) return;
+
+                var expanded = head.getAttribute('aria-expanded') === 'true';
+                head.setAttribute('aria-expanded', String(!expanded));
+                detail.hidden = expanded;
+            }
+
+            head.addEventListener('click', toggle);
+            head.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggle();
+                }
+            });
+        });
+
+        // "View N more" buttons — show overflow items.
+        document.querySelectorAll('[data-ot-dp-more]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var card = this.closest('.ot-dp-card');
+                var overflow = card.querySelector('.ot-dp-card__list--overflow');
+                if (overflow) {
+                    overflow.hidden = false;
+                }
+                this.classList.add('ot-dp-card__more--hidden');
+            });
+        });
+    }
+
+    // ── Version History Toggle ─────────────────────
+
+    function initVersionHistory() {
+        var toggle = document.querySelector('[data-ot-version-toggle]');
+        if (!toggle) return;
+
+        var list = toggle.nextElementSibling;
+        if (!list) return;
+
+        toggle.addEventListener('click', function () {
+            var expanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', String(!expanded));
+            list.hidden = expanded;
+        });
+    }
+
+    // ── Clamp Toggles (subprocessor table) ─────────
+
+    function initClampToggles() {
+        document.querySelectorAll('.ot-table__clamp-text').forEach(function (el) {
+            // Show the "more" button only if text is actually truncated.
+            if (el.scrollHeight > el.clientHeight + 1) {
+                var btn = el.nextElementSibling;
+                if (btn && btn.hasAttribute('data-ot-clamp-toggle')) {
+                    btn.style.display = 'inline';
+                }
+            }
+        });
+
+        document.querySelectorAll('[data-ot-clamp-toggle]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var text = this.previousElementSibling;
+                var expanded = text.classList.toggle('ot-table__clamp-text--expanded');
+                this.textContent = expanded ? 'less' : 'more';
+            });
+        });
     }
 
     // ── Utilities ──────────────────────────────────

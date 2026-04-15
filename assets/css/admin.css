@@ -2,6 +2,145 @@
  * OpenTrust admin styles.
  */
 
+/* Accent contrast warning */
+.ot-accent-warning {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    max-width: 520px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 4px;
+    color: #78350f;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ot-accent-warning[hidden] {
+    display: none;
+}
+
+.ot-accent-warning__icon {
+    flex-shrink: 0;
+    color: #d97706;
+    margin-top: 1px;
+}
+
+.ot-accent-warning__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.ot-accent-warning__body strong {
+    display: block;
+    color: #78350f;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.ot-accent-warning__body p {
+    margin: 0 0 8px;
+    color: #78350f;
+}
+
+.ot-accent-warning__preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #fff;
+    border: 1px solid #fde68a;
+    border-radius: 4px;
+    margin-bottom: 6px;
+}
+
+.ot-accent-warning__swatch {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.ot-accent-warning__hex {
+    font-family: Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: none;
+    padding: 0;
+    color: #374151;
+}
+
+.ot-accent-warning__arrow {
+    color: #9ca3af;
+    font-size: 14px;
+    margin: 0 2px;
+}
+
+.ot-accent-warning__note {
+    font-size: 12px;
+    color: #92400e !important;
+    margin: 0 !important;
+}
+
+/* The heading/copy variants are mutually exclusive — the card shows either
+   the auto-adjustment message or the override acknowledgement, never both. */
+.ot-accent-warning .ot-accent-warning__heading--override,
+.ot-accent-warning .ot-accent-warning__copy--override {
+    display: none;
+}
+.ot-accent-warning--override .ot-accent-warning__heading--auto,
+.ot-accent-warning--override .ot-accent-warning__copy--auto,
+.ot-accent-warning--override .ot-accent-warning__note--auto {
+    display: none;
+}
+.ot-accent-warning--override .ot-accent-warning__heading--override,
+.ot-accent-warning--override .ot-accent-warning__copy--override {
+    display: block;
+}
+
+/* Adjusted swatch is struck through when override is active — reminds the
+   user that this variant is NOT being used. */
+.ot-accent-warning--override .ot-accent-warning__swatch--adjusted,
+.ot-accent-warning--override .ot-accent-warning__hex--adjusted {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
+.ot-accent-warning--override .ot-accent-warning__arrow {
+    opacity: 0.45;
+}
+
+/* Muted tone — signals "you've acknowledged the tradeoff" rather than alert. */
+.ot-accent-warning--override {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #374151;
+}
+.ot-accent-warning--override .ot-accent-warning__icon,
+.ot-accent-warning--override .ot-accent-warning__body strong,
+.ot-accent-warning--override .ot-accent-warning__body p {
+    color: #374151;
+}
+.ot-accent-warning--override .ot-accent-warning__preview {
+    border-color: #e5e7eb;
+}
+
+/* Override toggle */
+.ot-accent-warning__override {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: inherit;
+    cursor: pointer;
+}
+.ot-accent-warning__override input {
+    margin: 0;
+}
+
 /* Logo upload */
 .ot-logo-upload {
     display: flex;
@@ -10,11 +149,21 @@
     flex-wrap: wrap;
 }
 
+/* The logo is rendered on the dark hero/nav surface, so the admin preview
+   mirrors that background — otherwise a white-on-white logo vanishes. */
 .ot-logo-preview img {
-    border: 1px solid #ddd;
+    border: 1px solid #d1d5db;
     border-radius: 4px;
-    padding: 4px;
-    background: #fff;
+    padding: 10px 14px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+        #111827;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ot-logo-upload .description {
+    flex-basis: 100%;
+    margin: 4px 0 0;
 }
 
 /* Certification meta box */
@@ -58,6 +207,30 @@
     margin-bottom: 8px;
 }
 
+/* Artifact (certificate / report) upload in cert meta box */
+.ot-artifact-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    max-width: 100%;
+}
+
+.ot-artifact-preview__icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.ot-artifact-preview__link {
+    font-weight: 500;
+    text-decoration: none;
+    word-break: break-all;
+}
+
 /* Version history meta box */
 .ot-version-history {
     max-height: 300px;
@@ -94,9 +267,503 @@
     border-radius: 10px;
 }
 
+/* Tag input — pill-style repeater */
+.ot-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    background: #fff;
+    cursor: text;
+    max-width: 600px;
+    min-height: 38px;
+}
+
+.ot-tags:focus-within {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.ot-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    border-radius: 3px;
+    padding: 2px 4px 2px 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1d2327;
+    white-space: nowrap;
+    animation: ot-tag-in 0.15s ease;
+}
+
+@keyframes ot-tag-in {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.ot-tag__text {
+    pointer-events: none;
+}
+
+.ot-tag__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    color: #787c82;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+
+.ot-tag__remove:hover {
+    background: #d63638;
+    color: #fff;
+}
+
+.ot-tags__input {
+    flex: 1 1 120px;
+    min-width: 120px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 13px;
+    line-height: 1.6;
+    background: transparent !important;
+}
+
+/* Two-column field layout */
+.ot-meta-row {
+    display: flex;
+    gap: 16px;
+}
+
+.ot-meta-row .ot-meta-field {
+    flex: 1;
+}
+
 /* Settings page tweaks */
 .wrap h1 {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* ──────────────────────────────────────────────
+ * AI tab — provider picker
+ * ────────────────────────────────────────────── */
+
+.ot-ai-intro {
+    max-width: 760px;
+    margin: 20px 0 8px;
+    color: #1d2327;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.ot-ai-intro strong {
+    color: #1d2327;
+}
+
+.ot-ai-rationale {
+    max-width: 760px;
+    margin: 12px 0 24px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.ot-ai-rationale > summary {
+    display: inline-block;
+    cursor: pointer;
+    color: #2271b1;
+    font-size: 13px;
+    font-weight: 600;
+    list-style: none;
+    padding: 4px 0;
+}
+
+.ot-ai-rationale > summary::-webkit-details-marker {
+    display: none;
+}
+
+.ot-ai-rationale > summary::after {
+    content: " →";
+    transition: transform 0.15s ease;
+    display: inline-block;
+}
+
+.ot-ai-rationale[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+.ot-ai-rationale__body {
+    margin-top: 12px;
+    padding: 16px 20px;
+    background: #f6f7f7;
+    border-left: 3px solid #2271b1;
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #3c434a;
+}
+
+.ot-ai-rationale__body p {
+    margin: 0 0 10px;
+}
+
+.ot-ai-rationale__body p:last-child {
+    margin-bottom: 0;
+}
+
+.ot-ai-active-warning {
+    max-width: 900px;
+    margin: 20px 0 0;
+    padding: 14px 18px;
+    background: #fcf0e4;
+    border-left: 4px solid #d63638;
+    border-radius: 0 4px 4px 0;
+}
+
+.ot-ai-active-warning strong {
+    display: block;
+    font-size: 13px;
+    color: #8a1f21;
+    margin-bottom: 4px;
+}
+
+.ot-ai-active-warning p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #3c434a;
+}
+
+.ot-ai-section-heading {
+    margin: 32px 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+/* Provider card — shared */
+.ot-ai-card {
+    border-radius: 8px;
+    padding: 18px 20px;
+    background: #fff;
+    border: 2px solid #dcdcde;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ot-ai-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.ot-ai-card__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1d2327;
+    margin: 0;
+}
+
+.ot-ai-card__badge {
+    display: inline-block;
+    padding: 3px 9px;
+    background: #dbeafe;
+    color: #1e40af;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ot-ai-card__keylink {
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: #646970;
+}
+
+.ot-ai-card__saved {
+    padding: 8px 12px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #166534;
+}
+
+.ot-ai-card__input {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.ot-ai-card__submit {
+    width: 100%;
+}
+
+.ot-ai-card__forget {
+    color: #b91c1c;
+    font-size: 12px;
+}
+
+/* Primary variant — Anthropic */
+.ot-ai-card--primary {
+    max-width: 560px;
+    border-color: #2563eb;
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+}
+
+.ot-ai-card--primary.is-active {
+    border-color: #16a34a;
+    background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.ot-ai-card--primary .ot-ai-card__description {
+    margin: 4px 0 14px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #3c434a;
+}
+
+/* Advanced disclosure */
+.ot-ai-advanced {
+    max-width: 900px;
+    margin: 28px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.ot-ai-advanced > summary {
+    display: inline-block;
+    cursor: pointer;
+    padding: 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #646970;
+    list-style: none;
+}
+
+.ot-ai-advanced > summary::-webkit-details-marker {
+    display: none;
+}
+
+.ot-ai-advanced > summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform 0.15s ease;
+}
+
+.ot-ai-advanced[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.ot-ai-advanced__warning {
+    margin: 12px 0 20px;
+    padding: 16px 20px;
+    background: #fff4f4;
+    border-left: 4px solid #d63638;
+    border-radius: 0 4px 4px 0;
+}
+
+.ot-ai-advanced__warning strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #8a1f21;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.ot-ai-advanced__warning p {
+    margin: 0 0 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #3c434a;
+}
+
+.ot-ai-advanced__warning p:last-child {
+    margin-bottom: 0;
+}
+
+.ot-ai-advanced__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+/* Advanced card variant — muted */
+.ot-ai-card--advanced {
+    background: #fafafa;
+    border-color: #d1d5db;
+    filter: grayscale(0.25);
+}
+
+.ot-ai-card--advanced.is-active {
+    background: #fff;
+    border-color: #d63638;
+    filter: none;
+}
+
+.ot-ai-card--advanced .ot-ai-card__title {
+    color: #50575e;
+}
+
+/* ──────────────────────────────────────────────
+ * Catalog typeahead (subprocessor / data practice)
+ * ────────────────────────────────────────────── */
+
+.ot-typeahead {
+    position: relative;
+    max-width: 100%;
+}
+
+.ot-typeahead__panel {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.ot-typeahead__panel[hidden] {
+    display: none;
+}
+
+.ot-typeahead__option {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #1d2327;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.ot-typeahead__option:hover,
+.ot-typeahead__option.is-active {
+    background: #f0f6ff;
+    color: #0b4dad;
+}
+
+.ot-typeahead__option-name {
+    font-weight: 500;
+}
+
+.ot-typeahead__option-hint {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 400;
+    color: #646970;
+}
+
+.ot-typeahead__option:hover .ot-typeahead__option-hint,
+.ot-typeahead__option.is-active .ot-typeahead__option-hint {
+    color: #2271b1;
+}
+
+.ot-typeahead__hint {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #646970;
+    font-style: italic;
+    cursor: default;
+}
+
+/* Prefilled field — single-line colored border all around, matching-tint
+ * helper text appended below. Facts use green, review-tier uses amber.
+ * A brief flash animation plays on (re)fill so users can see what changed. */
+.ot-meta-field.ot-typeahead-filled.is-fact input[type="text"],
+.ot-meta-field.ot-typeahead-filled.is-fact input[type="url"],
+.ot-meta-field.ot-typeahead-filled.is-fact input[type="number"],
+.ot-meta-field.ot-typeahead-filled.is-fact textarea,
+.ot-meta-field.ot-typeahead-filled.is-fact select,
+.ot-meta-field.ot-typeahead-filled.is-fact .ot-tags {
+    border: 1px solid #16a34a;
+    box-shadow: none;
+    animation: ot-typeahead-flash-fact 650ms ease-out;
+}
+
+.ot-meta-field.ot-typeahead-filled.is-review input[type="text"],
+.ot-meta-field.ot-typeahead-filled.is-review input[type="url"],
+.ot-meta-field.ot-typeahead-filled.is-review input[type="number"],
+.ot-meta-field.ot-typeahead-filled.is-review textarea,
+.ot-meta-field.ot-typeahead-filled.is-review select,
+.ot-meta-field.ot-typeahead-filled.is-review .ot-tags {
+    border: 1px solid #d97706;
+    box-shadow: none;
+    animation: ot-typeahead-flash-review 650ms ease-out;
+}
+
+@keyframes ot-typeahead-flash-fact {
+    0%   { background-color: #dcfce7; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25); }
+    60%  { background-color: #f0fdf4; box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.08); }
+    100% { background-color: #fff;    box-shadow: none; }
+}
+
+@keyframes ot-typeahead-flash-review {
+    0%   { background-color: #fef3c7; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.28); }
+    60%  { background-color: #fffbeb; box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.08); }
+    100% { background-color: #fff;    box-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ot-meta-field.ot-typeahead-filled.is-fact input,
+    .ot-meta-field.ot-typeahead-filled.is-fact textarea,
+    .ot-meta-field.ot-typeahead-filled.is-fact select,
+    .ot-meta-field.ot-typeahead-filled.is-fact .ot-tags,
+    .ot-meta-field.ot-typeahead-filled.is-review input,
+    .ot-meta-field.ot-typeahead-filled.is-review textarea,
+    .ot-meta-field.ot-typeahead-filled.is-review select,
+    .ot-meta-field.ot-typeahead-filled.is-review .ot-tags {
+        animation: none;
+    }
+}
+
+.ot-typeahead-help {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #166534;
+}
+
+.ot-typeahead-help.is-review {
+    color: #b45309;
+    font-weight: 600;
 }

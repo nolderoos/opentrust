@@ -1,0 +1,71 @@
+<wpml-config>
+
+    <!--
+    Translation configuration for WPML and Polylang. Both plugins read this
+    file from the plugin root at activation time and use it to:
+
+      1. Register OpenTrust's four custom post types as translatable content,
+         so multilingual editors can create per-language variants of policies,
+         certifications, subprocessors, and data practices.
+      2. Tell the translation plugin which custom meta fields carry
+         human-readable text that should be translated, versus slugs, dates,
+         IDs, or booleans that should be copied verbatim across languages.
+
+    The custom taxonomies list is empty because OpenTrust does not register
+    any taxonomies — policy category, certification status, and data-practice
+    legal basis are enum slugs stored in post meta, not WordPress taxonomies.
+    -->
+
+    <custom-types>
+        <custom-type translate="1">ot_policy</custom-type>
+        <custom-type translate="1">ot_certification</custom-type>
+        <custom-type translate="1">ot_subprocessor</custom-type>
+        <custom-type translate="1">ot_data_practice</custom-type>
+    </custom-types>
+
+    <custom-fields>
+        <!-- ── Certifications ──────────────────────────── -->
+        <!-- Issuing body and description are human-readable and locale-specific. -->
+        <custom-field action="translate">_ot_cert_issuing_body</custom-field>
+        <custom-field action="translate">_ot_cert_description</custom-field>
+        <!-- Type, status, dates, and badge attachment ID are language-agnostic. -->
+        <custom-field action="copy">_ot_cert_type</custom-field>
+        <custom-field action="copy">_ot_cert_status</custom-field>
+        <custom-field action="copy">_ot_cert_issue_date</custom-field>
+        <custom-field action="copy">_ot_cert_expiry_date</custom-field>
+        <custom-field action="copy">_ot_cert_badge_id</custom-field>
+
+        <!-- ── Policies ────────────────────────────────── -->
+        <custom-field action="copy">_ot_policy_category</custom-field>
+        <custom-field action="copy">_ot_policy_effective_date</custom-field>
+        <custom-field action="copy">_ot_policy_review_date</custom-field>
+        <custom-field action="copy">_ot_policy_downloadable</custom-field>
+        <custom-field action="copy">_ot_policy_sort_order</custom-field>
+        <!-- Broadcast state is transient per post and must not cross languages. -->
+        <custom-field action="ignore">_ot_policy_last_broadcast_at</custom-field>
+        <custom-field action="ignore">_ot_policy_last_broadcast_sent</custom-field>
+        <custom-field action="ignore">_ot_policy_last_broadcast_failed</custom-field>
+
+        <!-- ── Subprocessors ───────────────────────────── -->
+        <!-- Purpose, data processed, and country are displayed text. -->
+        <custom-field action="translate">_ot_sub_purpose</custom-field>
+        <custom-field action="translate">_ot_sub_data_processed</custom-field>
+        <custom-field action="translate">_ot_sub_country</custom-field>
+        <!-- Website URL and DPA flag are language-agnostic. -->
+        <custom-field action="copy">_ot_sub_website</custom-field>
+        <custom-field action="copy">_ot_sub_dpa_signed</custom-field>
+
+        <!-- ── Data Practices ──────────────────────────── -->
+        <custom-field action="translate">_ot_dp_purpose</custom-field>
+        <custom-field action="translate">_ot_dp_retention_period</custom-field>
+        <custom-field action="translate">_ot_dp_data_items</custom-field>
+        <custom-field action="translate">_ot_dp_shared_with</custom-field>
+        <custom-field action="copy">_ot_dp_legal_basis</custom-field>
+        <custom-field action="copy">_ot_dp_sort_order</custom-field>
+        <!-- Legacy v1 fields retained for migration; ignored by translation. -->
+        <custom-field action="ignore">_ot_dp_collection_method</custom-field>
+        <custom-field action="ignore">_ot_dp_data_type</custom-field>
+        <custom-field action="ignore">_ot_dp_is_sensitive</custom-field>
+    </custom-fields>
+
+</wpml-config>

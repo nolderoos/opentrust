@@ -1,0 +1,794 @@
+/**
+ * OpenTrust AI chat page styles.
+ * Inlined into /trust-center/ask/ via template_redirect.
+ * Layered into @layer opentrust to avoid theme bleed.
+ *
+ * Scales in use:
+ *   Spacing : 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px
+ *   Radius  : 8 / 12 / 16 / 999 px
+ *   Weights : 400 / 500 / 600 / 700
+ */
+@layer opentrust {
+
+    /* ─── Page chrome ───────────────────────────── */
+
+    .ot-chat-body {
+        background: #f9fafb;
+        color: #111827;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ot-chat-main {
+        flex: 1;
+        padding: 48px 16px 200px; /* bottom: clear the fixed dock */
+    }
+    .ot-chat-container {
+        max-width: 720px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    /* ─── Shell (single unified layout) ─────────── */
+
+    .ot-chat-shell {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Intro visible only when NOT chatting. */
+    .ot-chat-intro {
+        text-align: center;
+        padding: 32px 0 48px;
+    }
+    .ot-chat-intro__title {
+        font-size: clamp(24px, 3vw, 32px);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin: 0 0 12px;
+        color: #111827;
+        line-height: 1.2;
+    }
+    .ot-chat-intro__help {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.5;
+    }
+    .ot-chat-intro__help strong {
+        color: #374151;
+        font-weight: 600;
+    }
+
+    /* Thread — plain flow container, no visual chrome. Messages live directly
+       on the page background. */
+    .ot-chat-thread {
+        background: transparent;
+        border: 0;
+        padding: 0;
+    }
+
+    .ot-chat-body:not(.is-chatting) .ot-chat-thread { display: none; }
+    .ot-chat-body.is-chatting      .ot-chat-intro  { display: none; }
+
+    /* ─── Messages ──────────────────────────────── */
+
+    .ot-chat-messages {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ot-chat-msg {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 12px;
+        padding: 24px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .ot-chat-msg:last-child { border-bottom: 0; }
+
+    .ot-chat-msg__avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .ot-chat-msg--user .ot-chat-msg__avatar {
+        background: #111827;
+        color: #ffffff;
+    }
+    .ot-chat-msg--assistant .ot-chat-msg__avatar {
+        background: #ffffff;
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+    }
+
+    .ot-chat-msg__avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    /* Kill the SVG baseline gap inside flex-centered parents — ensures
+       mathematically-centered icons also render visually centered. */
+    .ot-chat-msg__avatar > svg,
+    .ot-chat-msg__avatar-icon,
+    .ot-chat-msg__avatar-warning {
+        display: block;
+    }
+
+    .ot-chat-msg__content {
+        min-width: 0;
+    }
+
+    .ot-chat-msg__header {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    .ot-chat-msg__name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        margin: 0;
+    }
+    .ot-chat-msg__separator {
+        color: #d1d5db;
+        font-size: 12px;
+    }
+    .ot-chat-msg__time {
+        color: #9ca3af;
+        font-size: 12px;
+    }
+    .ot-chat-msg__menu {
+        margin-left: auto;
+        background: transparent;
+        border: 0;
+        color: #d1d5db;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 8px;
+    }
+    .ot-chat-msg__menu:hover { color: #6b7280; background: #f9fafb; }
+
+    .ot-chat-msg__body {
+        font-size: 15px;
+        line-height: 1.65;
+        color: #1f2937;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Markdown inside .ot-chat-msg__body */
+    .ot-chat-msg__body p { margin: 0 0 12px; }
+    .ot-chat-msg__body p:last-child { margin-bottom: 0; }
+    .ot-chat-msg__body strong { font-weight: 700; color: #111827; }
+    .ot-chat-msg__body em { font-style: italic; }
+
+    /* Inline hyperlinks inside assistant answers (auto-linked URLs or
+       explicit markdown links). Explicit link-state rules so browser UA
+       visited/hover colors never override the accent. */
+    .ot-chat-msg__body a,
+    .ot-chat-msg__body a:link,
+    .ot-chat-msg__body a:visited {
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-thickness: 1px;
+        word-break: break-word;
+    }
+    .ot-chat-msg__body a:hover,
+    .ot-chat-msg__body a:focus {
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), calc(var(--ot-accent-l) - 8%));
+        text-decoration-thickness: 2px;
+    }
+    /* The contact CTA inside refused messages is already styled as a filled
+       button elsewhere — don't let the generic link rule fight it. */
+    .ot-chat-msg__body a.ot-chat-contact-btn,
+    .ot-chat-msg__body a.ot-chat-contact-btn:link,
+    .ot-chat-msg__body a.ot-chat-contact-btn:visited,
+    .ot-chat-msg__body a.ot-chat-contact-btn:hover,
+    .ot-chat-msg__body a.ot-chat-contact-btn:focus {
+        text-decoration: none;
+    }
+    .ot-chat-msg__body code {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 13px;
+        padding: 1px 6px;
+        background: #f3f4f6;
+        border-radius: 4px;
+    }
+    .ot-chat-msg__body ol,
+    .ot-chat-msg__body ul {
+        margin: 0 0 12px;
+        padding: 0 0 0 24px;
+    }
+    .ot-chat-msg__body ol:last-child,
+    .ot-chat-msg__body ul:last-child { margin-bottom: 0; }
+    .ot-chat-msg__body li { margin-bottom: 8px; }
+    .ot-chat-msg__body li:last-child { margin-bottom: 0; }
+
+    .ot-chat-msg__body h3,
+    .ot-chat-msg__body h4,
+    .ot-chat-msg__body h5,
+    .ot-chat-msg__body h6 {
+        margin: 16px 0 8px;
+        font-weight: 650;
+        color: #111827;
+        line-height: 1.3;
+    }
+    .ot-chat-msg__body h3 { font-size: 1.05em; }
+    .ot-chat-msg__body h4 { font-size: 1em; }
+    .ot-chat-msg__body h5,
+    .ot-chat-msg__body h6 { font-size: 0.95em; }
+    .ot-chat-msg__body > h3:first-child,
+    .ot-chat-msg__body > h4:first-child,
+    .ot-chat-msg__body > h5:first-child,
+    .ot-chat-msg__body > h6:first-child { margin-top: 0; }
+
+    .ot-chat-msg__body hr {
+        border: 0;
+        border-top: 1px solid #e5e7eb;
+        margin: 16px 0;
+    }
+
+    /* Refusal state — signal is on the AVATAR, not the body. The body
+       renders as a normal message. The assistant's circle becomes a soft
+       yellow with a dark-orange warning triangle. */
+    .ot-chat-msg--refused.ot-chat-msg--assistant .ot-chat-msg__avatar {
+        background: #fef3c7;
+        border-color: #fcd34d;
+        color: #b45309;
+    }
+    .ot-chat-msg--refused .ot-chat-msg__avatar .ot-chat-msg__avatar-img,
+    .ot-chat-msg--refused .ot-chat-msg__avatar .ot-chat-msg__avatar-icon {
+        display: none;
+    }
+    .ot-chat-msg--refused .ot-chat-msg__avatar-warning {
+        display: block;
+        color: #b45309;
+    }
+
+    /* Citation superscript chips */
+    .ot-chat-msg .ot-chat-cite {
+        display: inline-block;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        margin: 0 2px;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 18px;
+        text-align: center;
+        vertical-align: 1px;
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        color: #ffffff;
+        border-radius: 4px;
+        text-decoration: none;
+        transition: opacity 0.15s;
+    }
+    .ot-chat-msg .ot-chat-cite:hover,
+    .ot-chat-msg .ot-chat-cite:focus,
+    .ot-chat-msg .ot-chat-cite:visited {
+        color: #ffffff;
+        text-decoration: none;
+    }
+    .ot-chat-msg .ot-chat-cite:hover { opacity: 0.85; }
+
+    .ot-chat-msg__sources {
+        margin-top: 16px;
+        padding: 12px 16px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        font-size: 13px;
+    }
+    .ot-chat-msg__sources h4 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+    }
+    .ot-chat-msg__sources ol {
+        margin: 0;
+        padding: 0 0 0 16px;
+    }
+    .ot-chat-msg__sources li {
+        margin-bottom: 4px;
+        color: #4b5563;
+        font-size: 13px;
+    }
+    .ot-chat-msg__sources li:last-child { margin-bottom: 0; }
+    .ot-chat-msg__sources a {
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        text-decoration: none;
+    }
+    .ot-chat-msg__sources a:hover { text-decoration: underline; }
+
+    .ot-chat-msg__disclaimer {
+        margin: 14px 0 0;
+        padding-top: 10px;
+        border-top: 1px dashed #e5e7eb;
+        font-size: 11.5px;
+        font-style: italic;
+        line-height: 1.5;
+        color: #9ca3af;
+        letter-spacing: 0.01em;
+    }
+
+    @media print {
+        .ot-chat-msg__disclaimer {
+            color: #6b7280 !important;
+            border-top-color: #d1d5db !important;
+        }
+    }
+
+    .ot-chat-msg__actions {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin-top: 12px;
+    }
+    .ot-chat-msg__actions button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: transparent;
+        border: 0;
+        color: #9ca3af;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+    .ot-chat-msg__actions button:hover {
+        color: #374151;
+        background: #f3f4f6;
+    }
+    .ot-chat-msg__actions button.is-success {
+        color: #15803d;
+        background: #dcfce7;
+    }
+    .ot-chat-msg__actions svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+    /* ─── Thinking indicator ────────────────────── */
+
+    .ot-chat-thinking {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #9ca3af;
+        font-size: 14px;
+    }
+    .ot-chat-thinking-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: currentColor;
+        animation: ot-chat-pulse 1.4s infinite ease-in-out both;
+    }
+    .ot-chat-thinking-dot:nth-child(2) { animation-delay: 0.16s; }
+    .ot-chat-thinking-dot:nth-child(3) { animation-delay: 0.32s; }
+    @keyframes ot-chat-pulse {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+        40%           { transform: scale(1);   opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ot-chat-thinking-dot { animation: none; opacity: 0.6; }
+    }
+
+    /* Contact CTA inside refused messages. Explicit link-state colors so
+       browser UA visited/hover styles can never override the contrast. */
+    .ot-chat-msg .ot-chat-contact-btn,
+    .ot-chat-msg .ot-chat-contact-btn:link,
+    .ot-chat-msg .ot-chat-contact-btn:visited,
+    .ot-chat-msg .ot-chat-contact-btn:hover,
+    .ot-chat-msg .ot-chat-contact-btn:focus,
+    .ot-chat-msg .ot-chat-contact-btn:active {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 10px 16px;
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        color: var(--ot-accent-contrast, #ffffff);
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 8px;
+    }
+    .ot-chat-msg .ot-chat-contact-btn:hover,
+    .ot-chat-msg .ot-chat-contact-btn:focus {
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), calc(var(--ot-accent-l) - 6%));
+    }
+
+    /* ─── Docked input (fixed at viewport bottom) ─ */
+
+    .ot-chat-dock {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(to top, #f9fafb 70%, rgba(249, 250, 251, 0) 100%);
+        pointer-events: none;
+    }
+    .ot-chat-dock__inner {
+        max-width: 720px;
+        margin: 0 auto;
+        width: 100%;
+        pointer-events: auto;
+    }
+
+    /* Suggested question chips — visible when NOT chatting. */
+    .ot-chat-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+    .ot-chat-shell.is-chatting ~ .ot-chat-dock .ot-chat-chips,
+    body:has(.ot-chat-shell.is-chatting) .ot-chat-chips { display: none; }
+
+    .ot-chat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        color: #374151;
+        cursor: pointer;
+        transition: border-color 0.15s, background-color 0.15s, transform 0.1s, box-shadow 0.15s;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+    }
+    .ot-chat-chip:hover {
+        border-color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
+    }
+    .ot-chat-chip:active { transform: scale(0.98); }
+    .ot-chat-chip__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        flex-shrink: 0;
+    }
+    .ot-chat-chip:hover .ot-chat-chip__icon {
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+    }
+
+    /* Input bar — single card, no nested container. */
+    .ot-chat-inputbar {
+        /* Transparent wrapper. The visible card is .ot-chat-inputbar__field. */
+        background: transparent;
+        border: 0;
+        padding: 0;
+    }
+
+    .ot-chat-form { display: block; }
+
+    .ot-chat-inputbar__field {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px 6px 18px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        box-shadow:
+            0 1px 2px rgba(17, 24, 39, 0.04),
+            0 8px 32px rgba(17, 24, 39, 0.08);
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .ot-chat-inputbar:focus-within .ot-chat-inputbar__field {
+        border-color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        box-shadow:
+            0 0 0 3px hsla(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l), 0.1),
+            0 8px 32px rgba(17, 24, 39, 0.08);
+    }
+
+    .ot-chat-form textarea {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: none;
+        padding: 8px 0;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.55;
+        resize: none;
+        background: transparent;
+        color: #111827;
+        max-height: 180px;
+        overflow-y: auto;
+    }
+    .ot-chat-form textarea::placeholder {
+        color: #9ca3af;
+    }
+
+    /* Reset button — ghost, disabled by default. */
+    .ot-chat-reset {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: transparent;
+        color: #9ca3af;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: color 0.15s, background-color 0.15s, opacity 0.15s;
+    }
+    .ot-chat-reset:hover:not(:disabled) {
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        background: #f3f4f6;
+    }
+    .ot-chat-reset:disabled {
+        opacity: 0.35;
+        cursor: default;
+    }
+
+    /* Send button — filled accent, icon only. */
+    .ot-chat-send {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        color: #ffffff;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.15s, transform 0.1s;
+    }
+    .ot-chat-send:hover:not(:disabled) {
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), calc(var(--ot-accent-l) - 6%));
+    }
+    .ot-chat-send:active { transform: scale(0.96); }
+    .ot-chat-send:disabled {
+        background: #e5e7eb;
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+    .ot-chat-send svg,
+    .ot-chat-reset svg {
+        flex-shrink: 0;
+        display: block;
+    }
+    /* Optical-centering nudge for the paper plane — its mathematical center
+       and its visual center of mass are not the same (all the ink is in the
+       upper-right quadrant). 1px down-left restores perceived center. */
+    .ot-chat-send svg {
+        transform: translate(-1px, 1px);
+    }
+
+    .ot-chat-send--stop { background: #ef4444; }
+    .ot-chat-send--stop:hover { background: #dc2626; }
+
+    /* Legal line below input. */
+    .ot-chat-dock__legal {
+        margin: 8px 0 0;
+        text-align: center;
+        font-size: 11px;
+        color: #9ca3af;
+        line-height: 1.5;
+    }
+    .ot-chat-dock__legal a {
+        color: #6b7280;
+        text-decoration: underline;
+    }
+
+    /* ─── Inline banners / hints ─────────────────── */
+
+    .ot-chat-banner {
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin: 16px 0;
+        font-size: 14px;
+    }
+    .ot-chat-banner--error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    .ot-chat-banner--warn {
+        background: #fefce8;
+        border: 1px solid #fef08a;
+        color: #854d0e;
+    }
+    .ot-chat-banner button {
+        margin-left: 8px;
+        padding: 4px 12px;
+        background: #ffffff;
+        border: 1px solid currentColor;
+        color: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+
+    .ot-chat-long-hint {
+        font-size: 12px;
+        color: #9ca3af;
+        text-align: center;
+        margin: 16px 0;
+    }
+    .ot-chat-long-hint button {
+        background: transparent;
+        border: 0;
+        color: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        cursor: pointer;
+        font: inherit;
+        text-decoration: underline;
+    }
+
+    /* ─── State pages (unavailable / exhausted) ─── */
+
+    .ot-chat-state {
+        text-align: center;
+        padding: 64px 16px;
+    }
+    .ot-chat-state__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 999px;
+        background: #f3f4f6;
+        color: #6b7280;
+        margin-bottom: 16px;
+    }
+    .ot-chat-state h1 {
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 8px;
+    }
+    .ot-chat-state p {
+        color: #6b7280;
+        margin: 0 auto 24px;
+        max-width: 440px;
+    }
+    .ot-chat-state__actions {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    /* ─── No-JS fallback ─────────────────────────── */
+
+    .ot-chat-noscript {
+        margin-top: 32px;
+        padding: 24px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+    }
+    .ot-chat-noscript p {
+        margin: 0 0 12px;
+        font-size: 14px;
+        color: #713f12;
+    }
+    .ot-chat-noscript label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #713f12;
+    }
+    .ot-chat-noscript textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        font: inherit;
+        font-size: 14px;
+    }
+    .ot-chat-noscript button {
+        margin-top: 8px;
+        padding: 10px 16px;
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        color: #ffffff;
+        border: 0;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    /* ─── Utility ───────────────────────────────── */
+
+    .ot-visually-hidden {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .ot-button {
+        display: inline-block;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: 0;
+        transition: background-color 0.15s, transform 0.1s;
+    }
+    .ot-button--primary {
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        color: #ffffff;
+    }
+    .ot-button--primary:hover {
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), calc(var(--ot-accent-l) - 6%));
+    }
+    .ot-button--ghost {
+        background: #ffffff;
+        color: #374151;
+        border: 1px solid #e5e7eb;
+    }
+    .ot-button--ghost:hover {
+        border-color: #d1d5db;
+        background: #f9fafb;
+    }
+
+    /* ─── Responsive ────────────────────────────── */
+
+    @media (max-width: 720px) {
+        .ot-chat-main { padding: 32px 16px 220px; }
+    }
+    @media (max-width: 480px) {
+        .ot-chat-intro { padding: 16px 0 32px; }
+        .ot-chat-intro__title { font-size: 22px; }
+        .ot-chat-chips { gap: 6px; }
+        .ot-chat-chip { font-size: 12px; padding: 6px 12px; }
+        .ot-chat-dock__legal { display: none; }
+    }
+
+    /* ─── Print ─────────────────────────────────── */
+
+    @media print {
+        .ot-nav, .ot-chat-dock, .ot-chat-chips,
+        .ot-chat-msg__actions, .ot-chat-noscript {
+            display: none !important;
+        }
+    }
+}

@@ -2,12 +2,20 @@
 /**
  * Policy version control.
  *
- * Manages auto-incrementing version numbers on policy edits,
- * stores version metadata on revisions, and provides an admin
- * version history meta box.
+ * User-controlled versioning: admins explicitly choose when to publish
+ * a new version via a checkbox in the meta box. Regular saves/edits
+ * do not change the version number.
+ *
+ * This matches industry practice (Vanta, Drata, Secureframe) and
+ * compliance requirements (SOC 2, ISO 27001) where only formally
+ * published versions are tracked, not every internal edit.
  */
 
 declare(strict_types=1);
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 final class OpenTrust_Version {
 
@@ -18,67 +26,100 @@ final class OpenTrust_Version {
     }
 
     private function __construct() {
-        add_action('wp_after_insert_post', [$this, 'maybe_increment_version'], 10, 4);
         add_action('add_meta_boxes', [$this, 'add_version_history_meta_box']);
     }
 
     // ──────────────────────────────────────────────
-    // Version incrementing
+    // Version bump (called from save_policy_meta)
     // ──────────────────────────────────────────────
 
-    public function maybe_increment_version(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before): void {
-        if ('ot_policy' !== $post->post_type) {
-            return;
+    /**
+     * Increment the version number and tag the latest revision
+     * with the OLD version so it's preserved in history.
+     */
+    public static function bump_version(int $post_id, string $change_summary = ''): void {
+        $current_version = (int) get_post_meta($post_id, '_ot_version', true) ?: 1;
+        $new_version     = $current_version + 1;
+
+        // Find an untagged revision that holds the OLD content (pre-update).
+        // Walk revisions newest-first and tag the first one whose content
+        // differs from the now-saved post.
+        $post      = get_post($post_id);
+        $revisions = wp_get_post_revisions($post_id, [
+            'orderby' => 'ID',
+            'order'   => 'DESC',
+        ]);
+
+        if ($revisions && $post) {
+            foreach ($revisions as $rev) {
+                $existing = get_post_meta($rev->ID, '_ot_version', true);
+                if (!empty($existing) && (int) $existing > 0) {
+                    continue; // already tagged, skip
+                }
+                if ($rev->post_content === $post->post_content) {
+                    continue; // same as current, not the old version
+                }
+
+                // This revision has old content and no tag — it's the
+                // pre-update snapshot. Tag it with the old version
+                // and copy over the old version's change summary.
+                global $wpdb;
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.SlowDBQuery -- Admin-only postmeta operations on revisions
+                $wpdb->delete($wpdb->postmeta, [
+                    'post_id'  => $rev->ID,
+                    'meta_key' => '_ot_version',
+                ]);
+                $wpdb->insert($wpdb->postmeta, [
+                    'post_id'    => $rev->ID,
+                    'meta_key'   => '_ot_version',
+                    'meta_value' => (string) $current_version,
+                ]);
+
+                // Copy old version's summary and effective date to the revision.
+                foreach (['_ot_version_summary', '_ot_policy_effective_date'] as $meta_key) {
+                    $old_val = get_post_meta($post_id, $meta_key, true);
+                    if ($old_val) {
+                        $wpdb->delete($wpdb->postmeta, [
+                            'post_id'  => $rev->ID,
+                            'meta_key' => $meta_key,
+                        ]);
+                        $wpdb->insert($wpdb->postmeta, [
+                            'post_id'    => $rev->ID,
+                            'meta_key'   => $meta_key,
+                            'meta_value' => $old_val,
+                        ]);
+                    }
+                }
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery, WordPress.DB.SlowDBQuery
+
+                wp_cache_delete($rev->ID, 'post_meta');
+                break;
+            }
         }
 
-        if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
-            return;
-        }
-
-        if ('publish' !== $post->post_status) {
-            return;
-        }
-
-        $current_version = (int) get_post_meta($post_id, '_ot_version', true);
-
-        // First publish — set to v1.
-        if (!$update || $current_version === 0) {
-            update_post_meta($post_id, '_ot_version', 1);
-            $this->tag_latest_revision($post_id, 1);
-            return;
-        }
-
-        // Only increment if content or title actually changed.
-        if ($post_before
-            && $post->post_content === $post_before->post_content
-            && $post->post_title === $post_before->post_title
-        ) {
-            return;
-        }
-
-        $new_version = $current_version + 1;
+        // Bump the main post to the new version.
         update_post_meta($post_id, '_ot_version', $new_version);
-        $this->tag_latest_revision($post_id, $new_version);
+
+        // Store change summary for this version.
+        if ($change_summary !== '') {
+            update_post_meta($post_id, '_ot_version_summary', $change_summary);
+        } else {
+            delete_post_meta($post_id, '_ot_version_summary');
+        }
     }
 
     /**
-     * Tag the most recent revision with the version number.
+     * Ensure a first-publish post gets v1.
      */
-    private function tag_latest_revision(int $post_id, int $version): void {
-        $revisions = wp_get_post_revisions($post_id, [
-            'posts_per_page' => 1,
-            'orderby'        => 'ID',
-            'order'          => 'DESC',
-        ]);
-
-        if ($revisions) {
-            $latest = reset($revisions);
-            update_post_meta($latest->ID, '_ot_version', $version);
+    public static function ensure_initial_version(int $post_id): void {
+        $version = get_post_meta($post_id, '_ot_version', true);
+        if (!$version) {
+            update_post_meta($post_id, '_ot_version', 1);
         }
     }
 
     // ──────────────────────────────────────────────
-    // Version history meta box
+    // Version history meta box (admin sidebar)
     // ──────────────────────────────────────────────
 
     public function add_version_history_meta_box(): void {
@@ -107,7 +148,7 @@ final class OpenTrust_Version {
             printf(
                 '<p>%s <strong>v%d</strong></p>',
                 esc_html__('Current version:', 'opentrust'),
-                $current_version
+                intval( $current_version ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast via %d format specifier and intval()
             );
             echo '<p class="description">' . esc_html__('Version history will appear after the first update.', 'opentrust') . '</p>';
             return;

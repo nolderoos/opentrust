@@ -1,0 +1,2516 @@
+# Copyright (C) 2026 OpenTrust. Licensed under GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: OpenTrust 0.6.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/opentrust\n"
+"Last-Translator: OpenTrust bundled starter <noreply@opentrust.dev>\n"
+"Language-Team: Dutch (Netherlands)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-04-14T22:04:10+00:00\n"
+"PO-Revision-Date: 2026-04-14 21:55+0000\n"
+"Language: nl_NL\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: opentrust\n"
+
+#. Plugin Name of the plugin
+#. Author of the plugin
+#: opentrust.php
+#: includes/class-opentrust-admin.php:47
+#: includes/class-opentrust-admin.php:48
+#, fuzzy
+msgid "OpenTrust"
+msgstr "OpenTrust"
+
+#. Plugin URI of the plugin
+#: opentrust.php
+msgid "https://github.com/opentrust/opentrust"
+msgstr ""
+
+#. Description of the plugin
+#: opentrust.php
+#, fuzzy
+msgid "A self-hosted, open-source trust center for publishing security policies, subprocessors, certifications, and data practices."
+msgstr "Een zelf-gehost, open-source vertrouwenscentrum voor het publiceren van beveiligingsbeleid, subverwerkers, certificeringen en gegevenspraktijken."
+
+#. Author URI of the plugin
+#: opentrust.php
+msgid "https://github.com/opentrust"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:58
+#: includes/class-opentrust-admin.php:59
+msgid "Settings"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:67
+#: includes/class-opentrust-admin.php:68
+#: includes/class-opentrust-admin.php:632
+msgid "Subscribers"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:76
+#: includes/class-opentrust-admin.php:77
+#: includes/class-opentrust-admin.php:1943
+msgid "Broadcast History"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:88
+#: includes/class-opentrust-admin.php:89
+msgid "Questions"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:111
+msgid "General Settings"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:116
+msgid "Endpoint Slug"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:117
+msgid "The URL path for your trust center (e.g., \"trust-center\" = yoursite.com/trust-center/)."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:120
+msgid "Page Title"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:122
+msgid "Company Name"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:124
+msgid "Tagline"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:125
+msgid "A short description displayed below the company name in the hero section."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:131
+msgid "Branding"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:136
+msgid "Logo"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:137
+msgid "AI Avatar"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:139
+msgid "Accent Color"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:140
+msgid "Used for buttons, links, and highlights. Choose a color that matches your brand."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:146
+msgid "Visible Sections"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:147
+msgid "Choose which sections to display on the trust center."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:151
+msgid "Sections"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:156
+msgid "Email Notifications"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:157
+msgid "Configure subscriber notifications for trust center updates."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:161
+msgid "Enable Notifications"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:162
+msgid "Show the subscribe form on the trust center and allow policy changes to be broadcast to subscribers."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:165
+msgid "From Name"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:166
+msgid "Sender name for notification emails. Defaults to company name."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:169
+msgid "Reply-To Email"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:170
+msgid "Reply-to address for notification emails. Defaults to admin email."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:176
+msgid "Spam Protection"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:177
+msgid "Protect the subscribe form from abuse with rate limiting and Cloudflare Turnstile."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:181
+msgid "Rate Limit"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:182
+msgid "Maximum subscribe attempts per IP address per hour. Set to 0 to disable."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:185
+msgid "Turnstile Site Key"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:186
+msgid "Public site key from your Cloudflare Turnstile widget. Leave blank to disable."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:189
+msgid "Turnstile Secret Key"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:190
+msgid "Secret key from Cloudflare Turnstile. Stored securely — never exposed to the frontend."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:249
+msgid "Low contrast on white backgrounds"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:250
+msgid "Using your exact color on white backgrounds"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:253
+msgid "Your chosen color is too light for buttons, links, and borders on white sections. On those surfaces OpenTrust will use a darker, on-brand variant:"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:256
+msgid "You've chosen to keep your exact color on white backgrounds. Buttons, links, and borders in those sections may be hard to read."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:268
+msgid "The hero and navigation still use your exact color."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:279
+msgid "Use my exact color anyway — skip the contrast adjustment."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:292
+msgid "Select Logo"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:293
+msgid "Used in the hero and sticky nav. A white version is recommended — it sits on a dark background."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:300
+msgid "Select Avatar"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:301
+msgid "Square image used as the avatar on AI chat responses. Use a colored background with a light or dark favicon or logo on top."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:316
+#: includes/class-opentrust-cpt.php:337
+#: includes/class-opentrust-cpt.php:509
+#: includes/class-opentrust-cpt.php:547
+msgid "Remove"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:328
+msgid "Enable email notifications"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:342
+msgid "per hour"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:357
+msgid "Enter secret key…"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:360
+msgid "Key saved"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:372
+#: templates/partials/certifications.php:21
+#, fuzzy
+msgid "Certifications & Compliance"
+msgstr "Certificeringen & compliance"
+
+#: includes/class-opentrust-admin.php:373
+#: includes/class-opentrust-cpt.php:65
+#: includes/class-opentrust-cpt.php:75
+#: templates/chat.php:44
+#: templates/partials/hero.php:55
+#: templates/trust-center.php:106
+#, fuzzy
+msgid "Policies"
+msgstr "Beleid"
+
+#: includes/class-opentrust-admin.php:374
+#: includes/class-opentrust-cpt.php:132
+#: includes/class-opentrust-cpt.php:141
+#: templates/chat.php:46
+#: templates/partials/hero.php:61
+#: templates/partials/subprocessors.php:20
+#: templates/trust-center.php:108
+#, fuzzy
+msgid "Subprocessors"
+msgstr "Subverwerkers"
+
+#: includes/class-opentrust-admin.php:375
+#: includes/class-opentrust-cpt.php:165
+#: includes/class-opentrust-cpt.php:174
+#: templates/chat.php:47
+#: templates/partials/data-practices.php:34
+#: templates/trust-center.php:109
+#, fuzzy
+msgid "Data Practices"
+msgstr "Gegevensverwerking"
+
+#: includes/class-opentrust-admin.php:501
+msgid "View Trust Center"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:508
+#: includes/class-opentrust-render.php:823
+msgid "General"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:512
+msgid "AI Chat"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:515
+msgid "Live"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:592
+msgid "This email is already in the subscriber list."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:596
+msgid "Subscriber added and marked as verified."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:597
+msgid "Could not add subscriber."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:611
+msgid "Subscriber deleted."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:619
+msgid "Subscriber verified. No confirmation email sent."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:621
+msgid "Could not verify subscriber."
+msgstr ""
+
+#. translators: 1: imported, 2: updated, 3: skipped, 4: errors
+#: includes/class-opentrust-admin.php:647
+#, php-format
+msgid "Import complete: %1$d imported, %2$d updated, %3$d skipped, %4$d errors."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:656
+msgid "Show errors"
+msgstr ""
+
+#. translators: %d: number of additional errors
+#: includes/class-opentrust-admin.php:664
+#, php-format
+msgid "… and %d more."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:676
+#: includes/class-opentrust-admin.php:710
+msgid "Add subscriber"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:681
+#: includes/class-opentrust-admin.php:805
+#, fuzzy
+msgid "Email"
+msgstr "E-mail"
+
+#: includes/class-opentrust-admin.php:685
+#: includes/class-opentrust-admin.php:806
+#: templates/partials/subprocessors.php:36
+#: templates/partials/subscribe.php:58
+#, fuzzy
+msgid "Name"
+msgstr "Naam"
+
+#: includes/class-opentrust-admin.php:686
+#: templates/partials/subscribe.php:60
+msgid "Jane Doe"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:689
+#: includes/class-opentrust-admin.php:807
+#: templates/partials/subscribe.php:64
+#, fuzzy
+msgid "Company"
+msgstr "Bedrijf"
+
+#: includes/class-opentrust-admin.php:690
+#: templates/partials/subscribe.php:66
+msgid "Acme Inc."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:694
+msgid "Notify about"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:707
+msgid "Mark as verified immediately (skip confirmation email)"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:714
+msgid "By default, the subscriber receives a confirmation email they must click to activate. Check \"Mark as verified\" to skip that step and activate them immediately — only do this when you have consent on file."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:728
+msgid "Import from CSV"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:735
+msgid "CSV file"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:739
+msgid "If email exists"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:741
+msgid "Skip existing (safest)"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:742
+msgid "Update — merge non-empty fields"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:743
+msgid "Replace — overwrite all fields"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:752
+msgid "Verify everyone on import"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:753
+msgid "Overrides the Status column in the CSV. Every row is set to active and no confirmation emails are sent. Uncheck to respect the CSV Status column — pending rows will remain pending and must be verified manually from the subscriber list."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:760
+msgid "Import CSV"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:763
+msgid "Download example CSV"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:768
+msgid "Required column: email. Optional: name, company, status, categories, subscribed, confirmed. Categories can be semicolon- or comma-separated. Maximum 5,000 rows, 2 MB file size. Confirmation emails are never sent on import."
+msgstr ""
+
+#. translators: %d: total subscriber count
+#: includes/class-opentrust-admin.php:780
+#, php-format
+msgid "All (%d)"
+msgstr ""
+
+#. translators: %d: active subscriber count
+#: includes/class-opentrust-admin.php:787
+#, php-format
+msgid "Active (%d)"
+msgstr ""
+
+#. translators: %d: pending subscriber count
+#: includes/class-opentrust-admin.php:794
+#, php-format
+msgid "Pending (%d)"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:797
+msgid "Export CSV"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:808
+#: includes/class-opentrust-cpt.php:314
+#: includes/class-opentrust-cpt.php:805
+#, fuzzy
+msgid "Status"
+msgstr "Status"
+
+#: includes/class-opentrust-admin.php:809
+msgid "Categories"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:810
+msgid "Subscribed"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:811
+#: includes/class-opentrust-version.php:163
+#: templates/partials/policies.php:40
+#, fuzzy
+msgid "Actions"
+msgstr "Acties"
+
+#: includes/class-opentrust-admin.php:816
+msgid "No subscribers yet."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:851
+msgid "Mark this subscriber as verified? No confirmation email will be sent."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:852
+msgid "Verify"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:858
+msgid "Delete this subscriber?"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:859
+msgid "Delete"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:950
+msgid "No file was uploaded."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:956
+msgid "File upload failed. Please try again."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:962
+msgid "Invalid upload."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:968
+msgid "File must be between 1 byte and 2 MB."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:978
+msgid "File must be a .csv file."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:986
+msgid "File appears to be binary, not a CSV."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1031
+msgid "Heads up: citation fidelity is not guaranteed on your active provider."
+msgstr ""
+
+#. translators: %s: provider label, e.g. OpenAI
+#: includes/class-opentrust-admin.php:1036
+#, php-format
+msgid "You are currently using %s. Only Anthropic uses a structural Citations API — every other provider relies on prompted citation tags the model can ignore or fabricate. For a published trust center, switch to Anthropic below."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1047
+msgid "OpenTrust uses <strong>Anthropic Claude with the native Citations API</strong> to answer visitor questions about your trust center. Every claim the assistant makes is tied to an exact quote from one of your published documents — so no policy text is invented and nothing is paraphrased into something you did not actually publish."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1054
+msgid "Why Anthropic, and not OpenAI or any other provider?"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1059
+msgid "A trust center is a <strong>compliance surface</strong>. If the assistant invents a security commitment you never made, that is not a UX papercut — it is a misrepresentation of your security posture, and your customers and auditors will hold you to it."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1067
+msgid "Anthropic is the <strong>only major provider</strong> that exposes a structural Citations API. Documents are sent as typed blocks and the model emits citations as first-class events containing the exact source document and the exact quoted text. The model literally cannot return a citation for text that is not in your source documents."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1073
+msgid "Every other provider (including OpenAI and any model accessed via OpenRouter) relies on prompted citation tags that we parse out of the answer after the fact. That works most of the time, but the model can ignore the instructions, make up document IDs, or attach a citation to a sentence it actually hallucinated. We support these providers as an escape hatch for organizations that genuinely cannot use Anthropic for procurement or data-residency reasons — but we very, very strongly recommend you do not run a public trust center on them."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1104
+msgid "Choose a provider and add your key"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1116
+msgid "Step 1 — Connect Anthropic"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1122
+msgid "Advanced: use a different provider (not recommended)"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1125
+msgid "These providers cannot guarantee citation fidelity."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1127
+msgid "OpenAI and OpenRouter rely on prompted [[cite:document-id]] tags that we parse out of the answer after generation. The model can ignore the instruction, invent document IDs, or attach a citation to a sentence it actually hallucinated. We cannot detect when this happens."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1130
+msgid "Do not use these providers for a published trust center"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1131
+msgid "unless your organization genuinely cannot use Anthropic for procurement, contractual, or data-residency reasons. Inaccurate claims about your security posture are a real compliance risk."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1170
+msgid "Required for citation fidelity"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1176
+msgid "Uses Claude with the native Citations API. Every quote the assistant attributes to one of your documents is structurally guaranteed to come from that document."
+msgstr ""
+
+#. translators: %s: provider name (e.g. Anthropic)
+#: includes/class-opentrust-admin.php:1184
+#, php-format
+msgid "Get a %s API key"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1197
+msgid "Remove the saved key for this provider?"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1198
+msgid "Replace key"
+msgstr ""
+
+#. translators: %s: provider name (e.g. Anthropic)
+#: includes/class-opentrust-admin.php:1208
+#, php-format
+msgid "Paste your %s API key…"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1212
+msgid "Validate & save"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1229
+msgid "Step 2 — Pick a model and tune defaults"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1251
+msgid "Active model"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1255
+msgid "No cached models found. Use Refresh to re-fetch the model list."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1263
+msgid "Recommended"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1270
+msgid "Refresh models"
+msgstr ""
+
+#. translators: %s: human-readable time difference (e.g. "5 minutes")
+#: includes/class-opentrust-admin.php:1280
+#, php-format
+msgid "Model list cached %s ago."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1288
+msgid "Daily token budget"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1291
+msgid "Hard cap per site per day. Default 500,000 tokens (~$12/day at Sonnet 4.5 rates)."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1295
+msgid "Monthly token budget"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1298
+msgid "Hard cap per site per month. Default 10,000,000 tokens."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1302
+msgid "Rate limit — per IP"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1304
+msgid "messages per minute"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1308
+msgid "Rate limit — per session"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1310
+msgid "messages per hour"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1314
+msgid "Max message length"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1316
+msgid "characters"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1321
+msgid "Refuse-to-answer contact URL"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1324
+msgid "When the AI cannot confidently answer a question, it links here. Leave blank to use the trust center home."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1329
+msgid "Visitor display"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1333
+msgid "Show \"Powered by {model}\" under the chat input"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1339
+msgid "Analytics logging"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1343
+msgid "Log anonymized visitor questions for admin review (90-day auto-purge, no PII)"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1349
+msgid "Advanced — Turnstile anti-abuse"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1351
+msgid "Cloudflare Turnstile is optional but recommended for public sites. It challenges suspicious visitors on the first message of each session. You need a free Cloudflare account to get site/secret keys."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1355
+msgid "Enable Turnstile for chat"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1359
+msgid "Require Turnstile verification on first chat message"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1361
+msgid "Reuses the Turnstile site/secret keys you configure in the General tab."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1366
+msgid "Save AI settings"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1413
+#: includes/class-opentrust-admin.php:1478
+#: includes/class-opentrust-admin.php:1515
+#: includes/class-opentrust-admin.php:1750
+#: includes/class-opentrust-admin.php:1791
+#: includes/class-opentrust-admin.php:1808
+msgid "You do not have permission to perform this action."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1422
+#: includes/class-opentrust-admin.php:1486
+#: includes/class-opentrust-admin.php:1522
+msgid "Unknown provider."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1426
+msgid "API key cannot be empty."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1433
+msgid "Validation failed."
+msgstr ""
+
+#. translators: 1: provider label, 2: provider error message
+#: includes/class-opentrust-admin.php:1435
+#, php-format
+msgid "%1$s rejected the key: %2$s"
+msgstr ""
+
+#. translators: 1: provider label, 2: number of models
+#: includes/class-opentrust-admin.php:1471
+#, php-format
+msgid "%1$s key validated. Found %2$d model(s)."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1509
+msgid "Key removed."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1528
+msgid "No key on file for this provider."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1534
+msgid "Refresh failed."
+msgstr ""
+
+#. translators: %s: error message from the provider
+#: includes/class-opentrust-admin.php:1536
+#, php-format
+msgid "Refresh failed: %s"
+msgstr ""
+
+#. translators: %d: number of models
+#: includes/class-opentrust-admin.php:1552
+#, php-format
+msgid "Model list refreshed. Found %d model(s)."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1618
+msgid "AI Questions"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1621
+msgid "Questions visitors have asked your trust center chat. Identifiers are hashed and rows auto-purge after 90 days."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1627
+msgid "Logging is ON"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1629
+msgid "Logging is OFF"
+msgstr ""
+
+#. translators: %d: number of questions
+#: includes/class-opentrust-admin.php:1635
+#, php-format
+msgid "%d question logged in the last 90 days"
+msgid_plural "%d questions logged in the last 90 days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-opentrust-admin.php:1639
+msgid "Toggle visitor question logging?"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1640
+msgid "Disable logging"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1640
+msgid "Enable logging"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1648
+#, fuzzy
+msgid "Search"
+msgstr "Zoeken"
+
+#: includes/class-opentrust-admin.php:1649
+msgid "Search questions…"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1652
+#: includes/class-opentrust-admin.php:1679
+msgid "Model"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1654
+msgid "Any"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1661
+msgid "From"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1665
+msgid "To"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1668
+msgid "Filter"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1669
+msgid "Reset"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1670
+msgid "Download CSV"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1677
+#: includes/class-opentrust-version.php:162
+msgid "Date"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1678
+msgid "Question"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1680
+msgid "Cites"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1681
+msgid "Tokens"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1682
+msgid "Latency"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1687
+msgid "No questions logged yet."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1696
+msgid "REFUSED"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1736
+msgid "Danger zone"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1737
+msgid "Permanently delete all logged questions? This cannot be undone."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1738
+msgid "Clear entire question log"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1799
+msgid "Question log cleared."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1818
+msgid "Logging enabled."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1818
+msgid "Logging disabled."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1866
+msgid "Select Badge Image"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1867
+msgid "Use as Badge"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1882
+msgid "No match in catalog, just keep typing to add manually."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1883
+msgid "Auto-filled from catalog, you may want to verify this."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1884
+msgid "Auto-filled template, please verify this matches how you use this service."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1885
+msgid "click to autofill"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1886
+msgid "Catalog suggestions"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1945
+msgid "Every policy broadcast sent from the plugin is logged here. One row per broadcast event."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1949
+msgid "No broadcasts yet. When you save a policy with \"Broadcast this change to subscribers\" ticked, the send will be logged here."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1954
+#: includes/class-opentrust-cpt.php:66
+#: templates/partials/policies.php:36
+#, fuzzy
+msgid "Policy"
+msgstr "Beleid"
+
+#: includes/class-opentrust-admin.php:1955
+msgid "Sent at"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1956
+msgid "Delivered"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1957
+msgid "Failed"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:1972
+msgid "(deleted policy)"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2042
+msgid "OpenTrust requires pretty permalinks."
+msgstr ""
+
+#. translators: %s: link to Settings → Permalinks
+#: includes/class-opentrust-admin.php:2046
+#, php-format
+msgid "Your site is using \"Plain\" permalinks. Please go to %s and choose any other option (Post name is the WordPress default)."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2047
+msgid "Settings → Permalinks"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2052
+msgid "Without pretty permalinks, every link OpenTrust generates returns 404 — including the trust center page itself, the subscribe form, and every confirmation, unsubscribe, and broadcast email link sent to subscribers. Visitors will not be able to subscribe, confirm, or unsubscribe."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2056
+msgid "Read-only fallback if you cannot change permalinks"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2060
+msgid "You can preview the trust center via raw query-string URLs, but no email links will work and visitors cannot subscribe:"
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2068
+msgid "This is for testing only."
+msgstr ""
+
+#: includes/class-opentrust-admin.php:2069
+msgid "Switching to pretty permalinks is the only supported configuration."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:90
+#, fuzzy
+msgid "Invalid nonce — refresh the page and try again."
+msgstr "Ongeldige nonce — ververs de pagina en probeer opnieuw."
+
+#: includes/class-opentrust-chat.php:113
+#, fuzzy
+msgid "Please complete the anti-abuse challenge and try again."
+msgstr "Voltooi de anti-misbruikcontrole en probeer opnieuw."
+
+#: includes/class-opentrust-chat.php:125
+msgid "You are sending messages too fast. Please wait a moment and try again."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:136
+msgid "You have reached the per-session message limit. Please wait a bit and try again."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:156
+msgid "AI chat is not configured on this site."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:165
+msgid "Configured provider is unknown."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:174
+msgid "No API key stored for the configured provider."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:187
+msgid "Your message is empty."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:197
+msgid "Published content exceeds the AI chat size limit."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:207
+msgid "The daily chat budget for this site has been reached. Please try again later."
+msgstr ""
+
+#: includes/class-opentrust-chat.php:389
+msgid "Chat provider failed unexpectedly."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:46
+msgid "Pick from the catalog or type your own, e.g. Datadog, Stripe, or AWS"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:49
+msgid "Pick from the catalog or type your own, e.g. Analytics or Transactional Email"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:52
+msgid "Pick from the catalog or type your own, e.g. SOC 2 Type II or ISO 27001"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:67
+msgid "Add Policy"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:68
+msgid "Add New Policy"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:69
+msgid "Edit Policy"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:70
+msgid "New Policy"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:71
+#, fuzzy
+msgid "View Policy"
+msgstr "Beleid bekijken"
+
+#: includes/class-opentrust-cpt.php:72
+msgid "Search Policies"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:73
+msgid "No policies found."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:74
+msgid "No policies in trash."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:99
+#: includes/class-opentrust-cpt.php:108
+#: templates/chat.php:45
+#: templates/partials/hero.php:49
+#: templates/trust-center.php:107
+#, fuzzy
+msgid "Certifications"
+msgstr "Certificeringen"
+
+#: includes/class-opentrust-cpt.php:100
+msgid "Certification"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:101
+msgid "Add Certification"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:102
+msgid "Add New Certification"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:103
+msgid "Edit Certification"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:104
+msgid "New Certification"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:105
+msgid "Search Certifications"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:106
+msgid "No certifications found."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:107
+msgid "No certifications in trash."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:133
+msgid "Subprocessor"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:134
+msgid "Add Subprocessor"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:135
+msgid "Add New Subprocessor"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:136
+msgid "Edit Subprocessor"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:137
+msgid "New Subprocessor"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:138
+msgid "Search Subprocessors"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:139
+msgid "No subprocessors found."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:140
+msgid "No subprocessors in trash."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:166
+msgid "Data Practice"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:167
+msgid "Add Data Practice"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:168
+msgid "Add New Data Practice"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:169
+msgid "Edit Data Practice"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:170
+msgid "New Data Practice"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:171
+msgid "Search Data Practices"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:172
+msgid "No data practices found."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:173
+msgid "No data practices in trash."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:202
+msgid "Certification Details"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:207
+msgid "Email subscribers"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:210
+msgid "Policy Details"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:211
+msgid "Subprocessor Details"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:212
+msgid "Data Practice Details"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:231
+msgid "Broadcast triggered, but no active subscribers are opted in to policy updates."
+msgstr ""
+
+#. translators: %d: subscriber count
+#: includes/class-opentrust-cpt.php:235
+#, php-format
+msgid "Broadcast just sent to %d subscriber."
+msgid_plural "Broadcast just sent to %d subscribers."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: delivered count, 2: failed count
+#: includes/class-opentrust-cpt.php:239
+#, php-format
+msgid "Broadcast finished: %1$d delivered, %2$d failed."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:251
+msgid "Broadcast this change to subscribers"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:253
+msgid "Emails all active subscribers who opted in to policy updates. The checkbox resets after each save."
+msgstr ""
+
+#. translators: %s: date and time
+#: includes/class-opentrust-cpt.php:261
+#, php-format
+msgid "Last broadcast: %s"
+msgstr ""
+
+#. translators: 1: delivered count, 2: failed count
+#: includes/class-opentrust-cpt.php:266
+#, php-format
+msgid "%1$d delivered, %2$d failed"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:288
+msgid "Certified (audited by a third party)"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:289
+msgid "Compliant (self-attested adherence)"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:293
+#: includes/class-opentrust-render.php:829
+#, fuzzy
+msgid "Active"
+msgstr "Actief"
+
+#: includes/class-opentrust-cpt.php:294
+#: includes/class-opentrust-render.php:830
+#, fuzzy
+msgid "In Progress"
+msgstr "In aanvraag"
+
+#: includes/class-opentrust-cpt.php:295
+#: includes/class-opentrust-render.php:831
+#, fuzzy
+msgid "Expired"
+msgstr "Verlopen"
+
+#: includes/class-opentrust-cpt.php:299
+msgid "Certification Type"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:305
+msgid "Certified means a third-party auditor issued a certificate with dates. Compliant means you self-attest adherence to the standard without a formal audit."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:309
+#: includes/class-opentrust-cpt.php:804
+#, fuzzy
+msgid "Issuing Body"
+msgstr "Uitgegeven door"
+
+#: includes/class-opentrust-cpt.php:310
+msgid "e.g., AICPA, ISO/IEC, PCI Security Standards Council"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:323
+msgid "Issue Date"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:328
+#: includes/class-opentrust-cpt.php:806
+#, fuzzy
+msgid "Expiry Date"
+msgstr "Vervaldatum"
+
+#: includes/class-opentrust-cpt.php:333
+msgid "Badge Image"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:336
+msgid "Select Badge"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:341
+msgid "Description"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:343
+msgid "Brief description of this certification and its scope."
+msgstr ""
+
+#. translators: %s: policy version number
+#: includes/class-opentrust-cpt.php:371
+#: templates/partials/policy-single.php:97
+#, fuzzy
+#, php-format
+msgid "Version %s"
+msgstr "Versie %s"
+
+#: includes/class-opentrust-cpt.php:374
+msgid "Regular saves update the current version. Use the checkbox below to formally publish a new version."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:383
+msgid "Publish as new version"
+msgstr ""
+
+#. translators: %1$d: current version number, %2$d: next version number
+#: includes/class-opentrust-cpt.php:388
+#, php-format
+msgid "This will save the current content as v%1$d and create v%2$d. Only check this for formal, published changes — not minor edits."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:397
+msgid "What changed?"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:400
+msgid "e.g., Updated data retention from 90 to 60 days"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:401
+msgid "Shown in the public version history."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:408
+#: includes/class-opentrust-cpt.php:835
+#: templates/partials/policies.php:37
+#, fuzzy
+msgid "Category"
+msgstr "Categorie"
+
+#: includes/class-opentrust-cpt.php:417
+msgid "Effective Date"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:422
+msgid "Next Review Date"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:427
+#: includes/class-opentrust-cpt.php:556
+msgid "Sort Order"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:429
+#: includes/class-opentrust-cpt.php:558
+msgid "Lower numbers appear first."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:435
+msgid "Allow PDF download"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:453
+#: includes/class-opentrust-cpt.php:518
+#: includes/class-opentrust-cpt.php:854
+#: templates/partials/data-practices.php:96
+#: templates/partials/subprocessors.php:37
+#, fuzzy
+msgid "Purpose"
+msgstr "Doel"
+
+#: includes/class-opentrust-cpt.php:455
+msgid "What does this subprocessor do for your company?"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:459
+#: templates/partials/subprocessors.php:38
+#, fuzzy
+msgid "Data Processed"
+msgstr "Verwerkte gegevens"
+
+#: includes/class-opentrust-cpt.php:461
+msgid "What types of data does this subprocessor handle?"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:465
+msgid "Country / Location"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:466
+msgid "e.g., United States"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:470
+#: templates/partials/subprocessors.php:41
+#, fuzzy
+msgid "Website"
+msgstr "Website"
+
+#: includes/class-opentrust-cpt.php:477
+#, fuzzy
+msgid "DPA Signed"
+msgstr "DPA ondertekend"
+
+#: includes/class-opentrust-cpt.php:479
+msgid "A Data Processing Agreement (DPA) is a contract between you and the subprocessor covering how they handle personal data on your behalf. Check this box once your organization has signed one with this vendor."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:503
+msgid "Data Items Collected"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:512
+#: includes/class-opentrust-cpt.php:550
+msgid "Type and press Enter..."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:525
+#: templates/partials/data-practices.php:103
+#, fuzzy
+msgid "Legal Basis"
+msgstr "Wettelijke grondslag"
+
+#: includes/class-opentrust-cpt.php:527
+msgid "— Select —"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:534
+msgid "Retention Period"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:535
+msgid "e.g., 30 days"
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:541
+#: templates/partials/data-practices.php:117
+#, fuzzy
+msgid "Shared With"
+msgstr "Gedeeld met"
+
+#: includes/class-opentrust-cpt.php:653
+msgid "Broadcast triggered, but no active subscribers are opted in to policy updates. Nothing was sent."
+msgstr ""
+
+#. translators: %d: subscriber count
+#: includes/class-opentrust-cpt.php:657
+#, php-format
+msgid "Broadcast sent to %d subscriber."
+msgid_plural "Broadcast sent to %d subscribers."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: delivered count, 2: failed count
+#: includes/class-opentrust-cpt.php:661
+#, php-format
+msgid "Broadcast finished: %1$d delivered, %2$d failed. Check your SMTP configuration."
+msgstr ""
+
+#: includes/class-opentrust-cpt.php:836
+#: includes/class-opentrust-version.php:161
+#: templates/partials/policies.php:38
+#, fuzzy
+msgid "Version"
+msgstr "Versie"
+
+#: includes/class-opentrust-cpt.php:855
+#: templates/partials/subprocessors.php:39
+#, fuzzy
+msgid "Location"
+msgstr "Locatie"
+
+#: includes/class-opentrust-cpt.php:856
+#: templates/partials/subprocessors.php:40
+#, fuzzy
+msgid "DPA"
+msgstr "DPA"
+
+#: includes/class-opentrust-cpt.php:875
+#, fuzzy
+msgid "Data Items"
+msgstr "Gegevensitems"
+
+#: includes/class-opentrust-cpt.php:876
+msgid "Order"
+msgstr ""
+
+#: includes/class-opentrust-notify.php:20
+msgid "Policy Updates"
+msgstr ""
+
+#: includes/class-opentrust-notify.php:21
+msgid "Certification Updates"
+msgstr ""
+
+#: includes/class-opentrust-notify.php:22
+msgid "Subprocessor Changes"
+msgstr ""
+
+#: includes/class-opentrust-notify.php:23
+msgid "Data Practice Changes"
+msgstr ""
+
+#: includes/class-opentrust-notify.php:185
+#, fuzzy
+msgid "Please enter a valid email address."
+msgstr "Voer een geldig e-mailadres in."
+
+#: includes/class-opentrust-notify.php:192
+msgid "This email is already subscribed."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:239
+msgid "Something went wrong. Please try again later."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:247
+#, fuzzy
+msgid "Please check your inbox and click the confirmation link."
+msgstr "Controleer je inbox en klik op de bevestigingslink."
+
+#: includes/class-opentrust-notify.php:456
+msgid "Could not read the uploaded file."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:463
+msgid "Could not open the uploaded file."
+msgstr ""
+
+#. translators: %d: row cap
+#: includes/class-opentrust-notify.php:488
+#, php-format
+msgid "Import stopped at row %d (maximum row cap reached)."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:509
+msgid "CSV is missing a required \"email\" column."
+msgstr ""
+
+#. translators: 1: row number
+#: includes/class-opentrust-notify.php:527
+#, php-format
+msgid "Row %d: invalid or missing email."
+msgstr ""
+
+#. translators: 1: row number, 2: email
+#: includes/class-opentrust-notify.php:536
+#, php-format
+msgid "Row %1$d: duplicate email %2$s in CSV — skipped."
+msgstr ""
+
+#. translators: 1: row number, 2: email
+#: includes/class-opentrust-notify.php:618
+#, php-format
+msgid "Row %1$d: failed to update %2$s."
+msgstr ""
+
+#. translators: 1: row number, 2: email
+#: includes/class-opentrust-notify.php:642
+#, php-format
+msgid "Row %1$d: failed to insert %2$s."
+msgstr ""
+
+#. translators: %s: subscriber name
+#: includes/class-opentrust-notify.php:896
+#: includes/class-opentrust-notify.php:951
+#, fuzzy
+#, php-format
+msgid "Hi %s,"
+msgstr "Hoi %s,"
+
+#: includes/class-opentrust-notify.php:897
+#: includes/class-opentrust-notify.php:952
+msgid "Hi,"
+msgstr ""
+
+#. translators: 1: company name, 2: policy title
+#: includes/class-opentrust-notify.php:905
+#, fuzzy
+#, php-format
+msgid "[%1$s] Policy updated: %2$s"
+msgstr "[%1$s] Beleid bijgewerkt: %2$s"
+
+#. translators: %s: company name
+#: includes/class-opentrust-notify.php:945
+#, fuzzy
+#, php-format
+msgid "Confirm your subscription to %s Trust Center updates"
+msgstr "Bevestig je aanmelding voor Trust Center-updates van %s"
+
+#: includes/class-opentrust-notify.php:1090
+#: includes/class-opentrust-notify.php:1247
+#, fuzzy
+msgid "Invalid request."
+msgstr "Ongeldig verzoek."
+
+#: includes/class-opentrust-notify.php:1150
+msgid "Too many attempts. Please try again later."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:1212
+#, fuzzy
+msgid "Please complete the security check."
+msgstr "Voltooi de beveiligingscontrole."
+
+#: includes/class-opentrust-notify.php:1235
+msgid "Security verification failed. Please try again."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:1262
+#, fuzzy
+msgid "Please select at least one category."
+msgstr "Selecteer ten minste één categorie."
+
+#: includes/class-opentrust-notify.php:1267
+msgid "Your preferences have been updated."
+msgstr ""
+
+#: includes/class-opentrust-notify.php:1268
+msgid "Could not update preferences. Please try again."
+msgstr ""
+
+#: includes/class-opentrust-render.php:87
+msgid "Session expired. Please reload the page and try again."
+msgstr ""
+
+#: includes/class-opentrust-render.php:93
+#, fuzzy
+msgid "Please enter a question."
+msgstr "Voer een vraag in."
+
+#: includes/class-opentrust-render.php:102
+msgid "AI chat is not configured."
+msgstr ""
+
+#: includes/class-opentrust-render.php:107
+msgid "AI chat is temporarily unavailable."
+msgstr ""
+
+#: includes/class-opentrust-render.php:420
+msgid "Page not found."
+msgstr ""
+
+#: includes/class-opentrust-render.php:421
+#: templates/partials/policy-single.php:56
+#: templates/partials/subscribe.php:21
+#, fuzzy
+msgid "Back to Trust Center"
+msgstr "Terug naar Trust Center"
+
+#: includes/class-opentrust-render.php:750
+msgid "Updated just now"
+msgstr ""
+
+#. translators: %d: number of minutes since last update
+#: includes/class-opentrust-render.php:755
+#, fuzzy
+#, php-format
+msgid "Updated %d minute ago"
+msgid_plural "Updated %d minutes ago"
+msgstr[0] "%d minuut geleden bijgewerkt"
+msgstr[1] "%d minuten geleden bijgewerkt"
+
+#. translators: %d: number of hours since last update
+#: includes/class-opentrust-render.php:762
+#, fuzzy
+#, php-format
+msgid "Updated %d hour ago"
+msgid_plural "Updated %d hours ago"
+msgstr[0] "%d uur geleden bijgewerkt"
+msgstr[1] "%d uur geleden bijgewerkt"
+
+#. translators: %d: number of days since last update
+#: includes/class-opentrust-render.php:769
+#, fuzzy
+#, php-format
+msgid "Updated %d day ago"
+msgid_plural "Updated %d days ago"
+msgstr[0] "%d dag geleden bijgewerkt"
+msgstr[1] "%d dagen geleden bijgewerkt"
+
+#. translators: %s = formatted date
+#: includes/class-opentrust-render.php:775
+#, fuzzy
+#, php-format
+msgid "Updated %s"
+msgstr "Bijgewerkt op %s"
+
+#: includes/class-opentrust-render.php:819
+msgid "Security"
+msgstr ""
+
+#: includes/class-opentrust-render.php:820
+msgid "Privacy"
+msgstr ""
+
+#: includes/class-opentrust-render.php:821
+msgid "Compliance"
+msgstr ""
+
+#: includes/class-opentrust-render.php:822
+msgid "Operational"
+msgstr ""
+
+#: includes/class-opentrust-render.php:837
+msgid "Consent"
+msgstr ""
+
+#: includes/class-opentrust-render.php:838
+msgid "Contractual Necessity"
+msgstr ""
+
+#: includes/class-opentrust-render.php:839
+msgid "Legitimate Interest"
+msgstr ""
+
+#: includes/class-opentrust-render.php:840
+msgid "Legal Obligation"
+msgstr ""
+
+#: includes/class-opentrust-render.php:841
+msgid "Vital Interest"
+msgstr ""
+
+#: includes/class-opentrust-render.php:842
+msgid "Public Interest"
+msgstr ""
+
+#: includes/class-opentrust-render.php:848
+msgid "Account Information"
+msgstr ""
+
+#: includes/class-opentrust-render.php:849
+msgid "Contact Information"
+msgstr ""
+
+#: includes/class-opentrust-render.php:850
+msgid "Personal Data"
+msgstr ""
+
+#: includes/class-opentrust-render.php:851
+msgid "Financial Data"
+msgstr ""
+
+#: includes/class-opentrust-render.php:852
+msgid "Usage & Analytics"
+msgstr ""
+
+#: includes/class-opentrust-render.php:853
+msgid "Device & Technical"
+msgstr ""
+
+#: includes/class-opentrust-render.php:854
+msgid "Behavioral Data"
+msgstr ""
+
+#: includes/class-opentrust-render.php:855
+msgid "User Content"
+msgstr ""
+
+#: includes/class-opentrust-render.php:856
+msgid "Communications"
+msgstr ""
+
+#: includes/class-opentrust-render.php:857
+msgid "Location Data"
+msgstr ""
+
+#: includes/class-opentrust-render.php:858
+msgid "Identity & Verification"
+msgstr ""
+
+#: includes/class-opentrust-render.php:859
+msgid "Marketing & Preferences"
+msgstr ""
+
+#: includes/class-opentrust-render.php:860
+msgid "Sensitive Data"
+msgstr ""
+
+#: includes/class-opentrust-render.php:861
+msgid "Health Data"
+msgstr ""
+
+#: includes/class-opentrust-version.php:128
+msgid "Version History"
+msgstr ""
+
+#: includes/class-opentrust-version.php:150
+msgid "Current version:"
+msgstr ""
+
+#: includes/class-opentrust-version.php:153
+msgid "Version history will appear after the first update."
+msgstr ""
+
+#: includes/class-opentrust-version.php:170
+#: templates/partials/policy-single.php:158
+msgid "Current"
+msgstr ""
+
+#: includes/class-opentrust-version.php:184
+#: includes/class-opentrust-version.php:185
+msgid "View"
+msgstr ""
+
+#: includes/class-opentrust-version.php:188
+msgid "Compare"
+msgstr ""
+
+#: includes/class-opentrust-version.php:189
+msgid "Diff"
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:37
+#: includes/providers/class-opentrust-chat-provider.php:45
+msgid "Anthropic"
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:51
+#: includes/providers/class-opentrust-chat-provider-openai.php:80
+msgid "API key is empty."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:64
+#: includes/providers/class-opentrust-chat-provider-openai.php:90
+msgid "Request failed."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:70
+msgid "No models available — your account may not be authorized."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:133
+msgid "Anthropic adapter missing required args."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:201
+msgid "Anthropic request failed."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:258
+msgid "Tool call produced no content blocks."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-anthropic.php:286
+#: includes/providers/class-opentrust-chat-provider-openai.php:315
+msgid "Conversation exceeded tool-use depth limit."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-openai.php:66
+#: includes/providers/class-opentrust-chat-provider.php:51
+msgid "OpenAI"
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-openai.php:96
+msgid "No chat models available for this key."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-openai.php:183
+msgid "OpenAI adapter missing required args."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-openai.php:259
+msgid "OpenAI request failed."
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider-openrouter.php:38
+#: includes/providers/class-opentrust-chat-provider.php:57
+msgid "OpenRouter"
+msgstr ""
+
+#: includes/providers/class-opentrust-chat-provider.php:141
+#: includes/providers/class-opentrust-chat-provider.php:160
+#: includes/providers/class-opentrust-chat-provider.php:211
+msgid "Refused outbound request to disallowed host."
+msgstr ""
+
+#. translators: %d: HTTP status code returned by the provider
+#: includes/providers/class-opentrust-chat-provider.php:276
+#: includes/providers/class-opentrust-chat-provider.php:302
+#, php-format
+msgid "Provider returned HTTP %d"
+msgstr ""
+
+#. translators: %s: company name
+#: templates/chat.php:56
+#, fuzzy
+#, php-format
+msgid "Ask %s — Trust Center"
+msgstr "Vraag het aan %s — Trust Center"
+
+#: templates/chat.php:92
+#: templates/trust-center.php:100
+msgid "Skip to content"
+msgstr ""
+
+#: templates/chat.php:94
+#: templates/partials/policy-single.php:36
+#: templates/trust-center.php:111
+msgid "Trust center navigation"
+msgstr ""
+
+#: templates/chat.php:123
+msgid "Ask AI is not configured"
+msgstr ""
+
+#: templates/chat.php:124
+msgid "The site administrator has not enabled the AI chat feature yet."
+msgstr ""
+
+#: templates/chat.php:126
+msgid "Browse trust center"
+msgstr ""
+
+#: templates/chat.php:154
+#: templates/chat.php:323
+#, fuzzy
+msgid "You"
+msgstr "Jij"
+
+#: templates/chat.php:156
+#: templates/chat.php:173
+#: templates/chat.php:324
+#, fuzzy
+msgid "just now"
+msgstr "zojuist"
+
+#: templates/chat.php:180
+#: templates/chat.php:316
+#, fuzzy
+msgid "Sources"
+msgstr "Bronnen"
+
+#: templates/chat.php:190
+#: templates/chat.php:326
+#, fuzzy
+msgid "AI-generated answer. Not legal, security, or compliance advice. Verify against the sources above."
+msgstr "Dit antwoord is door AI gegenereerd. Geen juridisch, beveiligings- of compliance-advies. Controleer het altijd aan de hand van de bronnen hierboven."
+
+#: templates/chat.php:200
+msgid "JavaScript is disabled — you can still ask one question below. The answer will load as a regular page."
+msgstr ""
+
+#: templates/chat.php:203
+msgid "Your question"
+msgstr ""
+
+#: templates/chat.php:210
+msgid "Ask"
+msgstr ""
+
+#: templates/chat.php:221
+#: templates/trust-center.php:241
+#, fuzzy
+msgid "Are you SOC 2 compliant?"
+msgstr "Zijn jullie SOC 2-compliant?"
+
+#: templates/chat.php:222
+#: templates/trust-center.php:242
+#, fuzzy
+msgid "Where is customer data stored?"
+msgstr "Waar worden klantgegevens opgeslagen?"
+
+#: templates/chat.php:223
+msgid "What's your incident response process?"
+msgstr ""
+
+#: templates/chat.php:224
+#: templates/trust-center.php:243
+#, fuzzy
+msgid "Which subprocessors do you use?"
+msgstr "Welke subverwerkers gebruiken jullie?"
+
+#: templates/chat.php:236
+msgid "Suggested questions"
+msgstr ""
+
+#: templates/chat.php:252
+msgid "Ask a question"
+msgstr ""
+
+#: templates/chat.php:259
+#: templates/chat.php:303
+#, fuzzy
+msgid "Ask anything about our security and compliance…"
+msgstr "Stel een vraag over onze beveiliging en compliance…"
+
+#: templates/chat.php:261
+#: templates/chat.php:314
+#, fuzzy
+msgid "Start a new conversation"
+msgstr "Start een nieuw gesprek"
+
+#: templates/chat.php:264
+#: templates/chat.php:304
+#, fuzzy
+msgid "Send"
+msgstr "Versturen"
+
+#. translators: 1: link to trust center, 2: company name
+#: templates/chat.php:275
+#, php-format
+msgid "Grounded in the published %1$s for %2$s. AI-generated, not legal, security, or compliance advice. Always check the sources."
+msgstr ""
+
+#: templates/chat.php:276
+msgid "trust center"
+msgstr ""
+
+#: templates/chat.php:305
+#, fuzzy
+msgid "Stop"
+msgstr "Stoppen"
+
+#: templates/chat.php:306
+#, fuzzy
+msgid "Thinking…"
+msgstr "Denkt na…"
+
+#: templates/chat.php:307
+#, fuzzy
+msgid "Connection lost. Retry?"
+msgstr "Verbinding verbroken. Opnieuw proberen?"
+
+#: templates/chat.php:308
+#, fuzzy
+msgid "Contact security team →"
+msgstr "Neem contact op met het beveiligingsteam →"
+
+#: templates/chat.php:309
+#, fuzzy
+msgid "Copy"
+msgstr "Kopiëren"
+
+#: templates/chat.php:310
+#, fuzzy
+msgid "Copied"
+msgstr "Gekopieerd"
+
+#: templates/chat.php:311
+#, fuzzy
+msgid "Share"
+msgstr "Delen"
+
+#: templates/chat.php:312
+#: templates/partials/policy-single.php:123
+#, fuzzy
+msgid "Print"
+msgstr "Afdrukken"
+
+#: templates/chat.php:313
+#, fuzzy
+msgid "Link copied"
+msgstr "Link gekopieerd"
+
+#: templates/chat.php:315
+#, fuzzy
+msgid "This conversation is getting long. Start fresh for better answers."
+msgstr "Dit gesprek wordt lang — begin opnieuw voor de beste antwoorden."
+
+#: templates/chat.php:317
+#, fuzzy
+msgid "I don't see enough information in our trust center to answer that confidently."
+msgstr "In ons Trust Center staat niet genoeg informatie om die vraag met zekerheid te beantwoorden."
+
+#: templates/chat.php:318
+#, fuzzy
+msgid "The AI provider returned an error. Please try again."
+msgstr "De AI-provider gaf een fout. Probeer het opnieuw."
+
+#: templates/chat.php:319
+#, fuzzy
+msgid "AI is temporarily unavailable. Please try again in a few minutes or browse our published content."
+msgstr "De AI is tijdelijk niet beschikbaar. Probeer het over enkele minuten opnieuw of bekijk onze gepubliceerde content."
+
+#: templates/chat.php:320
+#, fuzzy
+msgid "Message is too long."
+msgstr "Het bericht is te lang."
+
+#: templates/chat.php:321
+#, fuzzy
+msgid "Please wait a moment before asking again."
+msgstr "Wacht even voordat je opnieuw een vraag stelt."
+
+#: templates/chat.php:322
+#, fuzzy
+msgid "Cite source"
+msgstr "Bron citeren"
+
+#: templates/chat.php:325
+#, fuzzy
+msgid "No content returned by the model."
+msgstr "Het model gaf geen antwoord terug."
+
+#. translators: %s: company name
+#: templates/emails/confirmation.php:41
+#, fuzzy
+#, php-format
+msgid "Thank you for subscribing to trust center updates from %s. Please confirm your subscription by clicking the button below."
+msgstr "Bedankt dat je je hebt aangemeld voor Trust Center-updates van %s. Bevestig je aanmelding door op de knop hieronder te klikken."
+
+#: templates/emails/confirmation.php:51
+msgid "Confirm subscription"
+msgstr ""
+
+#: templates/emails/confirmation.php:57
+msgid "If the button above does not work, copy and paste this URL into your browser:"
+msgstr ""
+
+#: templates/emails/confirmation.php:63
+msgid "If you did not request this subscription, you can safely ignore this email."
+msgstr ""
+
+#. translators: 1: company name, 2: policy title
+#: templates/emails/policy-broadcast.php:43
+#, fuzzy
+#, php-format
+msgid "%1$s has updated the following policy on our trust center:"
+msgstr "%1$s heeft het volgende beleid bijgewerkt op het Trust Center:"
+
+#: templates/emails/policy-broadcast.php:55
+msgid "Effective date:"
+msgstr ""
+
+#: templates/emails/policy-broadcast.php:65
+msgid "View the updated policy"
+msgstr ""
+
+#: templates/emails/policy-broadcast.php:77
+msgid "Manage preferences"
+msgstr ""
+
+#: templates/emails/policy-broadcast.php:81
+#: templates/partials/subscribe.php:185
+#, fuzzy
+msgid "Unsubscribe"
+msgstr "Uitschrijven"
+
+#: templates/partials/certifications.php:22
+#, fuzzy
+msgid "Our active certifications and compliance frameworks demonstrate our commitment to protecting your data."
+msgstr "Onze actieve certificeringen en compliance-frameworks laten zien hoe serieus we jouw gegevens beschermen."
+
+#: templates/partials/certifications.php:59
+#, fuzzy
+msgid "Compliant"
+msgstr "Compliant"
+
+#. translators: %s: certification issue date
+#: templates/partials/certifications.php:77
+#, fuzzy
+#, php-format
+msgid "Issued %s"
+msgstr "Uitgegeven op %s"
+
+#. translators: %s: certification expiry date
+#: templates/partials/certifications.php:81
+#, fuzzy
+#, php-format
+msgid "Expires %s"
+msgstr "Verloopt op %s"
+
+#: templates/partials/chat-budget-exhausted.php:18
+msgid "Ask AI is taking a breather"
+msgstr ""
+
+#: templates/partials/chat-budget-exhausted.php:19
+msgid "We've hit the daily question limit. Chat will be back soon — in the meantime, you can still browse the full trust center."
+msgstr ""
+
+#: templates/partials/chat-budget-exhausted.php:22
+msgid "Browse policies"
+msgstr ""
+
+#: templates/partials/chat-budget-exhausted.php:29
+msgid "Contact us"
+msgstr ""
+
+#. translators: %s: company name
+#: templates/partials/chat-empty-state.php:29
+#, fuzzy
+#, php-format
+msgid "Ask about %s's security and compliance"
+msgstr "Vraag ons over de beveiliging en compliance van %s"
+
+#. translators: 1: model identifier, 2: sources summary
+#: templates/partials/chat-empty-state.php:37
+#, fuzzy
+#, php-format
+msgid "Powered by %1$s. Grounded in %2$s."
+msgstr "Mogelijk gemaakt door %1$s. Gebaseerd op %2$s."
+
+#. translators: %s: sources summary
+#: templates/partials/chat-empty-state.php:49
+#, fuzzy
+#, php-format
+msgid "Grounded in %s."
+msgstr "Gebaseerd op %s."
+
+#: templates/partials/chat-empty-state.php:60
+msgid "Conversation"
+msgstr ""
+
+#: templates/partials/data-practices.php:35
+#, fuzzy
+msgid "What we collect and how we handle your data."
+msgstr "Welke gegevens we verzamelen en hoe we ze gebruiken."
+
+#. translators: %1$d = number, %2$s = category name
+#: templates/partials/data-practices.php:73
+#, fuzzy
+#, php-format
+msgid "View %1$d more %2$s items"
+msgstr "Bekijk nog %1$d %2$s-items"
+
+#: templates/partials/data-practices.php:110
+#, fuzzy
+msgid "Retention"
+msgstr "Bewaartermijn"
+
+#. translators: %d: number of active certifications
+#: templates/partials/hero.php:31
+#, fuzzy
+#, php-format
+msgid "%d Active Certification"
+msgid_plural "%d Active Certifications"
+msgstr[0] "%d Actieve certificering"
+msgstr[1] "%d Actieve certificeringen"
+
+#: templates/partials/hero.php:38
+#: templates/trust-center.php:20
+#, fuzzy
+msgid "Trust Center"
+msgstr "Trust Center"
+
+#: templates/partials/policies.php:21
+#, fuzzy
+msgid "Security Policies"
+msgstr "Beveiligingsbeleid"
+
+#: templates/partials/policies.php:22
+#, fuzzy
+msgid "Our published security and compliance policies are regularly reviewed and updated."
+msgstr "Ons gepubliceerde beveiligings- en compliancebeleid wordt regelmatig herzien en bijgewerkt."
+
+#: templates/partials/policies.php:39
+#, fuzzy
+msgid "Last Updated"
+msgstr "Laatst bijgewerkt"
+
+#. translators: %s: policy version number
+#: templates/partials/policies.php:63
+#, fuzzy
+#, php-format
+msgid "v%s"
+msgstr "v%s"
+
+#: templates/partials/policies.php:67
+#: templates/partials/policy-single.php:119
+#, fuzzy
+msgid "Download PDF"
+msgstr "Download PDF"
+
+#. translators: %s: policy title
+#: templates/partials/policies.php:73
+#, fuzzy
+#, php-format
+msgid "View %s"
+msgstr "%s bekijken"
+
+#. translators: %1$s: version number, %2$s: link to current version
+#: templates/partials/policy-single.php:66
+#, fuzzy
+#, php-format
+msgid "You are viewing version %1$s. %2$s"
+msgstr "Je bekijkt versie %1$s. %2$s"
+
+#: templates/partials/policy-single.php:68
+#: templates/partials/policy-single.php:81
+#, fuzzy
+msgid "View current version"
+msgstr "Huidige versie bekijken"
+
+#. translators: %1$s: effective date, %2$s: link to previous version
+#: templates/partials/policy-single.php:78
+#, fuzzy
+#, php-format
+msgid "This version takes effect on %1$s. %2$s"
+msgstr "Deze versie gaat in op %1$s. %2$s"
+
+#. translators: %s: policy effective date
+#: templates/partials/policy-single.php:104
+#, fuzzy
+#, php-format
+msgid "Effective: %s"
+msgstr "Ingangsdatum: %s"
+
+#. translators: %s: policy last updated date
+#: templates/partials/policy-single.php:111
+#, fuzzy
+#, php-format
+msgid "Updated: %s"
+msgstr "Bijgewerkt: %s"
+
+#. translators: %d: number of policy versions
+#: templates/partials/policy-single.php:135
+#, fuzzy
+#, php-format
+msgid "Version history (%d)"
+msgstr "Versiegeschiedenis (%d)"
+
+#. translators: %d: version number
+#: templates/partials/policy-single.php:150
+#, fuzzy
+#, php-format
+msgid "v%d"
+msgstr "v%d"
+
+#: templates/partials/subprocessors.php:21
+#, fuzzy
+msgid "Third-party services that process data on our behalf, along with their purposes and data handling agreements."
+msgstr "Externe diensten die namens ons gegevens verwerken, met hun doel en verwerkersovereenkomsten."
+
+#: templates/partials/subprocessors.php:53
+#: templates/partials/subprocessors.php:57
+#, fuzzy
+msgid "more"
+msgstr "meer"
+
+#: templates/partials/subprocessors.php:64
+#, fuzzy
+msgid "Signed"
+msgstr "Ondertekend"
+
+#: templates/partials/subscribe-cta.php:21
+msgid "Stay informed"
+msgstr ""
+
+#: templates/partials/subscribe-cta.php:23
+msgid "Get notified when we update our policies, add subprocessors, or change our compliance posture."
+msgstr ""
+
+#: templates/partials/subscribe-cta.php:29
+#: templates/partials/subscribe.php:30
+#, fuzzy
+msgid "Subscribe to updates"
+msgstr "Abonneer op updates"
+
+#: templates/partials/subscribe-cta.php:31
+msgid "RSS Feed"
+msgstr ""
+
+#: templates/partials/subscribe-cta.php:33
+msgid "RSS"
+msgstr ""
+
+#. translators: %s: company name
+#: templates/partials/subscribe.php:34
+#, fuzzy
+#, php-format
+msgid "Get email notifications when %s updates their trust center."
+msgstr "Ontvang e-mailmeldingen zodra %s hun Trust Center bijwerkt."
+
+#: templates/partials/subscribe.php:50
+#, fuzzy
+msgid "Email address"
+msgstr "E-mailadres"
+
+#: templates/partials/subscribe.php:52
+msgid "you@company.com"
+msgstr ""
+
+#: templates/partials/subscribe.php:72
+#: templates/partials/subscribe.php:165
+msgid "Notify me about"
+msgstr ""
+
+#: templates/partials/subscribe.php:89
+#: templates/partials/subscribe.php:115
+#, fuzzy
+msgid "Subscribe"
+msgstr "Abonneren"
+
+#: templates/partials/subscribe.php:93
+msgid "We will only use your email to send trust center updates. You can unsubscribe at any time."
+msgstr ""
+
+#: templates/partials/subscribe.php:105
+msgid "Subscription confirmed!"
+msgstr ""
+
+#: templates/partials/subscribe.php:106
+msgid "You will now receive email notifications when our trust center is updated."
+msgstr ""
+
+#: templates/partials/subscribe.php:113
+msgid "Invalid or expired link"
+msgstr ""
+
+#: templates/partials/subscribe.php:114
+msgid "This confirmation link is no longer valid. Please subscribe again."
+msgstr ""
+
+#: templates/partials/subscribe.php:126
+msgid "Unsubscribed"
+msgstr ""
+
+#: templates/partials/subscribe.php:127
+msgid "You have been unsubscribed and will no longer receive trust center updates."
+msgstr ""
+
+#: templates/partials/subscribe.php:134
+msgid "Invalid link"
+msgstr ""
+
+#: templates/partials/subscribe.php:135
+msgid "This unsubscribe link is not valid."
+msgstr ""
+
+#: templates/partials/subscribe.php:146
+msgid "Notification preferences"
+msgstr ""
+
+#. translators: %s: email address
+#: templates/partials/subscribe.php:150
+#, fuzzy
+#, php-format
+msgid "Manage notifications for %s."
+msgstr "Beheer meldingen voor %s."
+
+#: templates/partials/subscribe.php:176
+msgid "Save preferences"
+msgstr ""
+
+#: templates/partials/subscribe.php:183
+msgid "Want to stop all notifications?"
+msgstr ""
+
+#: templates/trust-center.php:22
+#, fuzzy
+msgid "Transparency and security you can trust."
+msgstr "Transparante beveiliging om op te vertrouwen."
+
+#: templates/trust-center.php:141
+#: templates/trust-center.php:239
+#, fuzzy
+msgid "Ask AI"
+msgstr "Vraag de AI"
+
+#: templates/trust-center.php:147
+msgid "Search..."
+msgstr ""
+
+#: templates/trust-center.php:148
+msgid "Search trust center"
+msgstr ""
+
+#: templates/trust-center.php:194
+msgid "Trust center content is being prepared. Check back soon."
+msgstr ""
+
+#. translators: %s: company name
+#: templates/trust-center.php:215
+#, fuzzy
+#, php-format
+msgid "© %1$s %2$s. All rights reserved."
+msgstr "© %1$s %2$s. Alle rechten voorbehouden."
+
+#: templates/trust-center.php:222
+msgid "Powered by OpenTrust"
+msgstr ""
+
+#: templates/trust-center.php:238
+#, fuzzy
+msgid "Ask anything about our security…"
+msgstr "Stel een vraag over onze beveiliging…"
+
+#: templates/trust-center.php:244
+#, fuzzy
+msgid "What is your incident response process?"
+msgstr "Wat is jullie incident-responseproces?"

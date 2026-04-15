@@ -1,0 +1,25 @@
+# Development files
+.claude/
+CLAUDE.md
+PLUGIN-CHECK-FINDINGS.md
+.distignore
+.gitignore
+.git/
+
+# IDE and editor files
+.editorconfig
+.vscode/
+.idea/
+*.code-workspace
+
+# Build and dependency files
+node_modules/
+vendor/
+composer.lock
+package-lock.json
+
+# Testing
+tests/
+phpunit.xml
+phpcs.xml
+.DS_Store
