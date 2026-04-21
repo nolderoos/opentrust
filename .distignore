@@ -2,6 +2,7 @@
 .claude/
 CLAUDE.md
 PLUGIN-CHECK-FINDINGS.md
+PLUGIN-CHECK-BASELINE.md
 .distignore
 .gitignore
 .git/

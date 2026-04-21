@@ -223,8 +223,8 @@ abstract class OpenTrust_Chat_Provider {
 
         $buffer = '';
 
+        // phpcs:disable WordPress.WP.AlternativeFunctions.curl_curl_init, WordPress.WP.AlternativeFunctions.curl_curl_setopt, WordPress.WP.AlternativeFunctions.curl_curl_exec, WordPress.WP.AlternativeFunctions.curl_curl_getinfo, WordPress.WP.AlternativeFunctions.curl_curl_errno, WordPress.WP.AlternativeFunctions.curl_curl_error, WordPress.WP.AlternativeFunctions.curl_curl_close -- SSE streaming requires CURLOPT_WRITEFUNCTION; wp_remote_* does not support streaming callbacks.
         $ch = curl_init();
-        // phpcs:disable WordPress.WP.AlternativeFunctions.curl_curl_setopt
         curl_setopt($ch, CURLOPT_URL,            $url);
         curl_setopt($ch, CURLOPT_POST,           true);
         curl_setopt($ch, CURLOPT_POSTFIELDS,     $body);
@@ -254,13 +254,13 @@ abstract class OpenTrust_Chat_Provider {
 
             return strlen($chunk);
         });
-        // phpcs:enable
 
         $ok         = curl_exec($ch);
         $http_code  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curl_errno = curl_errno($ch);
         $curl_err   = curl_error($ch);
         curl_close($ch);
+        // phpcs:enable
 
         // Flush any trailing line not followed by newline.
         if ($buffer !== '') {

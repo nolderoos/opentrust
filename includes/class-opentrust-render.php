@@ -48,6 +48,7 @@ final class OpenTrust_Render {
         $ot_settings = OpenTrust::get_settings();
         $ot_data     = $this->gather_data($ot_settings);
         $ot_data['view']        = 'chat';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only prefill of search box on public chat page.
         $ot_data['prefill_q']   = isset($_GET['q']) ? sanitize_text_field((string) wp_unslash($_GET['q'])) : '';
         $ot_data['source_counts'] = [
             'certifications' => count($ot_data['certifications'] ?? []),
@@ -61,6 +62,7 @@ final class OpenTrust_Render {
 
         // No-JS fallback: handle a synchronous HTML form POST here.
         $ot_data['noscript_response'] = null;
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Literal string comparison, never stored.
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $ot_data['chat_state'] === 'ready') {
             $ot_data['noscript_response'] = $this->handle_chat_noscript_post($ot_settings);
         }
@@ -681,6 +683,7 @@ final class OpenTrust_Render {
                 'id'            => $post->ID,
                 'title'         => $post->post_title,
                 'slug'          => $post->post_name,
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress filter.
                 'answer_html'   => apply_filters('the_content', $post->post_content),
                 'answer_text'   => wp_strip_all_tags($post->post_content),
                 'menu_order'    => (int) $post->menu_order,

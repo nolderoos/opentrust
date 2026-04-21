@@ -294,7 +294,7 @@ final class OpenTrust_CPT {
                 <br>
                 <?php
                 /* translators: 1: delivered count, 2: failed count */
-                printf(esc_html__('%1$d delivered, %2$d failed', 'opentrust'), $last_sent_n, $last_failed_n);
+                printf(esc_html__('%1$d delivered, %2$d failed', 'opentrust'), intval($last_sent_n), intval($last_failed_n));
                 ?>
             </p>
         <?php endif; ?>

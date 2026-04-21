@@ -105,143 +105,143 @@ final class OpenTrust_Admin {
             'default'           => OpenTrust::defaults(),
         ]);
 
-        // General section.
+        // ── General tab ──────────────────────────────────────────────
         add_settings_section(
             'opentrust_general',
             __('General Settings', 'opentrust'),
             fn() => null,
-            'opentrust-settings'
+            'opentrust-settings-general'
         );
 
-        $this->add_field('endpoint_slug', __('Endpoint Slug', 'opentrust'), 'render_text_field', 'opentrust_general', [
+        $this->add_field('endpoint_slug', __('Endpoint Slug', 'opentrust'), 'render_text_field', 'opentrust_general', 'opentrust-settings-general', [
             'description' => __('The URL path for your trust center (e.g., "trust-center" = yoursite.com/trust-center/).', 'opentrust'),
         ]);
 
-        $this->add_field('page_title', __('Page Title', 'opentrust'), 'render_text_field', 'opentrust_general');
+        $this->add_field('page_title', __('Page Title', 'opentrust'), 'render_text_field', 'opentrust_general', 'opentrust-settings-general');
 
-        $this->add_field('company_name', __('Company Name', 'opentrust'), 'render_text_field', 'opentrust_general');
+        $this->add_field('company_name', __('Company Name', 'opentrust'), 'render_text_field', 'opentrust_general', 'opentrust-settings-general');
 
-        $this->add_field('tagline', __('Tagline', 'opentrust'), 'render_textarea_field', 'opentrust_general', [
+        $this->add_field('tagline', __('Tagline', 'opentrust'), 'render_textarea_field', 'opentrust_general', 'opentrust-settings-general', [
             'description' => __('A short description displayed below the company name in the hero section.', 'opentrust'),
         ]);
 
-        // Branding section.
+        // Branding section (General tab).
         add_settings_section(
             'opentrust_branding',
             __('Branding', 'opentrust'),
             fn() => null,
-            'opentrust-settings'
+            'opentrust-settings-general'
         );
 
-        $this->add_field('logo_id', __('Logo', 'opentrust'), 'render_logo_field', 'opentrust_branding');
-        $this->add_field('avatar_id', __('AI Avatar', 'opentrust'), 'render_avatar_field', 'opentrust_branding');
+        $this->add_field('logo_id', __('Logo', 'opentrust'), 'render_logo_field', 'opentrust_branding', 'opentrust-settings-general');
+        $this->add_field('avatar_id', __('AI Avatar', 'opentrust'), 'render_avatar_field', 'opentrust_branding', 'opentrust-settings-general');
 
-        $this->add_field('accent_color', __('Accent Color', 'opentrust'), 'render_color_field', 'opentrust_branding', [
+        $this->add_field('accent_color', __('Accent Color', 'opentrust'), 'render_color_field', 'opentrust_branding', 'opentrust-settings-general', [
             'description' => __('Used for buttons, links, and highlights. Choose a color that matches your brand.', 'opentrust'),
         ]);
 
-        // Sections visibility.
+        // Sections visibility (General tab).
         add_settings_section(
             'opentrust_sections',
             __('Visible Sections', 'opentrust'),
             fn() => print('<p>' . esc_html__('Choose which sections to display on the trust center.', 'opentrust') . '</p>'),
-            'opentrust-settings'
+            'opentrust-settings-general'
         );
 
-        $this->add_field('sections_visible', __('Sections', 'opentrust'), 'render_sections_field', 'opentrust_sections');
+        $this->add_field('sections_visible', __('Sections', 'opentrust'), 'render_sections_field', 'opentrust_sections', 'opentrust-settings-general');
 
-        // Notifications section.
-        add_settings_section(
-            'opentrust_notifications',
-            __('Email Notifications', 'opentrust'),
-            fn() => print('<p>' . esc_html__('Configure subscriber notifications for trust center updates.', 'opentrust') . '</p>'),
-            'opentrust-settings'
-        );
-
-        $this->add_field('notifications_enabled', __('Enable Notifications', 'opentrust'), 'render_notifications_enabled_field', 'opentrust_notifications', [
-            'description' => __('Show the subscribe form on the trust center and allow policy changes to be broadcast to subscribers.', 'opentrust'),
-        ]);
-
-        $this->add_field('notification_from_name', __('From Name', 'opentrust'), 'render_text_field', 'opentrust_notifications', [
-            'description' => __('Sender name for notification emails. Defaults to company name.', 'opentrust'),
-        ]);
-
-        $this->add_field('notification_reply_to', __('Reply-To Email', 'opentrust'), 'render_text_field', 'opentrust_notifications', [
-            'description' => __('Reply-to address for notification emails. Defaults to admin email.', 'opentrust'),
-        ]);
-
-        // Spam Protection section.
-        add_settings_section(
-            'opentrust_spam_protection',
-            __('Spam Protection', 'opentrust'),
-            fn() => print('<p>' . esc_html__('Protect the subscribe form from abuse with rate limiting and Cloudflare Turnstile.', 'opentrust') . '</p>'),
-            'opentrust-settings'
-        );
-
-        $this->add_field('rate_limit_per_hour', __('Rate Limit', 'opentrust'), 'render_rate_limit_field', 'opentrust_spam_protection', [
-            'description' => __('Maximum subscribe attempts per IP address per hour. Set to 0 to disable.', 'opentrust'),
-        ]);
-
-        $this->add_field('turnstile_site_key', __('Turnstile Site Key', 'opentrust'), 'render_text_field', 'opentrust_spam_protection', [
-            'description' => __('Public site key from your Cloudflare Turnstile widget. Leave blank to disable.', 'opentrust'),
-        ]);
-
-        $this->add_field('turnstile_secret_key', __('Turnstile Secret Key', 'opentrust'), 'render_password_field', 'opentrust_spam_protection', [
-            'description' => __('Secret key from Cloudflare Turnstile. Stored securely — never exposed to the frontend.', 'opentrust'),
-        ]);
-
-        // Get in touch / Contact section. Fields are optional — the frontend
-        // block renders only when at least one field below is populated.
+        // ── Contact tab ──────────────────────────────────────────────
+        // Fields are optional — the frontend block renders only when at least one field below is populated.
         add_settings_section(
             'opentrust_contact',
             __('Get in touch', 'opentrust'),
             fn() => print('<p>' . esc_html__('Publish a dark-accent "Get in touch" block on the trust center. Every field is optional — the block only appears if at least one is filled in.', 'opentrust') . '</p>'),
-            'opentrust-settings'
+            'opentrust-settings-contact'
         );
 
-        $this->add_field('company_description', __('Company Description', 'opentrust'), 'render_textarea_field', 'opentrust_contact', [
+        $this->add_field('company_description', __('Company Description', 'opentrust'), 'render_textarea_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Two or three sentences describing what the company does. Rendered under the "Get in touch" section title.', 'opentrust'),
         ]);
 
-        $this->add_field('dpo_name', __('DPO Name', 'opentrust'), 'render_text_field', 'opentrust_contact', [
+        $this->add_field('dpo_name', __('DPO Name', 'opentrust'), 'render_text_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Data Protection Officer name. Required under GDPR for many organisations.', 'opentrust'),
         ]);
 
-        $this->add_field('dpo_email', __('DPO Email', 'opentrust'), 'render_email_field', 'opentrust_contact', [
+        $this->add_field('dpo_email', __('DPO Email', 'opentrust'), 'render_email_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Dedicated DPO mailbox. Rendered as a mailto link.', 'opentrust'),
         ]);
 
-        $this->add_field('security_email', __('Security Contact Email', 'opentrust'), 'render_email_field', 'opentrust_contact', [
+        $this->add_field('security_email', __('Security Contact Email', 'opentrust'), 'render_email_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('For vulnerability reports and security questions. Often separate from the DPO.', 'opentrust'),
         ]);
 
-        $this->add_field('contact_form_url', __('Contact Form URL', 'opentrust'), 'render_url_field', 'opentrust_contact', [
+        $this->add_field('contact_form_url', __('Contact Form URL', 'opentrust'), 'render_url_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Optional link to a gated contact form (e.g. HubSpot, Typeform).', 'opentrust'),
         ]);
 
-        $this->add_field('contact_address', __('Mailing Address', 'opentrust'), 'render_textarea_field', 'opentrust_contact', [
+        $this->add_field('contact_address', __('Mailing Address', 'opentrust'), 'render_textarea_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Postal address for formal GDPR / legal notices.', 'opentrust'),
         ]);
 
-        $this->add_field('pgp_key_url', __('PGP Public Key URL', 'opentrust'), 'render_url_field', 'opentrust_contact', [
+        $this->add_field('pgp_key_url', __('PGP Public Key URL', 'opentrust'), 'render_url_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Optional link to your security team\'s PGP public key.', 'opentrust'),
         ]);
 
-        $this->add_field('company_registration', __('Company Registration Number', 'opentrust'), 'render_text_field', 'opentrust_contact', [
+        $this->add_field('company_registration', __('Company Registration Number', 'opentrust'), 'render_text_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('Chamber of Commerce (KvK), Companies House, Handelsregister, EIN, or equivalent business registration.', 'opentrust'),
         ]);
 
-        $this->add_field('vat_number', __('VAT / Tax ID', 'opentrust'), 'render_text_field', 'opentrust_contact', [
+        $this->add_field('vat_number', __('VAT / Tax ID', 'opentrust'), 'render_text_field', 'opentrust_contact', 'opentrust-settings-contact', [
             'description' => __('VAT number, sales-tax ID, or equivalent international tax identifier.', 'opentrust'),
+        ]);
+
+        // ── Subscriptions tab ────────────────────────────────────────
+        add_settings_section(
+            'opentrust_notifications',
+            __('Email Notifications', 'opentrust'),
+            fn() => print('<p>' . esc_html__('Configure subscriber notifications for trust center updates.', 'opentrust') . '</p>'),
+            'opentrust-settings-subscriptions'
+        );
+
+        $this->add_field('notifications_enabled', __('Enable Notifications', 'opentrust'), 'render_notifications_enabled_field', 'opentrust_notifications', 'opentrust-settings-subscriptions', [
+            'description' => __('Show the subscribe form on the trust center and allow policy changes to be broadcast to subscribers.', 'opentrust'),
+        ]);
+
+        $this->add_field('notification_from_name', __('From Name', 'opentrust'), 'render_text_field', 'opentrust_notifications', 'opentrust-settings-subscriptions', [
+            'description' => __('Sender name for notification emails. Defaults to company name.', 'opentrust'),
+        ]);
+
+        $this->add_field('notification_reply_to', __('Reply-To Email', 'opentrust'), 'render_text_field', 'opentrust_notifications', 'opentrust-settings-subscriptions', [
+            'description' => __('Reply-to address for notification emails. Defaults to admin email.', 'opentrust'),
+        ]);
+
+        // Spam Protection section (Subscriptions tab).
+        add_settings_section(
+            'opentrust_spam_protection',
+            __('Spam Protection', 'opentrust'),
+            fn() => print('<p>' . esc_html__('Protect the subscribe form from abuse with rate limiting and Cloudflare Turnstile.', 'opentrust') . '</p>'),
+            'opentrust-settings-subscriptions'
+        );
+
+        $this->add_field('rate_limit_per_hour', __('Rate Limit', 'opentrust'), 'render_rate_limit_field', 'opentrust_spam_protection', 'opentrust-settings-subscriptions', [
+            'description' => __('Maximum subscribe attempts per IP address per hour. Set to 0 to disable.', 'opentrust'),
+        ]);
+
+        $this->add_field('turnstile_site_key', __('Turnstile Site Key', 'opentrust'), 'render_text_field', 'opentrust_spam_protection', 'opentrust-settings-subscriptions', [
+            'description' => __('Public site key from your Cloudflare Turnstile widget. Leave blank to disable.', 'opentrust'),
+        ]);
+
+        $this->add_field('turnstile_secret_key', __('Turnstile Secret Key', 'opentrust'), 'render_password_field', 'opentrust_spam_protection', 'opentrust-settings-subscriptions', [
+            'description' => __('Secret key from Cloudflare Turnstile. Stored securely — never exposed to the frontend.', 'opentrust'),
         ]);
     }
 
-    private function add_field(string $key, string $title, string $callback, string $section, array $extra = []): void {
+    private function add_field(string $key, string $title, string $callback, string $section, string $page = 'opentrust-settings-general', array $extra = []): void {
         add_settings_field(
             'opentrust_' . $key,
             $title,
             [$this, $callback],
-            'opentrust-settings',
+            $page,
             $section,
             array_merge(['key' => $key], $extra)
         );
@@ -472,55 +472,112 @@ final class OpenTrust_Admin {
 
         $old_settings = OpenTrust::get_settings();
 
-        $sanitized = [
-            'endpoint_slug'    => sanitize_title($input['endpoint_slug'] ?? 'trust-center') ?: 'trust-center',
-            'page_title'       => sanitize_text_field($input['page_title'] ?? ''),
-            'company_name'     => sanitize_text_field($input['company_name'] ?? ''),
-            'tagline'          => sanitize_textarea_field($input['tagline'] ?? ''),
-            'logo_id'          => absint($input['logo_id'] ?? 0),
-            'avatar_id'        => absint($input['avatar_id'] ?? 0),
-            'accent_color'       => sanitize_hex_color($input['accent_color'] ?? '#2563EB') ?: '#2563EB',
-            'accent_force_exact' => !empty($input['accent_force_exact']),
-            'sections_visible' => [
+        // Each tab's form carries a sentinel (`__<tab>_tab_save`) so this callback
+        // can tell which subset of keys came from the submission. Any field outside
+        // the active tab's scope is carried forward from $old_settings byte-for-byte,
+        // so saving one tab never clobbers another tab's values.
+        $sanitized = [];
+
+        // ── General tab (General + Branding + Visible Sections) ──
+        if (!empty($input['__general_tab_save'])) {
+            $sanitized['endpoint_slug']      = sanitize_title($input['endpoint_slug'] ?? 'trust-center') ?: 'trust-center';
+            $sanitized['page_title']         = sanitize_text_field($input['page_title'] ?? '');
+            $sanitized['company_name']       = sanitize_text_field($input['company_name'] ?? '');
+            $sanitized['tagline']            = sanitize_textarea_field($input['tagline'] ?? '');
+            $sanitized['logo_id']            = absint($input['logo_id'] ?? 0);
+            $sanitized['avatar_id']          = absint($input['avatar_id'] ?? 0);
+            $sanitized['accent_color']       = sanitize_hex_color($input['accent_color'] ?? '#2563EB') ?: '#2563EB';
+            $sanitized['accent_force_exact'] = !empty($input['accent_force_exact']);
+            $sanitized['sections_visible']   = [
                 'certifications' => !empty($input['sections_visible']['certifications']),
                 'policies'       => !empty($input['sections_visible']['policies']),
                 'subprocessors'  => !empty($input['sections_visible']['subprocessors']),
                 'data_practices' => !empty($input['sections_visible']['data_practices']),
                 'faqs'           => !empty($input['sections_visible']['faqs']),
                 'contact'        => !empty($input['sections_visible']['contact']),
-            ],
+            ];
+        } else {
+            $sanitized['endpoint_slug']      = (string) ($old_settings['endpoint_slug'] ?? 'trust-center');
+            $sanitized['page_title']         = (string) ($old_settings['page_title'] ?? '');
+            $sanitized['company_name']       = (string) ($old_settings['company_name'] ?? '');
+            $sanitized['tagline']            = (string) ($old_settings['tagline'] ?? '');
+            $sanitized['logo_id']            = (int) ($old_settings['logo_id'] ?? 0);
+            $sanitized['avatar_id']          = (int) ($old_settings['avatar_id'] ?? 0);
+            $sanitized['accent_color']       = (string) ($old_settings['accent_color'] ?? '#2563EB');
+            $sanitized['accent_force_exact'] = !empty($old_settings['accent_force_exact']);
+            $sanitized['sections_visible']   = is_array($old_settings['sections_visible'] ?? null)
+                ? $old_settings['sections_visible']
+                : [
+                    'certifications' => true,
+                    'policies'       => true,
+                    'subprocessors'  => true,
+                    'data_practices' => true,
+                    'faqs'           => true,
+                    'contact'        => true,
+                ];
+        }
 
-            // ── Get in touch / Contact block ──
-            'company_description'  => sanitize_textarea_field($input['company_description'] ?? ''),
-            'dpo_name'             => sanitize_text_field($input['dpo_name']                ?? ''),
-            'dpo_email'            => sanitize_email($input['dpo_email']                    ?? ''),
-            'security_email'       => sanitize_email($input['security_email']               ?? ''),
-            'contact_form_url'     => esc_url_raw($input['contact_form_url']                ?? ''),
-            'contact_address'      => sanitize_textarea_field($input['contact_address']     ?? ''),
-            'pgp_key_url'          => esc_url_raw($input['pgp_key_url']                     ?? ''),
-            'company_registration' => sanitize_text_field($input['company_registration']    ?? ''),
-            'vat_number'           => sanitize_text_field($input['vat_number']              ?? ''),
+        // ── Contact tab (Get in touch block) ──
+        if (!empty($input['__contact_tab_save'])) {
+            $sanitized['company_description']  = sanitize_textarea_field($input['company_description'] ?? '');
+            $sanitized['dpo_name']             = sanitize_text_field($input['dpo_name']                ?? '');
+            $sanitized['dpo_email']            = sanitize_email($input['dpo_email']                    ?? '');
+            $sanitized['security_email']       = sanitize_email($input['security_email']               ?? '');
+            $sanitized['contact_form_url']     = esc_url_raw($input['contact_form_url']                ?? '');
+            $sanitized['contact_address']      = sanitize_textarea_field($input['contact_address']     ?? '');
+            $sanitized['pgp_key_url']          = esc_url_raw($input['pgp_key_url']                     ?? '');
+            $sanitized['company_registration'] = sanitize_text_field($input['company_registration']    ?? '');
+            $sanitized['vat_number']           = sanitize_text_field($input['vat_number']              ?? '');
+        } else {
+            $sanitized['company_description']  = (string) ($old_settings['company_description']  ?? '');
+            $sanitized['dpo_name']             = (string) ($old_settings['dpo_name']             ?? '');
+            $sanitized['dpo_email']            = (string) ($old_settings['dpo_email']            ?? '');
+            $sanitized['security_email']       = (string) ($old_settings['security_email']       ?? '');
+            $sanitized['contact_form_url']     = (string) ($old_settings['contact_form_url']     ?? '');
+            $sanitized['contact_address']      = (string) ($old_settings['contact_address']      ?? '');
+            $sanitized['pgp_key_url']          = (string) ($old_settings['pgp_key_url']          ?? '');
+            $sanitized['company_registration'] = (string) ($old_settings['company_registration'] ?? '');
+            $sanitized['vat_number']           = (string) ($old_settings['vat_number']           ?? '');
+        }
 
-            'notifications_enabled'  => !empty($input['notifications_enabled']),
-            'notification_from_name' => sanitize_text_field($input['notification_from_name'] ?? ''),
-            'notification_reply_to'  => sanitize_email($input['notification_reply_to'] ?? ''),
-            'rate_limit_per_hour'    => min(100, max(0, absint($input['rate_limit_per_hour'] ?? 5))),
-            'turnstile_site_key'     => sanitize_text_field($input['turnstile_site_key'] ?? ''),
-            'turnstile_secret_key'   => self::sanitize_secret_field(
+        // ── Subscriptions tab (Notifications + Spam Protection) ──
+        if (!empty($input['__subscriptions_tab_save'])) {
+            $sanitized['notifications_enabled']  = !empty($input['notifications_enabled']);
+            $sanitized['notification_from_name'] = sanitize_text_field($input['notification_from_name'] ?? '');
+            $sanitized['notification_reply_to']  = sanitize_email($input['notification_reply_to'] ?? '');
+            $sanitized['rate_limit_per_hour']    = min(100, max(0, absint($input['rate_limit_per_hour'] ?? 5)));
+            $sanitized['turnstile_site_key']     = sanitize_text_field($input['turnstile_site_key'] ?? '');
+            $sanitized['turnstile_secret_key']   = self::sanitize_secret_field(
                 $input['turnstile_secret_key'] ?? '',
                 $old_settings['turnstile_secret_key'] ?? ''
-            ),
+            );
+        } else {
+            $sanitized['notifications_enabled']  = !empty($old_settings['notifications_enabled']);
+            $sanitized['notification_from_name'] = (string) ($old_settings['notification_from_name'] ?? '');
+            $sanitized['notification_reply_to']  = (string) ($old_settings['notification_reply_to']  ?? '');
+            $sanitized['rate_limit_per_hour']    = (int)    ($old_settings['rate_limit_per_hour']    ?? 5);
+            $sanitized['turnstile_site_key']     = (string) ($old_settings['turnstile_site_key']     ?? '');
+            $sanitized['turnstile_secret_key']   = (string) ($old_settings['turnstile_secret_key']   ?? '');
+        }
 
-            // ── AI chat (OTC) ──────────────────────────
-            // `ai_enabled`, `ai_provider`, and `ai_model_list_cached_at` are
-            // server-controlled by the key-save handler — never sourced from the form.
-            'ai_enabled'                => !empty($old_settings['ai_enabled']),
-            'ai_provider'               => sanitize_key($old_settings['ai_provider'] ?? ''),
-            'ai_model_list_cached_at'   => (int) ($old_settings['ai_model_list_cached_at'] ?? 0),
-        ];
+        // ── Per-site salt ─────────────────────────────────────────
+        // Written out-of-band by OpenTrust_Chat_Budget::site_salt(). Never
+        // sourced from the form — carry forward byte-for-byte so saving settings
+        // doesn't force a salt regeneration (which would invalidate all
+        // in-flight rate-limit hashes and Turnstile bypass transients).
+        if (isset($old_settings['opentrust_site_salt']) && is_string($old_settings['opentrust_site_salt'])) {
+            $sanitized['opentrust_site_salt'] = $old_settings['opentrust_site_salt'];
+        }
+
+        // ── AI chat (OTC) ──────────────────────────
+        // `ai_enabled`, `ai_provider`, and `ai_model_list_cached_at` are
+        // server-controlled by the key-save handler — never sourced from the form.
+        $sanitized['ai_enabled']              = !empty($old_settings['ai_enabled']);
+        $sanitized['ai_provider']             = sanitize_key($old_settings['ai_provider'] ?? '');
+        $sanitized['ai_model_list_cached_at'] = (int) ($old_settings['ai_model_list_cached_at'] ?? 0);
 
         // The AI tab's save form carries a sentinel flag so we only parse AI
-        // fields from the submission when we're on that tab. On the General tab,
+        // fields from the submission when we're on that tab. On other tabs,
         // AI fields are absent from $input and must be preserved from old settings.
         if (!empty($input['__ai_tab_save'])) {
             $sanitized['ai_model']                  = sanitize_text_field($input['ai_model'] ?? ($old_settings['ai_model'] ?? ''));
@@ -576,8 +633,9 @@ final class OpenTrust_Admin {
 
         $settings = OpenTrust::get_settings();
         $tc_url   = home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/');
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab switch on admin settings page.
         $tab      = isset($_GET['tab']) ? sanitize_key((string) wp_unslash($_GET['tab'])) : 'general';
-        if (!in_array($tab, ['general', 'ai'], true)) {
+        if (!in_array($tab, ['general', 'contact', 'subscriptions', 'ai'], true)) {
             $tab = 'general';
         }
         $base_url = admin_url('admin.php?page=opentrust');
@@ -596,6 +654,14 @@ final class OpenTrust_Admin {
                    class="nav-tab <?php echo $tab === 'general' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
                     <?php esc_html_e('General', 'opentrust'); ?>
                 </a>
+                <a href="<?php echo esc_url(add_query_arg('tab', 'contact', $base_url)); ?>"
+                   class="nav-tab <?php echo $tab === 'contact' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
+                    <?php esc_html_e('Contact', 'opentrust'); ?>
+                </a>
+                <a href="<?php echo esc_url(add_query_arg('tab', 'subscriptions', $base_url)); ?>"
+                   class="nav-tab <?php echo $tab === 'subscriptions' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
+                    <?php esc_html_e('Subscriptions', 'opentrust'); ?>
+                </a>
                 <a href="<?php echo esc_url(add_query_arg('tab', 'ai', $base_url)); ?>"
                    class="nav-tab <?php echo $tab === 'ai' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
                     <?php esc_html_e('AI Chat', 'opentrust'); ?>
@@ -609,11 +675,30 @@ final class OpenTrust_Admin {
 
             <?php if ($tab === 'ai'): ?>
                 <?php $this->render_ai_tab($settings); ?>
+            <?php elseif ($tab === 'contact'): ?>
+                <form method="post" action="options.php">
+                    <?php
+                    settings_fields('opentrust_settings_group');
+                    echo '<input type="hidden" name="opentrust_settings[__contact_tab_save]" value="1">';
+                    do_settings_sections('opentrust-settings-contact');
+                    submit_button();
+                    ?>
+                </form>
+            <?php elseif ($tab === 'subscriptions'): ?>
+                <form method="post" action="options.php">
+                    <?php
+                    settings_fields('opentrust_settings_group');
+                    echo '<input type="hidden" name="opentrust_settings[__subscriptions_tab_save]" value="1">';
+                    do_settings_sections('opentrust-settings-subscriptions');
+                    submit_button();
+                    ?>
+                </form>
             <?php else: ?>
                 <form method="post" action="options.php">
                     <?php
                     settings_fields('opentrust_settings_group');
-                    do_settings_sections('opentrust-settings');
+                    echo '<input type="hidden" name="opentrust_settings[__general_tab_save]" value="1">';
+                    do_settings_sections('opentrust-settings-general');
                     submit_button();
                     ?>
                 </form>
@@ -665,7 +750,7 @@ final class OpenTrust_Admin {
                 $categories = [];
                 if (!empty($_POST['ot_add_categories']) && is_array($_POST['ot_add_categories'])) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop below
                     $valid = array_keys(OpenTrust_Notify::category_labels());
-                    foreach (wp_unslash( $_POST['ot_add_categories'] ) as $cat) {
+                    foreach (wp_unslash( $_POST['ot_add_categories'] ) as $cat) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop body.
                         $cat = sanitize_text_field($cat);
                         if (in_array($cat, $valid, true)) {
                             $categories[] = $cat;
@@ -1035,12 +1120,13 @@ final class OpenTrust_Admin {
     private function handle_csv_import(): array {
         $empty = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in caller before dispatching here.
         if (empty($_FILES['ot_import_csv']) || !is_array($_FILES['ot_import_csv'])) {
             $empty['errors'][] = __('No file was uploaded.', 'opentrust');
             return $empty;
         }
 
-        $file = $_FILES['ot_import_csv']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- validated below via checks on error/size/upload status
+        $file = $_FILES['ot_import_csv']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.NonceVerification.Missing -- validated below via checks on error/size/upload status; nonce verified in caller.
         if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
             $empty['errors'][] = __('File upload failed. Please try again.', 'opentrust');
             return $empty;
@@ -1076,7 +1162,9 @@ final class OpenTrust_Admin {
             return $empty;
         }
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in caller before dispatching here.
         $conflict      = sanitize_text_field( wp_unslash( $_POST['ot_conflict'] ?? 'skip' ) );
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in caller before dispatching here.
         $mark_verified = !empty($_POST['ot_mark_verified']);
 
         $summary = OpenTrust_Notify::instance()->import_subscribers_csv($tmp_name, $conflict, $mark_verified);
@@ -1504,7 +1592,7 @@ final class OpenTrust_Admin {
         check_admin_referer('opentrust_ai_save_key');
 
         $provider = isset($_POST['provider']) ? sanitize_key((string) wp_unslash($_POST['provider'])) : '';
-        $api_key  = isset($_POST['api_key'])  ? trim((string) wp_unslash($_POST['api_key']))          : '';
+        $api_key  = isset($_POST['api_key'])  ? trim((string) wp_unslash($_POST['api_key']))          : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Trimmed secret token; sanitize_text_field() would strip characters valid in API keys.
 
         $adapter = OpenTrust_Chat_Provider::for($provider);
         if (!$adapter) {
@@ -1666,6 +1754,7 @@ final class OpenTrust_Admin {
 
         $settings = OpenTrust::get_settings();
 
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only filter params on admin display page.
         $filters = [
             'search'    => isset($_GET['q'])         ? sanitize_text_field((string) wp_unslash($_GET['q']))         : '',
             'model'     => isset($_GET['model'])     ? sanitize_text_field((string) wp_unslash($_GET['model']))     : '',
@@ -1674,6 +1763,7 @@ final class OpenTrust_Admin {
             'page'      => isset($_GET['paged'])     ? max(1, (int) $_GET['paged'])                                 : 1,
             'per_page'  => 25,
         ];
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
         $result  = OpenTrust_Chat_Log::query($filters);
         $total   = $result['total'];
@@ -2007,7 +2097,7 @@ final class OpenTrust_Admin {
         // the same post_id that share the same minute. Synchronous sends in one
         // request always land in the same minute, so this gives one row per
         // user-initiated broadcast even if the same policy was broadcast twice.
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB -- Custom log table, no user input in query
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom log table, table name from $wpdb->prefix, no user input in query.
         $total_rows = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM (
                 SELECT post_id, SUBSTR(sent_at, 1, 16) AS bucket
@@ -2016,7 +2106,6 @@ final class OpenTrust_Admin {
             ) AS broadcasts"
         );
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB -- Custom log table, parameters bound below
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT post_id,
                     MAX(sent_at) AS sent_at,
@@ -2029,6 +2118,7 @@ final class OpenTrust_Admin {
             $per_page,
             $offset
         ));
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
         $total_pages = $total_rows > 0 ? (int) ceil($total_rows / $per_page) : 1;
         ?>

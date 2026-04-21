@@ -314,6 +314,7 @@ final class OpenTrust_Chat {
         // Keep PHP alive through a long stream.
         ignore_user_abort(true);
         if (function_exists('set_time_limit')) {
+            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged, WordPress.PHP.NoSilencedErrors.Discouraged -- Long-running SSE response; safe-mode hosts ignore this.
             @set_time_limit(0);
         }
 
@@ -517,7 +518,11 @@ final class OpenTrust_Chat {
         if ($json === false) {
             $json = '{}';
         }
+        // Event name is an internal token (start|progress|complete|error|…); strip to [A-Za-z0-9_-].
+        $event = preg_replace('/[^A-Za-z0-9_-]/', '', $event);
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $event sanitized above; $json produced by wp_json_encode().
         echo 'event: ' . $event . "\n";
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $json produced by wp_json_encode().
         echo 'data: ' . $json . "\n\n";
         if (function_exists('flush')) {
             flush();

@@ -140,7 +140,7 @@ final class OpenTrust_Notify {
         global $wpdb;
         $log = self::log_table_name();
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- DDL cannot use prepare()
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- DDL cannot use prepare(); table name from $wpdb->prefix.
         $wpdb->query("DROP TABLE IF EXISTS {$log}");
 
         if (defined('DATABASE_TYPE') && DATABASE_TYPE === 'sqlite') {
@@ -467,7 +467,8 @@ final class OpenTrust_Notify {
         // Generous memory + time for modest imports.
         wp_raise_memory_limit('admin');
         if (function_exists('set_time_limit')) {
-            @set_time_limit(120); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- safe-mode hosts ignore this
+            // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged, WordPress.PHP.NoSilencedErrors.Discouraged -- CSV import may exceed default limit; safe-mode hosts ignore this.
+            @set_time_limit(120);
         }
 
         $headers      = null;
@@ -1109,7 +1110,8 @@ final class OpenTrust_Notify {
         $company    = sanitize_text_field( wp_unslash( $_POST['ot_company'] ?? '' ) );
         $categories = [];
 
-        if (!empty($_POST['ot_categories']) && is_array($_POST['ot_categories'])) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop below
+        // phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop body.
+        if (!empty($_POST['ot_categories']) && is_array($_POST['ot_categories'])) {
             $valid = array_keys(self::category_labels());
             foreach (wp_unslash( $_POST['ot_categories'] ) as $cat) {
                 $cat = sanitize_text_field($cat);
@@ -1118,6 +1120,7 @@ final class OpenTrust_Notify {
                 }
             }
         }
+        // phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
         // Increment rate limit counter after validation passes.
         $this->increment_rate_limit();
@@ -1248,7 +1251,8 @@ final class OpenTrust_Notify {
         }
 
         $categories = [];
-        if (!empty($_POST['ot_categories']) && is_array($_POST['ot_categories'])) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop below
+        // phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop body.
+        if (!empty($_POST['ot_categories']) && is_array($_POST['ot_categories'])) {
             $valid = array_keys(self::category_labels());
             foreach (wp_unslash( $_POST['ot_categories'] ) as $cat) {
                 $cat = sanitize_text_field($cat);
@@ -1257,6 +1261,7 @@ final class OpenTrust_Notify {
                 }
             }
         }
+        // phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
         if (empty($categories)) {
             return ['success' => false, 'message' => __('Please select at least one category.', 'opentrust')];

@@ -41,10 +41,23 @@ $ot_accent_contrast = ((int) $ot_hsl['l'] < 55) ? '#ffffff' : '#111827';
 // Build nav items so we inherit the same header as the main trust center.
 $ot_visible   = $ot_settings['sections_visible'] ?? [];
 $ot_nav_items = [];
-if (!empty($ot_visible['policies']) && !empty($ot_data['policies']))                 $ot_nav_items['policies']       = __('Policies', 'opentrust');
-if (!empty($ot_visible['certifications']) && !empty($ot_data['certifications']))    $ot_nav_items['certifications'] = __('Certifications', 'opentrust');
-if (!empty($ot_visible['subprocessors']) && !empty($ot_data['subprocessors']))      $ot_nav_items['subprocessors']  = __('Subprocessors', 'opentrust');
-if (!empty($ot_visible['data_practices']) && !empty($ot_data['data_practices']))    $ot_nav_items['data-practices'] = __('Data Practices', 'opentrust');
+if (!empty($ot_visible['policies']) && !empty($ot_data['policies']))              $ot_nav_items['policies']       = __('Policies', 'opentrust');
+if (!empty($ot_visible['certifications']) && !empty($ot_data['certifications'])) $ot_nav_items['certifications'] = __('Certifications', 'opentrust');
+if (!empty($ot_visible['subprocessors']) && !empty($ot_data['subprocessors']))   $ot_nav_items['subprocessors']  = __('Subprocessors', 'opentrust');
+if (!empty($ot_visible['data_practices']) && !empty($ot_data['data_practices'])) $ot_nav_items['data-practices'] = __('Data Practices', 'opentrust');
+$ot_contact_has_content = (bool) (
+    trim((string) ($ot_settings['company_description'] ?? ''))
+    || trim((string) ($ot_settings['dpo_name']         ?? ''))
+    || trim((string) ($ot_settings['dpo_email']        ?? ''))
+    || trim((string) ($ot_settings['security_email']   ?? ''))
+    || trim((string) ($ot_settings['contact_form_url'] ?? ''))
+    || trim((string) ($ot_settings['contact_address']  ?? ''))
+    || trim((string) ($ot_settings['pgp_key_url']      ?? ''))
+    || trim((string) ($ot_settings['company_registration'] ?? ''))
+    || trim((string) ($ot_settings['vat_number']       ?? ''))
+);
+if (!empty($ot_visible['contact']) && $ot_contact_has_content)                   $ot_nav_items['contact']        = __('Contact', 'opentrust');
+if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                     $ot_nav_items['faqs']           = __('FAQ', 'opentrust');
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -102,12 +115,26 @@ if (!empty($ot_visible['data_practices']) && !empty($ot_data['data_practices']))
                     <span class="ot-nav__brand-name"><?php echo esc_html($ot_company_name ?: get_bloginfo('name')); ?></span>
                 <?php endif; ?>
             </a>
-            <div class="ot-nav__links">
-                <?php foreach ($ot_nav_items as $ot_id => $ot_label): ?>
-                    <a href="<?php echo esc_url(trailingslashit($ot_base_url) . '#ot-' . $ot_id); ?>" class="ot-nav__link">
-                        <?php echo esc_html($ot_label); ?>
-                    </a>
-                <?php endforeach; ?>
+            <?php if (count($ot_nav_items) > 1): ?>
+                <div class="ot-nav__links">
+                    <?php foreach ($ot_nav_items as $ot_id => $ot_label): ?>
+                        <a href="<?php echo esc_url(trailingslashit($ot_base_url) . '#ot-' . $ot_id); ?>" class="ot-nav__link">
+                            <?php echo esc_html($ot_label); ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+            <div class="ot-nav__search">
+                <span class="ot-nav__ask ot-nav__ask--active" aria-current="page">
+                    <svg class="ot-nav__ask-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                        <path d="M20 3v4"/>
+                        <path d="M22 5h-4"/>
+                        <path d="M4 17v2"/>
+                        <path d="M5 18H3"/>
+                    </svg>
+                    <span class="ot-nav__ask-label"><?php esc_html_e('Ask AI', 'opentrust'); ?></span>
+                </span>
             </div>
         </div>
     </nav>
