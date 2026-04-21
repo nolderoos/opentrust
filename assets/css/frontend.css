@@ -856,6 +856,50 @@
         flex-shrink: 0;
     }
 
+    /* Policy ID cell — mono reference code, same visual as on the single-policy eyebrow */
+    .ot-policy-ref {
+        display: inline-block;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--ot-gray-600);
+        background: var(--ot-gray-100);
+        padding: 2px 6px;
+        border-radius: 3px;
+        white-space: nowrap;
+        letter-spacing: 0.02em;
+    }
+
+    .ot-policy-ref--empty {
+        background: transparent;
+        color: var(--ot-gray-300);
+        padding: 0;
+    }
+
+    /* Framework citations under the policy title in the listing table */
+    .ot-policy-citations {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        list-style: none;
+        margin: 4px 0 0;
+        padding: 0;
+    }
+
+    .ot-policy-citation {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        background: var(--ot-accent-subtle);
+        color: var(--ot-accent-text);
+        border: 1px solid var(--ot-accent-border);
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 500;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        white-space: nowrap;
+    }
+
     .ot-policy-actions {
         display: flex;
         align-items: center;
@@ -1822,33 +1866,54 @@
     }
 
     /* ═══════════════════════════════════════════════
-       PDF VIEW (minimal chrome)
+       POLICY SINGLE — eyebrow, ref, citations
        ═══════════════════════════════════════════════ */
 
-    .ot-body--pdf .ot-nav,
-    .ot-body--pdf .ot-footer {
-        display: none;
+    .ot-policy-single__eyebrow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ot-space-3);
+        margin-bottom: var(--ot-space-4);
     }
 
-    .ot-body--pdf .ot-hero {
-        background: var(--ot-white);
-        padding-block: var(--ot-space-8);
+    .ot-policy-single__ref {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ot-gray-500);
+        background: var(--ot-gray-100);
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.02em;
     }
 
-    .ot-body--pdf .ot-hero__title {
-        color: var(--ot-gray-900);
-    }
-
-    .ot-body--pdf .ot-hero__tagline {
+    .ot-policy-single__version {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: var(--ot-text-sm);
         color: var(--ot-gray-500);
     }
 
-    .ot-body--pdf .ot-hero__badge {
-        color: var(--ot-gray-600);
+    .ot-policy-single__citations {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        list-style: none;
+        margin: var(--ot-space-5) 0 0;
+        padding: 0;
     }
 
-    .ot-body--pdf {
-        background: var(--ot-white);
+    .ot-policy-single__citation {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        background: var(--ot-accent-subtle);
+        color: var(--ot-accent-text);
+        border: 1px solid var(--ot-accent-border);
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
     /* ═══════════════════════════════════════════════
@@ -1860,298 +1925,13 @@
         background: hsl(var(--ot-accent-h), 30%, 7%);
     }
 
-    /* ═══════════════════════════════════════════════
-       SUBSCRIBE CTA (main page)
-       ═══════════════════════════════════════════════ */
-
-    .ot-subscribe-cta {
-        padding-block: var(--ot-space-16);
-        background: linear-gradient(135deg,
-            hsl(var(--ot-accent-h), calc(var(--ot-accent-s) * 0.15), 97%) 0%,
-            hsl(var(--ot-accent-h), calc(var(--ot-accent-s) * 0.25), 94%) 100%);
-    }
-
-    .ot-subscribe-cta__inner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--ot-space-8);
-        padding: var(--ot-space-8) var(--ot-space-10);
-        background: var(--ot-white);
-        border-radius: var(--ot-radius-lg);
-        box-shadow: var(--ot-shadow-md);
-        border: 1px solid var(--ot-gray-200);
-    }
-
-    .ot-subscribe-cta__title {
-        font-size: var(--ot-text-xl);
-        font-weight: 500;
-        color: var(--ot-gray-900);
-        letter-spacing: -0.02em;
-        margin: 0 0 var(--ot-space-1) 0;
-    }
-
-    .ot-subscribe-cta__text {
-        font-size: var(--ot-text-sm);
-        color: var(--ot-gray-500);
-        margin: 0;
-        line-height: var(--ot-leading-normal);
-    }
-
-    .ot-subscribe-cta__actions {
-        display: flex;
-        gap: var(--ot-space-3);
-        flex-shrink: 0;
-    }
-
-    .ot-btn--ghost {
-        background: transparent;
-        color: var(--ot-gray-500);
-        border: 1px solid var(--ot-gray-300);
-    }
-
-    .ot-btn--ghost:hover {
-        background: var(--ot-gray-50);
-        color: var(--ot-gray-700);
-    }
-
-    .ot-btn--full {
-        width: 100%;
-        justify-content: center;
-    }
-
-    /* ═══════════════════════════════════════════════
-       SUBSCRIBE PAGE
-       ═══════════════════════════════════════════════ */
-
-    .ot-subscribe-page {
-        max-width: 520px;
-        margin: var(--ot-space-12) auto;
-        padding-bottom: var(--ot-space-16);
-    }
-
-    .ot-back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--ot-space-2);
-        font-size: var(--ot-text-sm);
-        font-weight: 500;
-        color: var(--ot-gray-500);
-        text-decoration: none;
-        margin-bottom: var(--ot-space-8);
-        transition: color var(--ot-transition-fast);
-    }
-
-    .ot-back-link:hover {
-        color: var(--ot-accent);
-    }
-
-    .ot-subscribe-page__title {
-        font-size: var(--ot-text-2xl);
-        font-weight: 700;
-        color: var(--ot-gray-900);
-        letter-spacing: -0.02em;
-        margin: 0 0 var(--ot-space-2) 0;
-    }
-
-    .ot-subscribe-page__desc {
-        font-size: var(--ot-text-base);
-        color: var(--ot-gray-500);
-        margin: 0 0 var(--ot-space-8) 0;
-        line-height: var(--ot-leading-normal);
-    }
-
-    /* ── Notice ── */
-
-    .ot-notice {
-        padding: var(--ot-space-3) var(--ot-space-4);
-        border-radius: var(--ot-radius-sm);
-        font-size: var(--ot-text-sm);
-        font-weight: 500;
-        margin-bottom: var(--ot-space-6);
-    }
-
-    .ot-notice--success {
-        background: var(--ot-success-bg);
-        color: var(--ot-success-fg);
-        border: 1px solid var(--ot-success-ring);
-    }
-
-    .ot-notice--error {
-        background: #fef2f2;
-        color: var(--ot-error-fg);
-        border: 1px solid #fecaca;
-    }
-
-    /* ── Subscribe form ── */
-
-    .ot-subscribe-form {
-        background: var(--ot-white);
-        border: 1px solid var(--ot-gray-200);
-        border-radius: var(--ot-radius-lg);
-        padding: var(--ot-space-8);
-        box-shadow: var(--ot-shadow-sm);
-    }
-
-    .ot-subscribe-form__field {
-        margin-bottom: var(--ot-space-5);
-    }
-
-    .ot-subscribe-form__field label {
-        display: block;
-        font-size: var(--ot-text-sm);
-        font-weight: 600;
-        color: var(--ot-gray-700);
-        margin-bottom: var(--ot-space-1h);
-    }
-
-    .ot-subscribe-form__field input[type="email"],
-    .ot-subscribe-form__field input[type="text"] {
-        width: 100%;
-        padding: var(--ot-space-2) var(--ot-space-3);
-        font-family: var(--ot-font);
-        font-size: var(--ot-text-base);
-        border: 1px solid var(--ot-gray-300);
-        border-radius: var(--ot-radius-sm);
-        background: var(--ot-white);
-        color: var(--ot-gray-900);
-        transition: border-color var(--ot-transition-fast), box-shadow var(--ot-transition-fast);
-        box-sizing: border-box;
-    }
-
-    .ot-subscribe-form__field input:focus {
-        outline: none;
-        border-color: var(--ot-accent);
-        box-shadow: var(--ot-ring-accent);
-    }
-
-    .ot-subscribe-form__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: var(--ot-space-4);
-    }
-
-    .ot-required {
-        color: var(--ot-error);
-    }
-
-    .ot-subscribe-form__categories {
-        border: 1px solid var(--ot-gray-200);
-        border-radius: var(--ot-radius-sm);
-        padding: var(--ot-space-4);
-        margin: 0 0 var(--ot-space-6) 0;
-    }
-
-    .ot-subscribe-form__categories legend {
-        font-size: var(--ot-text-sm);
-        font-weight: 600;
-        color: var(--ot-gray-700);
-        padding: 0 var(--ot-space-2);
-    }
-
-    .ot-subscribe-form__checkbox {
-        display: flex;
-        align-items: center;
-        gap: var(--ot-space-2);
-        padding: var(--ot-space-1h) 0;
-        font-size: var(--ot-text-sm);
-        color: var(--ot-gray-700);
-        cursor: pointer;
-    }
-
-    .ot-subscribe-form__checkbox input[type="checkbox"] {
-        accent-color: var(--ot-accent);
-        width: 16px;
-        height: 16px;
-    }
-
-    .ot-subscribe-form__privacy {
-        font-size: var(--ot-text-xs);
-        color: var(--ot-gray-400);
-        text-align: center;
-        margin: var(--ot-space-4) 0 0;
-    }
-
-    .ot-subscribe-form__divider {
-        border: none;
-        border-top: 1px solid var(--ot-gray-200);
-        margin: var(--ot-space-8) 0;
-    }
-
-    .ot-subscribe-form__unsubscribe {
-        font-size: var(--ot-text-sm);
-        color: var(--ot-gray-500);
-        text-align: center;
-    }
-
-    .ot-subscribe-form__unsubscribe a {
-        color: var(--ot-error);
-    }
-
-    /* ── Status pages (confirm / unsubscribe result) ── */
-
-    .ot-status-page {
-        text-align: center;
-        padding: var(--ot-space-16) 0;
-    }
-
-    .ot-status-page__icon {
-        margin-bottom: var(--ot-space-6);
-    }
-
-    .ot-status-page--success .ot-status-page__icon {
-        color: var(--ot-success);
-    }
-
-    .ot-status-page--error .ot-status-page__icon {
-        color: var(--ot-gray-400);
-    }
-
-    .ot-status-page h1 {
-        font-size: var(--ot-text-2xl);
-        font-weight: 700;
-        color: var(--ot-gray-900);
-        letter-spacing: -0.02em;
-        margin: 0 0 var(--ot-space-2) 0;
-    }
-
-    .ot-status-page p {
-        font-size: var(--ot-text-base);
-        color: var(--ot-gray-500);
-        margin: 0 0 var(--ot-space-6) 0;
-        line-height: var(--ot-leading-normal);
-    }
-
-    /* ── Responsive (subscribe) ── */
-
-    @media (max-width: 640px) {
-        .ot-subscribe-cta__inner {
-            flex-direction: column;
-            text-align: center;
-        }
-
-        .ot-subscribe-cta__actions {
-            width: 100%;
-            justify-content: center;
-        }
-
-        .ot-subscribe-form__row {
-            grid-template-columns: 1fr;
-        }
-
-        .ot-subscribe-page {
-            margin-inline: var(--ot-space-4);
-        }
-    }
 
     /* ═══════════════════════════════════════════════
        GET IN TOUCH — dark accent-colored section
 
        Full-bleed dark background using the site's accent hue at high
        saturation + low lightness. Contact rows sit directly on the dark
-       surface (no container), company description above them, and the
-       existing Stay Informed subscribe card embedded below at full
-       container width.
+       surface (no container), company description above them.
        ═══════════════════════════════════════════════ */
 
     /* Two-class body selector beats `.ot-section:nth-child(odd)` specificity. */
@@ -2262,61 +2042,6 @@
         opacity: 0.75;
     }
 
-    /* Embedded Stay Informed subscribe card — sits below the two-column
-       grid at full container width, using the existing
-       .ot-subscribe-cta__inner design. Generous top margin gives the card
-       breathing room away from the contact rows above. */
-    .ot-get-subscribe {
-        margin-top: var(--ot-space-20);
-    }
-
-    .ot-get-subscribe .ot-subscribe-cta__inner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--ot-space-8);
-        padding: var(--ot-space-8) var(--ot-space-10);
-        background: var(--ot-white);
-        border-radius: var(--ot-radius-lg);
-        box-shadow: var(--ot-shadow-xl);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .ot-get-subscribe .ot-subscribe-cta__title {
-        font-size: var(--ot-text-xl);
-        font-weight: 500;
-        color: var(--ot-gray-900);
-        letter-spacing: -0.02em;
-        margin: 0 0 var(--ot-space-1) 0;
-    }
-
-    .ot-get-subscribe .ot-subscribe-cta__text {
-        font-size: var(--ot-text-sm);
-        color: var(--ot-gray-500);
-        margin: 0;
-        line-height: var(--ot-leading-normal);
-    }
-
-    .ot-get-subscribe .ot-subscribe-cta__actions {
-        display: flex;
-        gap: var(--ot-space-3);
-        flex-shrink: 0;
-    }
-
-    @media (max-width: 860px) {
-        .ot-get-subscribe .ot-subscribe-cta__inner {
-            flex-direction: column;
-            text-align: center;
-            padding: var(--ot-space-6) var(--ot-space-6);
-        }
-
-        .ot-get-subscribe .ot-subscribe-cta__actions {
-            width: 100%;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-    }
-
     @media (max-width: 860px) {
         .ot-get-inner {
             grid-template-columns: 1fr;
@@ -2326,10 +2051,6 @@
         .ot-get-header,
         .ot-get-header__description {
             max-width: none;
-        }
-
-        .ot-get-subscribe {
-            margin-top: var(--ot-space-12);
         }
     }
 

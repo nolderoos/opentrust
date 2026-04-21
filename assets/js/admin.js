@@ -296,6 +296,48 @@
             $(this).hide();
         });
 
+        // ── Policy PDF attachment uploader ──
+        // Mirrors the certification artifact uploader, scoped via the
+        // [data-ot-policy-attachment] wrapper so the selectors don't collide.
+        $(document).on('click', '.ot-upload-policy-attachment', function (e) {
+            e.preventDefault();
+            var $btn     = $(this);
+            var $wrap    = $btn.closest('[data-ot-policy-attachment]');
+            var $input   = $wrap.find('.ot-policy-attachment-input');
+            var $preview = $wrap.find('.ot-artifact-preview');
+            var $link    = $preview.find('.ot-artifact-preview__link');
+            var $remove  = $wrap.find('.ot-remove-policy-attachment');
+
+            var adminI18n = (window.OpenTrustAdmin && window.OpenTrustAdmin.i18n) || {};
+            var frame = wp.media({
+                title:    adminI18n.selectPolicyPdf || 'Select Policy PDF',
+                multiple: false,
+                library:  { type: 'application/pdf' },
+                button:   { text: adminI18n.usePolicyPdf || 'Use This PDF' }
+            });
+
+            frame.on('select', function () {
+                var attachment = frame.state().get('selection').first().toJSON();
+                $input.val(attachment.id);
+                $link.attr('href', attachment.url).text(attachment.title || attachment.filename || attachment.url);
+                $preview.show();
+                $remove.show();
+                $btn.text(adminI18n.replacePolicyPdf || 'Replace PDF');
+            });
+
+            frame.open();
+        });
+
+        $(document).on('click', '.ot-remove-policy-attachment', function (e) {
+            e.preventDefault();
+            var $wrap = $(this).closest('[data-ot-policy-attachment]');
+            $wrap.find('.ot-policy-attachment-input').val('0');
+            $wrap.find('.ot-artifact-preview').hide();
+            var adminI18n = (window.OpenTrustAdmin && window.OpenTrustAdmin.i18n) || {};
+            $wrap.find('.ot-upload-policy-attachment').text(adminI18n.uploadPolicyPdf || 'Upload PDF');
+            $(this).hide();
+        });
+
         // ── Tag input for Data Practice repeaters ──
         function otReindexTags($container) {
             var fieldName = $container.data('ot-tags');

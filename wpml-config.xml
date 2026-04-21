@@ -39,12 +39,17 @@
         <custom-field action="copy">_ot_policy_category</custom-field>
         <custom-field action="copy">_ot_policy_effective_date</custom-field>
         <custom-field action="copy">_ot_policy_review_date</custom-field>
-        <custom-field action="copy">_ot_policy_downloadable</custom-field>
         <custom-field action="copy">_ot_policy_sort_order</custom-field>
-        <!-- Broadcast state is transient per post and must not cross languages. -->
-        <custom-field action="ignore">_ot_policy_last_broadcast_at</custom-field>
-        <custom-field action="ignore">_ot_policy_last_broadcast_sent</custom-field>
-        <custom-field action="ignore">_ot_policy_last_broadcast_failed</custom-field>
+        <!-- Policy ID is language-agnostic (POL-012 is the same reference in
+             every locale). Framework citations are control IDs (SOC 2 CC6.1,
+             ISO 27001 A.9.2) which are also identifiers, not prose. The PDF
+             attachment is copied verbatim; translators can override the
+             translation-post's attachment meta if they have a localized PDF. -->
+        <custom-field action="copy">_ot_policy_ref_id</custom-field>
+        <custom-field action="copy">_ot_policy_citations</custom-field>
+        <custom-field action="copy">_ot_policy_attachment_id</custom-field>
+        <!-- Legacy v7 flag dropped in v0.8.0 — meta is deleted on upgrade. -->
+        <custom-field action="ignore">_ot_policy_downloadable</custom-field>
 
         <!-- ── Subprocessors ───────────────────────────── -->
         <!-- Purpose, data processed, and country are displayed text. -->

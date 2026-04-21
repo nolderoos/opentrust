@@ -3,7 +3,7 @@
  * Plugin Name: OpenTrust
  * Plugin URI:  https://github.com/opentrust/opentrust
  * Description: A self-hosted, open-source trust center for publishing security policies, subprocessors, certifications, and data practices.
- * Version:     0.6.0
+ * Version:     0.8.0
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author:      OpenTrust
@@ -18,11 +18,11 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-define('OPENTRUST_VERSION', '0.6.0');
+define('OPENTRUST_VERSION', '0.8.0');
 define('OPENTRUST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('OPENTRUST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('OPENTRUST_PLUGIN_FILE', __FILE__);
-define('OPENTRUST_DB_VERSION', 6);
+define('OPENTRUST_DB_VERSION', 9);
 
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin.php';
@@ -30,7 +30,6 @@ require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-cpt.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-catalog.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-render.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-version.php';
-require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-notify.php';
 
 // Chat (OTC) — policy chat feature.
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-secrets.php';
@@ -56,18 +55,17 @@ register_activation_hook(__FILE__, static function (): void {
         update_option('opentrust_settings', OpenTrust::defaults());
     }
 
-    // Defensive cleanup: remove any legacy weekly-digest state and log table
-    // schema from earlier plugin versions.
+    // Defensive cleanup: remove any legacy weekly-digest and notification state
+    // from earlier plugin versions (subscriptions feature lives on the
+    // feature/subscriptions-broadcasts branch and is not shipped in this build).
     wp_clear_scheduled_hook('opentrust_weekly_digest');
     delete_option('opentrust_notification_queue');
 
-    $existing_db_version = (int) get_option('opentrust_db_version', 0);
-    if ($existing_db_version > 0 && $existing_db_version < 6) {
-        OpenTrust_Notify::drop_log_table();
-    }
-
-    // Create notification tables.
-    OpenTrust_Notify::create_tables();
+    global $wpdb;
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
+    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_subscribers");
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
+    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_notification_log");
 
     // Create chat log table.
     OpenTrust_Chat_Log::create_table();

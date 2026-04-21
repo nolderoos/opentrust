@@ -29,12 +29,6 @@ final class OpenTrust_Render {
             'main'           => $this->render_trust_center(),
             'policy'         => $this->render_policy_single(),
             'policy_version' => $this->render_policy_version(),
-            'policy_pdf'     => $this->render_policy_pdf(),
-            'subscribe'      => $this->render_subscribe(),
-            'confirm'        => $this->render_confirm(),
-            'unsubscribe'    => $this->render_unsubscribe(),
-            'preferences'    => $this->render_preferences(),
-            'feed'           => $this->render_feed(),
             'ask'            => $this->render_chat_page(),
             default          => $this->render_404(),
         };
@@ -302,111 +296,6 @@ final class OpenTrust_Render {
     }
 
     // ──────────────────────────────────────────────
-    // PDF download
-    // ──────────────────────────────────────────────
-
-    private function render_policy_pdf(): void {
-        $slug   = sanitize_title(get_query_var('ot_policy_slug', ''));
-        $policy = $this->find_policy_by_slug($slug);
-
-        if (!$policy) {
-            $this->render_404();
-            return;
-        }
-
-        // PDF generation handled by OpenTrust_PDF (Phase 5).
-        // For now, serve the policy as a clean HTML page for browser print.
-        $ot_settings = OpenTrust::get_settings();
-        $ot_data     = $this->gather_data($ot_settings);
-        $ot_data['current_policy'] = $policy;
-        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress filter
-        $ot_data['policy_content'] = apply_filters('the_content', $policy->post_content);
-        $ot_data['policy_version'] = (int) get_post_meta($policy->ID, '_ot_version', true) ?: 1;
-        $ot_data['policy_meta']    = $this->get_policy_meta($policy->ID);
-        $ot_data['view']           = 'policy_pdf';
-
-        header('Content-Type: text/html; charset=utf-8');
-        include OPENTRUST_PLUGIN_DIR . 'templates/trust-center.php';
-    }
-
-    // ──────────────────────────────────────────────
-    // Subscribe / Confirm / Unsubscribe / Preferences / Feed
-    // ──────────────────────────────────────────────
-
-    private function render_subscribe(): void {
-        $ot_settings = OpenTrust::get_settings();
-        $ot_data     = $this->gather_data($ot_settings);
-        $ot_data['view'] = 'subscribe';
-
-        // Handle POST.
-        $result = null;
-        if (isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'POST') {
-            $result = OpenTrust_Notify::instance()->handle_subscribe_post();
-        }
-        $ot_data['subscribe_result'] = $result;
-
-        header('Content-Type: text/html; charset=utf-8');
-        include OPENTRUST_PLUGIN_DIR . 'templates/trust-center.php';
-    }
-
-    private function render_confirm(): void {
-        $token     = sanitize_text_field(get_query_var('ot_token', ''));
-        $confirmed = OpenTrust_Notify::instance()->confirm($token);
-
-        $ot_settings = OpenTrust::get_settings();
-        $ot_data     = $this->gather_data($ot_settings);
-        $ot_data['view']      = 'confirm';
-        $ot_data['confirmed'] = $confirmed;
-
-        header('Content-Type: text/html; charset=utf-8');
-        include OPENTRUST_PLUGIN_DIR . 'templates/trust-center.php';
-    }
-
-    private function render_unsubscribe(): void {
-        $token        = sanitize_text_field(get_query_var('ot_token', ''));
-        $unsubscribed = OpenTrust_Notify::instance()->unsubscribe($token);
-
-        $ot_settings = OpenTrust::get_settings();
-        $ot_data     = $this->gather_data($ot_settings);
-        $ot_data['view']         = 'unsubscribe';
-        $ot_data['unsubscribed'] = $unsubscribed;
-
-        header('Content-Type: text/html; charset=utf-8');
-        include OPENTRUST_PLUGIN_DIR . 'templates/trust-center.php';
-    }
-
-    private function render_preferences(): void {
-        $token      = sanitize_text_field(get_query_var('ot_token', ''));
-        $subscriber = OpenTrust_Notify::instance()->get_subscriber_by_token($token);
-
-        if (!$subscriber || $subscriber->status !== 'active') {
-            $this->render_404();
-            return;
-        }
-
-        $ot_settings = OpenTrust::get_settings();
-        $ot_data     = $this->gather_data($ot_settings);
-        $ot_data['view']       = 'preferences';
-        $ot_data['subscriber'] = $subscriber;
-
-        // Handle POST.
-        $result = null;
-        if (isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'POST') {
-            $result = OpenTrust_Notify::instance()->handle_preferences_post($token);
-            // Refresh subscriber data after update.
-            $ot_data['subscriber'] = OpenTrust_Notify::instance()->get_subscriber_by_token($token);
-        }
-        $ot_data['preferences_result'] = $result;
-
-        header('Content-Type: text/html; charset=utf-8');
-        include OPENTRUST_PLUGIN_DIR . 'templates/trust-center.php';
-    }
-
-    private function render_feed(): void {
-        OpenTrust_Notify::instance()->render_rss_feed();
-    }
-
-    // ──────────────────────────────────────────────
     // 404
     // ──────────────────────────────────────────────
 
@@ -529,7 +418,7 @@ final class OpenTrust_Render {
             $items[] = [
                 'id'           => $post->ID,
                 'title'        => $post->post_title,
-                'type'         => get_post_meta($post->ID, '_ot_cert_type', true) ?: 'certified',
+                'type'         => get_post_meta($post->ID, '_ot_cert_type', true) ?: 'compliant',
                 'issuing_body' => get_post_meta($post->ID, '_ot_cert_issuing_body', true) ?: '',
                 'status'       => get_post_meta($post->ID, '_ot_cert_status', true) ?: 'active',
                 'issue_date'   => get_post_meta($post->ID, '_ot_cert_issue_date', true) ?: '',
@@ -561,17 +450,20 @@ final class OpenTrust_Render {
 
         $items = [];
         foreach ($posts as $post) {
-            $eff = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
+            $eff        = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
+            $attachment = $this->resolve_policy_attachment($post->ID);
             $items[] = [
                 'id'             => $post->ID,
                 'title'          => $post->post_title,
                 'slug'           => $post->post_name,
                 'excerpt'        => $post->post_excerpt ?: wp_trim_words($post->post_content, 30),
                 'version'        => (int) get_post_meta($post->ID, '_ot_version', true) ?: 1,
+                'ref_id'         => (string) (get_post_meta($post->ID, '_ot_policy_ref_id', true) ?: ''),
                 'category'       => get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other',
+                'citations'      => $this->normalize_citations(get_post_meta($post->ID, '_ot_policy_citations', true)),
                 'effective_date' => $eff,
                 'review_date'    => get_post_meta($post->ID, '_ot_policy_review_date', true) ?: '',
-                'downloadable'   => (bool) get_post_meta($post->ID, '_ot_policy_downloadable', true),
+                'attachment'     => $attachment,
                 'last_modified'  => $post->post_modified,
                 'is_pending'     => $eff && strtotime($eff) > time(),
             ];
@@ -579,6 +471,53 @@ final class OpenTrust_Render {
 
         set_transient($this->cache_key('policies'), $items, HOUR_IN_SECONDS);
         return $items;
+    }
+
+    /**
+     * Normalize the citations meta into a list of ["SOC 2 CC6.1", …] strings.
+     * Stored shape is [['name' => '…'], …]; defensive against legacy variants.
+     *
+     * @param mixed $raw
+     * @return array<int,string>
+     */
+    private function normalize_citations($raw): array {
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $entry) {
+            $name = is_array($entry) ? (string) ($entry['name'] ?? '') : (string) $entry;
+            $name = trim($name);
+            if ($name !== '') {
+                $out[] = $name;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Resolve the policy's uploaded PDF into a display-ready struct, or return
+     * null when no attachment is set or the attachment has been deleted.
+     *
+     * @return array{url:string,filename:string,size_bytes:int,size_human:string}|null
+     */
+    private function resolve_policy_attachment(int $post_id): ?array {
+        $attachment_id = (int) get_post_meta($post_id, '_ot_policy_attachment_id', true);
+        if ($attachment_id <= 0 || get_post_type($attachment_id) !== 'attachment') {
+            return null;
+        }
+        $url = wp_get_attachment_url($attachment_id);
+        if (!$url) {
+            return null;
+        }
+        $path  = get_attached_file($attachment_id) ?: '';
+        $bytes = $path && file_exists($path) ? (int) wp_filesize($path) : 0;
+        return [
+            'url'        => $url,
+            'filename'   => get_the_title($attachment_id) ?: basename($url),
+            'size_bytes' => $bytes,
+            'size_human' => $bytes > 0 ? size_format($bytes, 1) : '',
+        ];
     }
 
     private function get_subprocessors(): array {
@@ -862,10 +801,12 @@ final class OpenTrust_Render {
 
     private function get_policy_meta(int $post_id): array {
         return [
+            'ref_id'         => (string) (get_post_meta($post_id, '_ot_policy_ref_id', true) ?: ''),
             'category'       => get_post_meta($post_id, '_ot_policy_category', true) ?: 'other',
+            'citations'      => $this->normalize_citations(get_post_meta($post_id, '_ot_policy_citations', true)),
             'effective_date' => get_post_meta($post_id, '_ot_policy_effective_date', true) ?: '',
             'review_date'    => get_post_meta($post_id, '_ot_policy_review_date', true) ?: '',
-            'downloadable'   => (bool) get_post_meta($post_id, '_ot_policy_downloadable', true),
+            'attachment'     => $this->resolve_policy_attachment($post_id),
         ];
     }
 

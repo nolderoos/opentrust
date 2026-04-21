@@ -13,6 +13,12 @@ defined('ABSPATH') || exit;
 
 $ot_policies        = $ot_data['policies'] ?? [];
 $ot_category_labels = OpenTrust_Render::policy_category_labels();
+
+// Show the ID column only when at least one policy has a Policy ID set.
+$ot_has_ref_col = false;
+foreach ($ot_policies as $ot_p) {
+    if (!empty($ot_p['ref_id'])) { $ot_has_ref_col = true; break; }
+}
 ?>
 <section id="ot-policies" class="ot-section">
     <div class="ot-container">
@@ -25,14 +31,26 @@ $ot_category_labels = OpenTrust_Render::policy_category_labels();
         <div class="ot-table-wrapper">
             <table class="ot-table" role="table">
                 <colgroup>
+                    <?php if ($ot_has_ref_col): ?>
+                    <col style="width:10%">
+                    <col style="width:32%">
+                    <col style="width:16%">
+                    <col style="width:10%">
+                    <col style="width:22%">
+                    <col style="width:10%">
+                    <?php else: ?>
                     <col style="width:40%">
                     <col style="width:18%">
                     <col style="width:10%">
                     <col style="width:22%">
                     <col style="width:10%">
+                    <?php endif; ?>
                 </colgroup>
                 <thead>
                     <tr>
+                        <?php if ($ot_has_ref_col): ?>
+                        <th data-ot-sort="ref" scope="col"><?php esc_html_e('ID', 'opentrust'); ?></th>
+                        <?php endif; ?>
                         <th data-ot-sort="name" scope="col"><?php esc_html_e('Policy', 'opentrust'); ?></th>
                         <th data-ot-sort="category" scope="col"><?php esc_html_e('Category', 'opentrust'); ?></th>
                         <th scope="col"><?php esc_html_e('Version', 'opentrust'); ?></th>
@@ -45,17 +63,35 @@ $ot_category_labels = OpenTrust_Render::policy_category_labels();
                         $ot_category       = $ot_policy['category'] ?? 'other';
                         $ot_category_label = $ot_category_labels[$ot_category] ?? $ot_category;
                         $ot_policy_url     = trailingslashit($ot_base_url) . 'policy/' . $ot_policy['slug'] . '/';
-                        $ot_pdf_url        = trailingslashit($ot_base_url) . 'policy/' . $ot_policy['slug'] . '/pdf/';
+                        $ot_attachment     = $ot_policy['attachment'] ?? null;
+                        $ot_citations      = $ot_policy['citations'] ?? [];
+                        $ot_ref_id         = (string) ($ot_policy['ref_id'] ?? '');
                         $ot_date_formatted = $ot_policy['effective_date']
                             ? wp_date(get_option('date_format'), strtotime($ot_policy['effective_date']))
                             : wp_date(get_option('date_format'), strtotime($ot_policy['last_modified']));
                     ?>
                     <tr>
+                        <?php if ($ot_has_ref_col): ?>
+                        <td>
+                            <?php if ($ot_ref_id !== ''): ?>
+                                <code class="ot-policy-ref"><?php echo esc_html($ot_ref_id); ?></code>
+                            <?php else: ?>
+                                <span class="ot-policy-ref ot-policy-ref--empty" aria-hidden="true">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <?php endif; ?>
                         <td>
                             <a href="<?php echo esc_url($ot_policy_url); ?>" class="ot-policy-link">
                                 <svg class="ot-policy-link__icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h6v6h6v10H6z"/></svg>
                                 <strong><?php echo esc_html($ot_policy['title']); ?></strong>
                             </a>
+                            <?php if (!empty($ot_citations)): ?>
+                            <ul class="ot-policy-citations" role="list" aria-label="<?php esc_attr_e('Framework citations', 'opentrust'); ?>">
+                                <?php foreach ($ot_citations as $ot_citation): ?>
+                                <li class="ot-policy-citation"><?php echo esc_html($ot_citation); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <?php endif; ?>
                         </td>
                         <td><?php echo esc_html($ot_category_label); ?></td>
                         <td><?php
@@ -63,8 +99,15 @@ $ot_category_labels = OpenTrust_Render::policy_category_labels();
                         printf(esc_html__('v%s', 'opentrust'), esc_html((string) $ot_policy['version'])); ?></td>
                         <td><?php echo esc_html($ot_date_formatted); ?></td>
                         <td class="ot-policy-actions">
-                            <?php if ($ot_policy['downloadable']): ?>
-                                <a href="<?php echo esc_url($ot_pdf_url); ?>" class="ot-policy-actions__pdf" title="<?php esc_attr_e('Download PDF', 'opentrust'); ?>">
+                            <?php if ($ot_attachment): ?>
+                                <a href="<?php echo esc_url($ot_attachment['url']); ?>" class="ot-policy-actions__pdf" title="<?php
+                                if (!empty($ot_attachment['size_human'])) {
+                                    /* translators: %s: human-readable file size */
+                                    echo esc_attr(sprintf(__('Download PDF (%s)', 'opentrust'), $ot_attachment['size_human']));
+                                } else {
+                                    esc_attr_e('Download PDF', 'opentrust');
+                                }
+                                ?>" download>
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 12l-4-4h2.5V3h3v5H12L8 12zm-6 2h12v1.5H2V14z"/></svg>
                                 </a>
                             <?php endif; ?>

@@ -21,6 +21,7 @@ final class OpenTrust_Admin {
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
+        add_filter('submenu_file', [$this, 'fix_submenu_highlight']);
 
         // AI tab: custom admin-post.php handlers for key save/refresh/forget.
         add_action('admin_post_opentrust_ai_save_key',        [$this, 'handle_ai_save_key']);
@@ -33,8 +34,7 @@ final class OpenTrust_Admin {
         add_action('admin_post_opentrust_ai_toggle_logging',    [$this, 'handle_ai_toggle_logging']);
 
         // Warn admins on every OpenTrust admin page when the site is on Plain
-        // permalinks — the plugin's pretty URLs all 404 in that mode and the
-        // confirmation / unsubscribe / preferences emails point at dead links.
+        // permalinks — the plugin's pretty URLs all 404 in that mode.
         add_action('admin_notices', [$this, 'render_plain_permalinks_notice']);
     }
 
@@ -62,24 +62,6 @@ final class OpenTrust_Admin {
             [$this, 'render_settings_page']
         );
 
-        add_submenu_page(
-            'opentrust',
-            __('Subscribers', 'opentrust'),
-            __('Subscribers', 'opentrust'),
-            'manage_options',
-            'opentrust-subscribers',
-            [$this, 'render_subscribers_page']
-        );
-
-        add_submenu_page(
-            'opentrust',
-            __('Broadcast History', 'opentrust'),
-            __('Broadcast History', 'opentrust'),
-            'manage_options',
-            'opentrust-history',
-            [$this, 'render_history_page']
-        );
-
         // AI Questions — only visible once AI is enabled.
         $settings = OpenTrust::get_settings();
         if (!empty($settings['ai_enabled'])) {
@@ -92,6 +74,33 @@ final class OpenTrust_Admin {
                 [$this, 'render_questions_page']
             );
         }
+    }
+
+    /**
+     * On "Add New" screens for our CPTs, highlight the correct submenu item.
+     *
+     * WP core's _add_post_type_submenus() and our register_menu() both hook
+     * admin_menu at priority 10. Core runs first, calling add_submenu_page()
+     * before add_menu_page('opentrust') has populated $admin_page_hooks, so
+     * the CPT submenus end up in $_registered_pages under admin_page_* keys
+     * instead of opentrust_page_*. post-new.php looks for the opentrust_page_*
+     * key to fall back to highlighting edit.php?post_type=X; the lookup
+     * misses, $submenu_file collapses to the parent slug 'opentrust', and
+     * the Settings submenu (which uses the same slug) steals the highlight.
+     */
+    public function fix_submenu_highlight(?string $submenu_file): ?string {
+        global $pagenow, $post_type;
+
+        if ($pagenow !== 'post-new.php') {
+            return $submenu_file;
+        }
+
+        $ot_types = ['ot_policy', 'ot_certification', 'ot_subprocessor', 'ot_data_practice', 'ot_faq'];
+        if (in_array($post_type, $ot_types, true)) {
+            return "edit.php?post_type={$post_type}";
+        }
+
+        return $submenu_file;
     }
 
     // ──────────────────────────────────────────────
@@ -195,45 +204,6 @@ final class OpenTrust_Admin {
             'description' => __('VAT number, sales-tax ID, or equivalent international tax identifier.', 'opentrust'),
         ]);
 
-        // ── Subscriptions tab ────────────────────────────────────────
-        add_settings_section(
-            'opentrust_notifications',
-            __('Email Notifications', 'opentrust'),
-            fn() => print('<p>' . esc_html__('Configure subscriber notifications for trust center updates.', 'opentrust') . '</p>'),
-            'opentrust-settings-subscriptions'
-        );
-
-        $this->add_field('notifications_enabled', __('Enable Notifications', 'opentrust'), 'render_notifications_enabled_field', 'opentrust_notifications', 'opentrust-settings-subscriptions', [
-            'description' => __('Show the subscribe form on the trust center and allow policy changes to be broadcast to subscribers.', 'opentrust'),
-        ]);
-
-        $this->add_field('notification_from_name', __('From Name', 'opentrust'), 'render_text_field', 'opentrust_notifications', 'opentrust-settings-subscriptions', [
-            'description' => __('Sender name for notification emails. Defaults to company name.', 'opentrust'),
-        ]);
-
-        $this->add_field('notification_reply_to', __('Reply-To Email', 'opentrust'), 'render_text_field', 'opentrust_notifications', 'opentrust-settings-subscriptions', [
-            'description' => __('Reply-to address for notification emails. Defaults to admin email.', 'opentrust'),
-        ]);
-
-        // Spam Protection section (Subscriptions tab).
-        add_settings_section(
-            'opentrust_spam_protection',
-            __('Spam Protection', 'opentrust'),
-            fn() => print('<p>' . esc_html__('Protect the subscribe form from abuse with rate limiting and Cloudflare Turnstile.', 'opentrust') . '</p>'),
-            'opentrust-settings-subscriptions'
-        );
-
-        $this->add_field('rate_limit_per_hour', __('Rate Limit', 'opentrust'), 'render_rate_limit_field', 'opentrust_spam_protection', 'opentrust-settings-subscriptions', [
-            'description' => __('Maximum subscribe attempts per IP address per hour. Set to 0 to disable.', 'opentrust'),
-        ]);
-
-        $this->add_field('turnstile_site_key', __('Turnstile Site Key', 'opentrust'), 'render_text_field', 'opentrust_spam_protection', 'opentrust-settings-subscriptions', [
-            'description' => __('Public site key from your Cloudflare Turnstile widget. Leave blank to disable.', 'opentrust'),
-        ]);
-
-        $this->add_field('turnstile_secret_key', __('Turnstile Secret Key', 'opentrust'), 'render_password_field', 'opentrust_spam_protection', 'opentrust-settings-subscriptions', [
-            'description' => __('Secret key from Cloudflare Turnstile. Stored securely — never exposed to the frontend.', 'opentrust'),
-        ]);
     }
 
     private function add_field(string $key, string $title, string $callback, string $section, string $page = 'opentrust-settings-general', array $extra = []): void {
@@ -392,32 +362,6 @@ final class OpenTrust_Admin {
         <?php
     }
 
-    public function render_notifications_enabled_field(array $args): void {
-        $settings = OpenTrust::get_settings();
-        $enabled  = !empty($settings['notifications_enabled']);
-        printf(
-            '<label><input type="checkbox" name="opentrust_settings[notifications_enabled]" value="1" %s> %s</label>',
-            checked($enabled, true, false),
-            esc_html__('Enable email notifications', 'opentrust')
-        );
-        if (!empty($args['description'])) {
-            printf('<p class="description">%s</p>', esc_html($args['description']));
-        }
-    }
-
-    public function render_rate_limit_field(array $args): void {
-        $settings = OpenTrust::get_settings();
-        $value    = (int) ($settings['rate_limit_per_hour'] ?? 5);
-        printf(
-            '<input type="number" id="opentrust_rate_limit_per_hour" name="opentrust_settings[rate_limit_per_hour]" value="%d" min="0" max="100" step="1" class="small-text">',
-            $value // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast via %d format specifier
-        );
-        echo ' <span class="description">' . esc_html__('per hour', 'opentrust') . '</span>';
-        if (!empty($args['description'])) {
-            printf('<p class="description">%s</p>', esc_html($args['description']));
-        }
-    }
-
     public function render_password_field(array $args): void {
         $settings = OpenTrust::get_settings();
         $key      = $args['key'];
@@ -540,26 +484,6 @@ final class OpenTrust_Admin {
             $sanitized['vat_number']           = (string) ($old_settings['vat_number']           ?? '');
         }
 
-        // ── Subscriptions tab (Notifications + Spam Protection) ──
-        if (!empty($input['__subscriptions_tab_save'])) {
-            $sanitized['notifications_enabled']  = !empty($input['notifications_enabled']);
-            $sanitized['notification_from_name'] = sanitize_text_field($input['notification_from_name'] ?? '');
-            $sanitized['notification_reply_to']  = sanitize_email($input['notification_reply_to'] ?? '');
-            $sanitized['rate_limit_per_hour']    = min(100, max(0, absint($input['rate_limit_per_hour'] ?? 5)));
-            $sanitized['turnstile_site_key']     = sanitize_text_field($input['turnstile_site_key'] ?? '');
-            $sanitized['turnstile_secret_key']   = self::sanitize_secret_field(
-                $input['turnstile_secret_key'] ?? '',
-                $old_settings['turnstile_secret_key'] ?? ''
-            );
-        } else {
-            $sanitized['notifications_enabled']  = !empty($old_settings['notifications_enabled']);
-            $sanitized['notification_from_name'] = (string) ($old_settings['notification_from_name'] ?? '');
-            $sanitized['notification_reply_to']  = (string) ($old_settings['notification_reply_to']  ?? '');
-            $sanitized['rate_limit_per_hour']    = (int)    ($old_settings['rate_limit_per_hour']    ?? 5);
-            $sanitized['turnstile_site_key']     = (string) ($old_settings['turnstile_site_key']     ?? '');
-            $sanitized['turnstile_secret_key']   = (string) ($old_settings['turnstile_secret_key']   ?? '');
-        }
-
         // ── Per-site salt ─────────────────────────────────────────
         // Written out-of-band by OpenTrust_Chat_Budget::site_salt(). Never
         // sourced from the form — carry forward byte-for-byte so saving settings
@@ -590,6 +514,11 @@ final class OpenTrust_Admin {
             $sanitized['ai_show_model_attribution'] = !empty($input['ai_show_model_attribution']);
             $sanitized['ai_logging_enabled']        = !empty($input['ai_logging_enabled']);
             $sanitized['ai_turnstile_enabled']      = !empty($input['ai_turnstile_enabled']);
+            $sanitized['turnstile_site_key']        = sanitize_text_field($input['turnstile_site_key'] ?? '');
+            $sanitized['turnstile_secret_key']      = self::sanitize_secret_field(
+                $input['turnstile_secret_key'] ?? '',
+                $old_settings['turnstile_secret_key'] ?? ''
+            );
         } else {
             $sanitized['ai_model']                  = sanitize_text_field($old_settings['ai_model'] ?? '');
             $sanitized['ai_daily_token_budget']     = (int) ($old_settings['ai_daily_token_budget']     ?? 500000);
@@ -601,6 +530,8 @@ final class OpenTrust_Admin {
             $sanitized['ai_show_model_attribution'] = !empty($old_settings['ai_show_model_attribution']);
             $sanitized['ai_logging_enabled']        = !empty($old_settings['ai_logging_enabled']);
             $sanitized['ai_turnstile_enabled']      = !empty($old_settings['ai_turnstile_enabled']);
+            $sanitized['turnstile_site_key']        = (string) ($old_settings['turnstile_site_key']   ?? '');
+            $sanitized['turnstile_secret_key']      = (string) ($old_settings['turnstile_secret_key'] ?? '');
         }
 
         // Flag rewrite flush if slug changed.
@@ -612,14 +543,24 @@ final class OpenTrust_Admin {
     }
 
     /**
-     * Preserve existing secret if user submits the masked placeholder.
+     * Persist a form-submitted secret as libsodium ciphertext.
+     *
+     * If the submitted value is empty or the masked-bullet placeholder, the
+     * existing stored ciphertext is preserved unchanged. A real new value is
+     * text-sanitized and then encrypted with OpenTrust_Chat_Secrets so the
+     * option never carries the plaintext — even though opentrust_settings is
+     * autoloaded, the on-disk value is useless without AUTH_KEY.
      */
     private static function sanitize_secret_field(string $new_value, string $old_value): string {
         // Masked placeholder — user didn't change it.
         if ($new_value === '' || $new_value === str_repeat('•', 20) || str_starts_with($new_value, '••••')) {
             return $old_value;
         }
-        return sanitize_text_field($new_value);
+        $clean = sanitize_text_field($new_value);
+        if ($clean === '') {
+            return $old_value;
+        }
+        return OpenTrust_Chat_Secrets::encrypt($clean);
     }
 
     // ──────────────────────────────────────────────
@@ -635,7 +576,7 @@ final class OpenTrust_Admin {
         $tc_url   = home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/');
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab switch on admin settings page.
         $tab      = isset($_GET['tab']) ? sanitize_key((string) wp_unslash($_GET['tab'])) : 'general';
-        if (!in_array($tab, ['general', 'contact', 'subscriptions', 'ai'], true)) {
+        if (!in_array($tab, ['general', 'contact', 'ai'], true)) {
             $tab = 'general';
         }
         $base_url = admin_url('admin.php?page=opentrust');
@@ -657,10 +598,6 @@ final class OpenTrust_Admin {
                 <a href="<?php echo esc_url(add_query_arg('tab', 'contact', $base_url)); ?>"
                    class="nav-tab <?php echo $tab === 'contact' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
                     <?php esc_html_e('Contact', 'opentrust'); ?>
-                </a>
-                <a href="<?php echo esc_url(add_query_arg('tab', 'subscriptions', $base_url)); ?>"
-                   class="nav-tab <?php echo $tab === 'subscriptions' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
-                    <?php esc_html_e('Subscriptions', 'opentrust'); ?>
                 </a>
                 <a href="<?php echo esc_url(add_query_arg('tab', 'ai', $base_url)); ?>"
                    class="nav-tab <?php echo $tab === 'ai' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
@@ -684,15 +621,6 @@ final class OpenTrust_Admin {
                     submit_button();
                     ?>
                 </form>
-            <?php elseif ($tab === 'subscriptions'): ?>
-                <form method="post" action="options.php">
-                    <?php
-                    settings_fields('opentrust_settings_group');
-                    echo '<input type="hidden" name="opentrust_settings[__subscriptions_tab_save]" value="1">';
-                    do_settings_sections('opentrust-settings-subscriptions');
-                    submit_button();
-                    ?>
-                </form>
             <?php else: ?>
                 <form method="post" action="options.php">
                     <?php
@@ -707,474 +635,6 @@ final class OpenTrust_Admin {
         <?php
     }
 
-    // ──────────────────────────────────────────────
-    // Subscribers page
-    // ──────────────────────────────────────────────
-
-    public function render_subscribers_page(): void {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-
-        $notify = OpenTrust_Notify::instance();
-
-        // Handle CSV export.
-        if (isset($_GET['ot_action']) && sanitize_text_field( wp_unslash( $_GET['ot_action'] ) ) === 'export_csv' && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'opentrust_export_csv')) {
-            $this->export_subscribers_csv();
-            return;
-        }
-
-        // Handle sample CSV download.
-        if (isset($_GET['ot_action']) && sanitize_text_field( wp_unslash( $_GET['ot_action'] ) ) === 'sample_csv' && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'opentrust_sample_csv')) {
-            $this->download_sample_csv();
-            return;
-        }
-
-        // Handle CSV import.
-        $import_summary = null;
-        if (isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['ot_import_subscribers'])) {
-            if (wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ), 'opentrust_import_csv')) {
-                $import_summary = $this->handle_csv_import();
-            }
-        }
-
-        // Handle manual add.
-        $add_result = null;
-        if (isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['ot_add_subscriber'])) {
-            if (wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ?? '' ) ), 'opentrust_add_subscriber')) {
-                $email        = sanitize_email( wp_unslash( $_POST['ot_add_email'] ?? '' ) );
-                $name         = sanitize_text_field( wp_unslash( $_POST['ot_add_name'] ?? '' ) );
-                $company      = sanitize_text_field( wp_unslash( $_POST['ot_add_company'] ?? '' ) );
-                $pre_verified = !empty($_POST['ot_add_verified']);
-
-                $categories = [];
-                if (!empty($_POST['ot_add_categories']) && is_array($_POST['ot_add_categories'])) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop below
-                    $valid = array_keys(OpenTrust_Notify::category_labels());
-                    foreach (wp_unslash( $_POST['ot_add_categories'] ) as $cat) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in loop body.
-                        $cat = sanitize_text_field($cat);
-                        if (in_array($cat, $valid, true)) {
-                            $categories[] = $cat;
-                        }
-                    }
-                }
-
-                if ($email) {
-                    if ($pre_verified) {
-                        // Direct path: skip double opt-in, no email sent.
-                        $existing = $notify->get_subscriber_by_email($email);
-                        if ($existing) {
-                            $add_result = ['success' => false, 'message' => __('This email is already in the subscriber list.', 'opentrust')];
-                        } else {
-                            $insert_id = $notify->create_subscriber_direct($email, $name, $company, $categories, 'active');
-                            $add_result = $insert_id
-                                ? ['success' => true, 'message' => __('Subscriber added and marked as verified.', 'opentrust')]
-                                : ['success' => false, 'message' => __('Could not add subscriber.', 'opentrust')];
-                        }
-                    } else {
-                        // Standard double opt-in path: sends confirmation email.
-                        $add_result = $notify->subscribe($email, $name, $company, $categories);
-                    }
-                }
-            }
-        }
-
-        // Handle delete.
-        if (isset($_GET['ot_action']) && sanitize_text_field( wp_unslash( $_GET['ot_action'] ) ) === 'delete' && !empty($_GET['ot_id'])) {
-            if (wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'opentrust_delete_subscriber_' . (int) $_GET['ot_id'])) {
-                $notify->delete_subscriber((int) $_GET['ot_id']);
-                echo '<div class="notice notice-success"><p>' . esc_html__('Subscriber deleted.', 'opentrust') . '</p></div>';
-            }
-        }
-
-        // Handle verify.
-        if (isset($_GET['ot_action']) && sanitize_text_field( wp_unslash( $_GET['ot_action'] ) ) === 'verify' && !empty($_GET['ot_id'])) {
-            if (wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'opentrust_verify_subscriber_' . (int) $_GET['ot_id'])) {
-                if ($notify->admin_verify_subscriber((int) $_GET['ot_id'])) {
-                    echo '<div class="notice notice-success"><p>' . esc_html__('Subscriber verified. No confirmation email sent.', 'opentrust') . '</p></div>';
-                } else {
-                    echo '<div class="notice notice-error"><p>' . esc_html__('Could not verify subscriber.', 'opentrust') . '</p></div>';
-                }
-            }
-        }
-
-        $filter      = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) );
-        $subscribers = $notify->get_all_subscribers($filter);
-        $counts      = $notify->get_counts();
-        $export_url  = wp_nonce_url(admin_url('admin.php?page=opentrust-subscribers&ot_action=export_csv'), 'opentrust_export_csv');
-        ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Subscribers', 'opentrust'); ?></h1>
-
-            <?php if ($add_result): ?>
-                <div class="notice notice-<?php echo esc_attr( $add_result['success'] ? 'success' : 'error' ); ?>">
-                    <p><?php echo esc_html($add_result['message']); ?></p>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($import_summary): ?>
-                <?php $has_errors = !empty($import_summary['errors']); ?>
-                <?php $did_any    = ($import_summary['imported'] + $import_summary['updated']) > 0; ?>
-                <div class="notice notice-<?php echo esc_attr( $has_errors && !$did_any ? 'error' : ($has_errors ? 'warning' : 'success') ); ?>">
-                    <p>
-                        <?php printf(
-                            /* translators: 1: imported, 2: updated, 3: skipped, 4: errors */
-                            esc_html__('Import complete: %1$d imported, %2$d updated, %3$d skipped, %4$d errors.', 'opentrust'),
-                            (int) $import_summary['imported'],
-                            (int) $import_summary['updated'],
-                            (int) $import_summary['skipped'],
-                            count($import_summary['errors'])
-                        ); ?>
-                    </p>
-                    <?php if ($has_errors): ?>
-                        <details style="margin-bottom:8px">
-                            <summary style="cursor:pointer;font-weight:600"><?php esc_html_e('Show errors', 'opentrust'); ?></summary>
-                            <ul style="margin:8px 0 0 20px;list-style:disc">
-                                <?php foreach (array_slice($import_summary['errors'], 0, 50) as $err): ?>
-                                    <li><?php echo esc_html($err); ?></li>
-                                <?php endforeach; ?>
-                                <?php if (count($import_summary['errors']) > 50): ?>
-                                    <li><em><?php printf(
-                                        /* translators: %d: number of additional errors */
-                                        esc_html__('… and %d more.', 'opentrust'),
-                                        count($import_summary['errors']) - 50
-                                    ); ?></em></li>
-                                <?php endif; ?>
-                            </ul>
-                        </details>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- Add subscriber form -->
-            <div class="ot-add-subscriber" style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:16px 20px;margin:16px 0">
-                <h2 style="margin-top:0;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;color:#50575e"><?php esc_html_e('Add subscriber', 'opentrust'); ?></h2>
-                <form method="post">
-                    <?php wp_nonce_field('opentrust_add_subscriber'); ?>
-                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-                        <div style="flex:1;min-width:220px">
-                            <label for="ot_add_email" style="display:block;font-weight:600;margin-bottom:4px"><?php esc_html_e('Email', 'opentrust'); ?> <span style="color:#d63638">*</span></label>
-                            <input type="email" id="ot_add_email" name="ot_add_email" required class="regular-text" style="width:100%" placeholder="email@example.com">
-                        </div>
-                        <div style="flex:1;min-width:180px">
-                            <label for="ot_add_name" style="display:block;font-weight:600;margin-bottom:4px"><?php esc_html_e('Name', 'opentrust'); ?></label>
-                            <input type="text" id="ot_add_name" name="ot_add_name" class="regular-text" style="width:100%" placeholder="<?php esc_attr_e('Jane Doe', 'opentrust'); ?>">
-                        </div>
-                        <div style="flex:1;min-width:180px">
-                            <label for="ot_add_company" style="display:block;font-weight:600;margin-bottom:4px"><?php esc_html_e('Company', 'opentrust'); ?></label>
-                            <input type="text" id="ot_add_company" name="ot_add_company" class="regular-text" style="width:100%" placeholder="<?php esc_attr_e('Acme Inc.', 'opentrust'); ?>">
-                        </div>
-                    </div>
-                    <fieldset style="margin-bottom:12px">
-                        <legend style="font-weight:600;margin-bottom:6px"><?php esc_html_e('Notify about', 'opentrust'); ?></legend>
-                        <div style="display:flex;gap:16px;flex-wrap:wrap">
-                            <?php foreach (OpenTrust_Notify::category_labels() as $cat_key => $cat_label): ?>
-                                <label style="display:inline-flex;align-items:center;gap:6px">
-                                    <input type="checkbox" name="ot_add_categories[]" value="<?php echo esc_attr($cat_key); ?>" checked>
-                                    <span><?php echo esc_html($cat_label); ?></span>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </fieldset>
-                    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-                        <label style="display:inline-flex;align-items:center;gap:6px">
-                            <input type="checkbox" name="ot_add_verified" value="1">
-                            <span><?php esc_html_e('Mark as verified immediately (skip confirmation email)', 'opentrust'); ?></span>
-                        </label>
-                        <button type="submit" name="ot_add_subscriber" value="1" class="button button-primary" style="margin-left:auto">
-                            <?php esc_html_e('Add subscriber', 'opentrust'); ?>
-                        </button>
-                    </div>
-                    <p class="description" style="margin-top:10px">
-                        <?php esc_html_e('By default, the subscriber receives a confirmation email they must click to activate. Check "Mark as verified" to skip that step and activate them immediately — only do this when you have consent on file.', 'opentrust'); ?>
-                    </p>
-                </form>
-            </div>
-
-            <!-- Import CSV panel -->
-            <?php
-            $sample_url = wp_nonce_url(
-                admin_url('admin.php?page=opentrust-subscribers&ot_action=sample_csv'),
-                'opentrust_sample_csv'
-            );
-            ?>
-            <details class="ot-import-csv" style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:12px 20px;margin:16px 0">
-                <summary style="cursor:pointer;font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;color:#50575e">
-                    <?php esc_html_e('Import from CSV', 'opentrust'); ?>
-                </summary>
-                <form method="post" enctype="multipart/form-data" style="margin-top:16px">
-                    <?php wp_nonce_field('opentrust_import_csv'); ?>
-
-                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
-                        <div style="flex:1;min-width:260px">
-                            <label for="ot_import_csv" style="display:block;font-weight:600;margin-bottom:4px"><?php esc_html_e('CSV file', 'opentrust'); ?> <span style="color:#d63638">*</span></label>
-                            <input type="file" id="ot_import_csv" name="ot_import_csv" accept=".csv,text/csv" required>
-                        </div>
-                        <div style="min-width:200px">
-                            <label for="ot_conflict" style="display:block;font-weight:600;margin-bottom:4px"><?php esc_html_e('If email exists', 'opentrust'); ?></label>
-                            <select id="ot_conflict" name="ot_conflict">
-                                <option value="skip"><?php esc_html_e('Skip existing (safest)', 'opentrust'); ?></option>
-                                <option value="update"><?php esc_html_e('Update — merge non-empty fields', 'opentrust'); ?></option>
-                                <option value="replace"><?php esc_html_e('Replace — overwrite all fields', 'opentrust'); ?></option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom:12px">
-                        <label style="display:inline-flex;align-items:flex-start;gap:6px">
-                            <input type="checkbox" name="ot_mark_verified" value="1" checked style="margin-top:3px">
-                            <span>
-                                <strong><?php esc_html_e('Verify everyone on import', 'opentrust'); ?></strong><br>
-                                <span style="color:#50575e;font-size:13px"><?php esc_html_e('Overrides the Status column in the CSV. Every row is set to active and no confirmation emails are sent. Uncheck to respect the CSV Status column — pending rows will remain pending and must be verified manually from the subscriber list.', 'opentrust'); ?></span>
-                            </span>
-                        </label>
-                    </div>
-
-                    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                        <button type="submit" name="ot_import_subscribers" value="1" class="button button-primary">
-                            <?php esc_html_e('Import CSV', 'opentrust'); ?>
-                        </button>
-                        <a href="<?php echo esc_url($sample_url); ?>" class="button button-secondary">
-                            <?php esc_html_e('Download example CSV', 'opentrust'); ?>
-                        </a>
-                    </div>
-
-                    <p class="description" style="margin-top:10px">
-                        <?php esc_html_e('Required column: email. Optional: name, company, status, categories, subscribed, confirmed. Categories can be semicolon- or comma-separated. Maximum 5,000 rows, 2 MB file size. Confirmation emails are never sent on import.', 'opentrust'); ?>
-                    </p>
-                </form>
-            </details>
-
-            <!-- Stats -->
-            <div class="ot-subscriber-stats" style="display:flex;gap:16px;margin:16px 0">
-                <a href="<?php echo esc_url(admin_url('admin.php?page=opentrust-subscribers')); ?>"
-                   class="<?php echo esc_attr( !$filter ? 'current' : '' ); ?>"
-                   style="padding:4px 12px;background:#f0f0f1;border-radius:4px;text-decoration:none;color:#1d2327">
-                    <?php
-                    /* translators: %d: total subscriber count */
-                    printf(esc_html__('All (%d)', 'opentrust'), intval($counts['total'])); ?>
-                </a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=opentrust-subscribers&status=active')); ?>"
-                   class="<?php echo esc_attr( $filter === 'active' ? 'current' : '' ); ?>"
-                   style="padding:4px 12px;background:#dcfce7;border-radius:4px;text-decoration:none;color:#166534">
-                    <?php
-                    /* translators: %d: active subscriber count */
-                    printf(esc_html__('Active (%d)', 'opentrust'), intval($counts['active'])); ?>
-                </a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=opentrust-subscribers&status=pending')); ?>"
-                   class="<?php echo esc_attr( $filter === 'pending' ? 'current' : '' ); ?>"
-                   style="padding:4px 12px;background:#fef9c3;border-radius:4px;text-decoration:none;color:#854d0e">
-                    <?php
-                    /* translators: %d: pending subscriber count */
-                    printf(esc_html__('Pending (%d)', 'opentrust'), intval($counts['pending'])); ?>
-                </a>
-                <a href="<?php echo esc_url($export_url); ?>" class="button" style="margin-left:auto">
-                    <?php esc_html_e('Export CSV', 'opentrust'); ?>
-                </a>
-            </div>
-
-            <!-- Subscribers table -->
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th scope="col"><?php esc_html_e('Email', 'opentrust'); ?></th>
-                        <th scope="col"><?php esc_html_e('Name', 'opentrust'); ?></th>
-                        <th scope="col"><?php esc_html_e('Company', 'opentrust'); ?></th>
-                        <th scope="col"><?php esc_html_e('Status', 'opentrust'); ?></th>
-                        <th scope="col"><?php esc_html_e('Categories', 'opentrust'); ?></th>
-                        <th scope="col"><?php esc_html_e('Subscribed', 'opentrust'); ?></th>
-                        <th scope="col"><?php esc_html_e('Actions', 'opentrust'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($subscribers)): ?>
-                        <tr><td colspan="7"><?php esc_html_e('No subscribers yet.', 'opentrust'); ?></td></tr>
-                    <?php else: ?>
-                        <?php foreach ($subscribers as $sub):
-                            $cats = json_decode($sub->categories, true) ?: [];
-                            $labels = OpenTrust_Notify::category_labels();
-                            $cat_names = array_map(fn($c) => $labels[$c] ?? $c, $cats);
-                            $delete_url = wp_nonce_url(
-                                admin_url('admin.php?page=opentrust-subscribers&ot_action=delete&ot_id=' . (int) $sub->id),
-                                'opentrust_delete_subscriber_' . (int) $sub->id
-                            );
-                            $verify_url = wp_nonce_url(
-                                admin_url('admin.php?page=opentrust-subscribers&ot_action=verify&ot_id=' . (int) $sub->id),
-                                'opentrust_verify_subscriber_' . (int) $sub->id
-                            );
-                            $status_style = match ($sub->status) {
-                                'active'       => 'background:#dcfce7;color:#166534',
-                                'pending'      => 'background:#fef9c3;color:#854d0e',
-                                'unsubscribed' => 'background:#f3f4f6;color:#6b7280',
-                                default        => '',
-                            };
-                        ?>
-                        <tr>
-                            <td><strong><?php echo esc_html($sub->email); ?></strong></td>
-                            <td><?php echo esc_html($sub->name ?: '—'); ?></td>
-                            <td><?php echo esc_html($sub->company ?: '—'); ?></td>
-                            <td>
-                                <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;<?php echo esc_attr( $status_style ); ?>">
-                                    <?php echo esc_html(ucfirst($sub->status)); ?>
-                                </span>
-                            </td>
-                            <td style="font-size:12px"><?php echo esc_html(implode(', ', $cat_names) ?: '—'); ?></td>
-                            <td><?php echo esc_html($sub->created_at !== '0000-00-00 00:00:00' ? wp_date('M j, Y', strtotime($sub->created_at)) : '—'); ?></td>
-                            <td>
-                                <?php if ($sub->status !== 'active'): ?>
-                                    <a href="<?php echo esc_url($verify_url); ?>"
-                                       onclick="return confirm('<?php esc_attr_e('Mark this subscriber as verified? No confirmation email will be sent.', 'opentrust'); ?>')">
-                                        <?php esc_html_e('Verify', 'opentrust'); ?>
-                                    </a>
-                                    <span style="color:#ccc">|</span>
-                                <?php endif; ?>
-                                <a href="<?php echo esc_url($delete_url); ?>"
-                                   class="submitdelete"
-                                   onclick="return confirm('<?php esc_attr_e('Delete this subscriber?', 'opentrust'); ?>')">
-                                    <?php esc_html_e('Delete', 'opentrust'); ?>
-                                </a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-
-        </div>
-        <?php
-    }
-
-    private function export_subscribers_csv(): void {
-        $subscribers = OpenTrust_Notify::instance()->get_all_subscribers();
-
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=opentrust-subscribers-' . wp_date('Y-m-d') . '.csv');
-
-        $output = fopen('php://output', 'w');
-        fputcsv($output, ['Email', 'Name', 'Company', 'Status', 'Categories', 'Subscribed', 'Confirmed']);
-
-        foreach ($subscribers as $sub) {
-            $cats = json_decode($sub->categories, true) ?: [];
-            fputcsv($output, [
-                $sub->email,
-                $sub->name,
-                $sub->company,
-                $sub->status,
-                implode('; ', $cats),
-                $sub->created_at,
-                $sub->confirmed_at ?: '',
-            ]);
-        }
-
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Writing to php://output stream, not filesystem
-        fclose($output);
-        exit;
-    }
-
-    /**
-     * Stream a small example CSV demonstrating the import format.
-     */
-    private function download_sample_csv(): void {
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=opentrust-subscribers-example.csv');
-
-        $output = fopen('php://output', 'w');
-        fputcsv($output, ['Email', 'Name', 'Company', 'Status', 'Categories', 'Subscribed', 'Confirmed']);
-        fputcsv($output, [
-            'jane@example.com',
-            'Jane Doe',
-            'Acme Inc.',
-            'active',
-            'policies;certifications;subprocessors;data_practices',
-            wp_date('Y-m-d H:i:s'),
-            wp_date('Y-m-d H:i:s'),
-        ]);
-        fputcsv($output, [
-            'john@example.com',
-            'John Smith',
-            'Globex',
-            'pending',
-            'policies;certifications',
-            wp_date('Y-m-d H:i:s'),
-            '',
-        ]);
-        fputcsv($output, [
-            'sam@example.com',
-            'Sam Patel',
-            '',
-            'active',
-            'policies',
-            '',
-            '',
-        ]);
-
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Writing to php://output stream, not filesystem
-        fclose($output);
-        exit;
-    }
-
-    /**
-     * Validate the uploaded CSV and dispatch to the importer.
-     *
-     * @return array{imported:int, updated:int, skipped:int, errors:array<int,string>}
-     */
-    private function handle_csv_import(): array {
-        $empty = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in caller before dispatching here.
-        if (empty($_FILES['ot_import_csv']) || !is_array($_FILES['ot_import_csv'])) {
-            $empty['errors'][] = __('No file was uploaded.', 'opentrust');
-            return $empty;
-        }
-
-        $file = $_FILES['ot_import_csv']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.NonceVerification.Missing -- validated below via checks on error/size/upload status; nonce verified in caller.
-        if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
-            $empty['errors'][] = __('File upload failed. Please try again.', 'opentrust');
-            return $empty;
-        }
-
-        $tmp_name = isset($file['tmp_name']) ? (string) $file['tmp_name'] : '';
-        if ($tmp_name === '' || !is_uploaded_file($tmp_name)) {
-            $empty['errors'][] = __('Invalid upload.', 'opentrust');
-            return $empty;
-        }
-
-        $size = (int) ($file['size'] ?? 0);
-        if ($size <= 0 || $size > 2 * MB_IN_BYTES) {
-            $empty['errors'][] = __('File must be between 1 byte and 2 MB.', 'opentrust');
-            return $empty;
-        }
-
-        // Filename + mime sanity check.
-        $name       = isset($file['name']) ? sanitize_file_name((string) $file['name']) : '';
-        $check      = wp_check_filetype_and_ext($tmp_name, $name, ['csv' => 'text/csv']);
-        $ext_ok     = isset($check['ext']) && $check['ext'] === 'csv';
-        $name_ok    = $name !== '' && strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'csv';
-        if (!$ext_ok && !$name_ok) {
-            $empty['errors'][] = __('File must be a .csv file.', 'opentrust');
-            return $empty;
-        }
-
-        // Sniff the first 4KB to reject binary payloads.
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_get_contents -- Reading from upload temp path
-        $sniff = file_get_contents($tmp_name, false, null, 0, 4096);
-        if ($sniff === false || strpos($sniff, "\0") !== false) {
-            $empty['errors'][] = __('File appears to be binary, not a CSV.', 'opentrust');
-            return $empty;
-        }
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in caller before dispatching here.
-        $conflict      = sanitize_text_field( wp_unslash( $_POST['ot_conflict'] ?? 'skip' ) );
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in caller before dispatching here.
-        $mark_verified = !empty($_POST['ot_mark_verified']);
-
-        $summary = OpenTrust_Notify::instance()->import_subscribers_csv($tmp_name, $conflict, $mark_verified);
-
-        if (($summary['imported'] + $summary['updated']) > 0 && class_exists('OpenTrust')) {
-            OpenTrust::instance()->invalidate_cache();
-        }
-
-        return $summary;
-    }
 
     // ──────────────────────────────────────────────
     // Assets
@@ -1535,7 +995,24 @@ final class OpenTrust_Admin {
                             <input type="checkbox" name="opentrust_settings[ai_turnstile_enabled]" value="1" <?php checked(!empty($settings['ai_turnstile_enabled'])); ?>>
                             <?php esc_html_e('Require Turnstile verification on first chat message', 'opentrust'); ?>
                         </label>
-                        <p class="description"><?php esc_html_e('Reuses the Turnstile site/secret keys you configure in the General tab.', 'opentrust'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="opentrust_turnstile_site_key"><?php esc_html_e('Turnstile Site Key', 'opentrust'); ?></label></th>
+                    <td>
+                        <input type="text" id="opentrust_turnstile_site_key" name="opentrust_settings[turnstile_site_key]" value="<?php echo esc_attr((string) ($settings['turnstile_site_key'] ?? '')); ?>" class="regular-text">
+                        <p class="description"><?php esc_html_e('Public site key from your Cloudflare Turnstile widget.', 'opentrust'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="opentrust_turnstile_secret_key"><?php esc_html_e('Turnstile Secret Key', 'opentrust'); ?></label></th>
+                    <td>
+                        <?php $ot_secret_saved = !empty($settings['turnstile_secret_key']); ?>
+                        <input type="password" id="opentrust_turnstile_secret_key" name="opentrust_settings[turnstile_secret_key]" value="<?php echo esc_attr($ot_secret_saved ? '••••••••••••••••••••' : ''); ?>" class="regular-text" autocomplete="off" placeholder="<?php esc_attr_e('Enter secret key…', 'opentrust'); ?>">
+                        <?php if ($ot_secret_saved): ?>
+                            <span class="description" style="color:#16a34a">&#10003; <?php esc_html_e('Key saved', 'opentrust'); ?></span>
+                        <?php endif; ?>
+                        <p class="description"><?php esc_html_e('Secret key from Cloudflare Turnstile. Stored server-side — never exposed to the frontend.', 'opentrust'); ?></p>
                     </td>
                 </tr>
             </table>
@@ -2010,7 +1487,6 @@ final class OpenTrust_Admin {
 
         $is_ot_screen = str_starts_with($screen->id, 'toplevel_page_opentrust')
             || str_starts_with($screen->id, 'opentrust_page_')
-            || str_contains($screen->id, 'opentrust-subscribers')
             || in_array($screen->post_type, ['ot_policy', 'ot_subprocessor', 'ot_certification', 'ot_data_practice'], true);
 
         if (!$is_ot_screen) {
@@ -2077,125 +1553,12 @@ final class OpenTrust_Admin {
         }
     }
 
-    // ──────────────────────────────────────────────
-    // Broadcast history page
-    // ──────────────────────────────────────────────
-
-    public function render_history_page(): void {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-
-        global $wpdb;
-        $log_table = $wpdb->prefix . 'opentrust_notification_log';
-
-        $per_page     = 20;
-        $current_page = isset($_GET['paged']) ? max(1, (int) $_GET['paged']) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only pagination param
-        $offset       = ($current_page - 1) * $per_page;
-
-        // Group log rows into broadcast events. A broadcast event = all rows for
-        // the same post_id that share the same minute. Synchronous sends in one
-        // request always land in the same minute, so this gives one row per
-        // user-initiated broadcast even if the same policy was broadcast twice.
-        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom log table, table name from $wpdb->prefix, no user input in query.
-        $total_rows = (int) $wpdb->get_var(
-            "SELECT COUNT(*) FROM (
-                SELECT post_id, SUBSTR(sent_at, 1, 16) AS bucket
-                FROM {$log_table}
-                GROUP BY post_id, SUBSTR(sent_at, 1, 16)
-            ) AS broadcasts"
-        );
-
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id,
-                    MAX(sent_at) AS sent_at,
-                    SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) AS sent_count,
-                    SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed_count
-             FROM {$log_table}
-             GROUP BY post_id, SUBSTR(sent_at, 1, 16)
-             ORDER BY sent_at DESC
-             LIMIT %d OFFSET %d",
-            $per_page,
-            $offset
-        ));
-        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
-
-        $total_pages = $total_rows > 0 ? (int) ceil($total_rows / $per_page) : 1;
-        ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Broadcast History', 'opentrust'); ?></h1>
-            <p class="description">
-                <?php esc_html_e('Every policy broadcast sent from the plugin is logged here. One row per broadcast event.', 'opentrust'); ?>
-            </p>
-
-            <?php if (empty($rows)): ?>
-                <p><?php esc_html_e('No broadcasts yet. When you save a policy with "Broadcast this change to subscribers" ticked, the send will be logged here.', 'opentrust'); ?></p>
-            <?php else: ?>
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th scope="col"><?php esc_html_e('Policy', 'opentrust'); ?></th>
-                            <th scope="col"><?php esc_html_e('Sent at', 'opentrust'); ?></th>
-                            <th scope="col"><?php esc_html_e('Delivered', 'opentrust'); ?></th>
-                            <th scope="col"><?php esc_html_e('Failed', 'opentrust'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($rows as $row):
-                            $policy   = get_post((int) $row->post_id);
-                            $edit_url = $policy ? get_edit_post_link($policy->ID) : '';
-                        ?>
-                        <tr>
-                            <td>
-                                <?php if ($policy && $edit_url): ?>
-                                    <a href="<?php echo esc_url($edit_url); ?>"><strong><?php echo esc_html($policy->post_title); ?></strong></a>
-                                <?php elseif ($policy): ?>
-                                    <strong><?php echo esc_html($policy->post_title); ?></strong>
-                                <?php else: ?>
-                                    <em><?php esc_html_e('(deleted policy)', 'opentrust'); ?></em>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo esc_html(wp_date(get_option('date_format', 'F j, Y') . ' \a\t ' . get_option('time_format', 'g:i a'), strtotime($row->sent_at))); ?></td>
-                            <td><?php echo (int) $row->sent_count; ?></td>
-                            <td>
-                                <?php if ((int) $row->failed_count > 0): ?>
-                                    <span style="color:#b91c1c;font-weight:600"><?php echo (int) $row->failed_count; ?></span>
-                                <?php else: ?>
-                                    0
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-
-                <?php if ($total_pages > 1): ?>
-                    <div class="tablenav">
-                        <div class="tablenav-pages">
-                            <?php
-                            echo wp_kses_post(paginate_links([
-                                'base'      => add_query_arg('paged', '%#%'),
-                                'format'    => '',
-                                'current'   => $current_page,
-                                'total'     => $total_pages,
-                                'prev_text' => '&laquo;',
-                                'next_text' => '&raquo;',
-                            ]));
-                            ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-            <?php endif; ?>
-        </div>
-        <?php
-    }
 
     /**
      * Show a persistent warning on every OpenTrust admin screen when the
      * WordPress permalink structure is "Plain" (i.e. empty). In that mode
      * all of the plugin's pretty URLs (/trust-center/, /trust-center/policy/...,
-     * /trust-center/confirm/{token}/, etc.) return 404, and every link the
-     * plugin embeds in subscriber emails is broken.
+     * /trust-center/ask/) return 404.
      */
     public function render_plain_permalinks_notice(): void {
         if ((string) get_option('permalink_structure', '') !== '') {
@@ -2232,7 +1595,7 @@ final class OpenTrust_Admin {
                 ?>
             </p>
             <p style="font-size:12px;color:#50575e">
-                <?php esc_html_e('Without pretty permalinks, every link OpenTrust generates returns 404 — including the trust center page itself, the subscribe form, and every confirmation, unsubscribe, and broadcast email link sent to subscribers. Visitors will not be able to subscribe, confirm, or unsubscribe.', 'opentrust'); ?>
+                <?php esc_html_e('Without pretty permalinks, every link OpenTrust generates returns 404 — including the trust center page itself. Visitors will not be able to reach your policies, certifications, or chat.', 'opentrust'); ?>
             </p>
             <details style="margin-top:8px">
                 <summary style="cursor:pointer;font-size:12px;color:#50575e">
@@ -2240,12 +1603,12 @@ final class OpenTrust_Admin {
                 </summary>
                 <div style="margin-top:8px;padding:10px 14px;background:#f6f7f7;border-left:3px solid #dcdcde;font-size:12px;color:#50575e">
                     <p style="margin:0 0 6px">
-                        <?php esc_html_e('You can preview the trust center via raw query-string URLs, but no email links will work and visitors cannot subscribe:', 'opentrust'); ?>
+                        <?php esc_html_e('You can preview the trust center via raw query-string URLs:', 'opentrust'); ?>
                     </p>
                     <ul style="margin:0 0 0 18px;list-style:disc">
                         <li><code><?php echo esc_html($home_url); ?>?opentrust=main</code></li>
                         <li><code><?php echo esc_html($home_url); ?>?opentrust=policy&amp;ot_policy_slug=YOUR-POLICY-SLUG</code></li>
-                        <li><code><?php echo esc_html($home_url); ?>?opentrust=subscribe</code></li>
+                        <li><code><?php echo esc_html($home_url); ?>?opentrust=ask</code></li>
                     </ul>
                     <p style="margin:6px 0 0">
                         <strong><?php esc_html_e('This is for testing only.', 'opentrust'); ?></strong>

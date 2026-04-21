@@ -4,7 +4,7 @@ Tags: trust-center, security, compliance, privacy, subprocessors
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.6.0
+Stable tag: 0.8.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -23,7 +23,6 @@ OpenTrust provides a centralized, branded trust center page for your WordPress s
 * Standalone, theme-isolated rendering with customizable accent colors
 * Built-in search and sortable tables
 * Print-friendly policy views
-* Subscriber notifications for trust center updates
 
 == Installation ==
 
@@ -51,7 +50,7 @@ Each time you update and publish a policy, OpenTrust automatically increments th
 
 Yes. OpenTrust is fully internationalized and ships with a translation template at `languages/opentrust.pot`. The plugin automatically loads translations for the active site language (Settings > General > Site Language) — no configuration needed.
 
-A starter Dutch translation (`nl_NL`) is bundled for the public-facing trust center, chat, and subscribe flows. Other locales fall back to English until translations are provided via translate.wordpress.org or a bundled `.mo` in `languages/`.
+A starter Dutch translation (`nl_NL`) is bundled for the public-facing trust center and chat flows. Other locales fall back to English until translations are provided via translate.wordpress.org or a bundled `.mo` in `languages/`.
 
 Translators can regenerate the template from source with WP-CLI:
 
@@ -61,10 +60,21 @@ The plugin is compatible with WPML and Polylang: UI strings translate via `.mo` 
 
 == Changelog ==
 
+= 0.8.0 =
+* Added Policy ID reference field (e.g., POL-012) visible on the public listing and single-policy view.
+* Added framework citation repeater (SOC 2, ISO 27001, GDPR) rendered as pill badges.
+* Replaced the print-to-PDF stub with a real PDF attachment field. If the author uploads a PDF, visitors see a Download button; otherwise the download is hidden.
+* Refactored the public policy list from a table into a category-grouped document list with filter chips.
+* Curated the policy block-editor palette to a focused set (paragraph, heading, list, table, quote, separator, image, code, details) with a starter template.
+* DB schema bumped to v8: the deprecated `_ot_policy_downloadable` meta is deleted on upgrade; `/policy/{slug}/pdf/` rewrite rule removed.
+
+= 0.7.0 =
+* Subscription and email-broadcast feature moved to the feature/subscriptions-broadcasts branch so we can ship a tighter launch surface.
+* Database schema bumped to v7: the `opentrust_subscribers` and `opentrust_notification_log` tables are dropped on upgrade.
+
 = 0.1.0 =
 * Initial release
 * Core plugin architecture with 4 custom post types
 * Frontend trust center rendering with theme isolation
 * Admin settings page with branding options
 * Policy versioning and revision history
-* Subscriber notification system

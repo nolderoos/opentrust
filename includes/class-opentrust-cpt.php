@@ -21,7 +21,6 @@ final class OpenTrust_CPT {
         add_action('init', [self::class, 'register_post_types']);
         add_action('add_meta_boxes', [$this, 'add_meta_boxes']);
         add_action('save_post', [$this, 'save_meta'], 10, 2);
-        add_action('admin_notices', [$this, 'render_broadcast_admin_notice']);
 
         // Admin columns.
         add_filter('manage_ot_certification_posts_columns', [$this, 'cert_columns']);
@@ -37,6 +36,10 @@ final class OpenTrust_CPT {
 
         // Catalog-autofill title-field prompt for subprocessor / data-practice CPTs.
         add_filter('enter_title_here', [$this, 'filter_enter_title_here'], 10, 2);
+
+        // Policies get a curated block palette — focused writing surface,
+        // no marketing blocks, no layout chaos.
+        add_filter('allowed_block_types_all', [self::class, 'filter_policy_allowed_blocks'], 10, 2);
     }
 
     /**
@@ -93,6 +96,21 @@ final class OpenTrust_CPT {
             'rewrite'       => false,
             'menu_icon'     => 'dashicons-media-document',
             'menu_position' => 31,
+            // Starter scaffold so authors don't face a blank editor. Template
+            // is unlocked — editors can add, remove, or reorder sections.
+            'template'      => [
+                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Purpose', 'opentrust' ) ] ],
+                [ 'core/paragraph', [ 'placeholder' => __( 'Why this policy exists and what it aims to achieve.', 'opentrust' ) ] ],
+                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Scope', 'opentrust' ) ] ],
+                [ 'core/paragraph', [ 'placeholder' => __( 'Who and what this policy covers.', 'opentrust' ) ] ],
+                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Policy Statement', 'opentrust' ) ] ],
+                [ 'core/paragraph', [ 'placeholder' => __( 'The rules and requirements themselves.', 'opentrust' ) ] ],
+                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Responsibilities', 'opentrust' ) ] ],
+                [ 'core/paragraph', [ 'placeholder' => __( 'Who enforces and maintains this policy.', 'opentrust' ) ] ],
+                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Review Cycle', 'opentrust' ) ] ],
+                [ 'core/paragraph', [ 'placeholder' => __( 'How often this policy is reviewed and updated.', 'opentrust' ) ] ],
+            ],
+            'template_lock' => false,
         ]);
 
         // ── Certifications ──
@@ -230,75 +248,10 @@ final class OpenTrust_CPT {
 
     public function add_meta_boxes(): void {
         add_meta_box('ot_cert_details', __('Certification Details', 'opentrust'), [$this, 'render_cert_meta_box'], 'ot_certification', 'normal', 'high');
-
-        // Broadcast checkbox first so it renders above Policy Details in the sidebar.
-        $settings = OpenTrust::get_settings();
-        if (!empty($settings['notifications_enabled'])) {
-            add_meta_box('ot_policy_broadcast', __('Email subscribers', 'opentrust'), [$this, 'render_policy_broadcast_meta_box'], 'ot_policy', 'side', 'high');
-        }
-
         add_meta_box('ot_policy_details', __('Policy Details', 'opentrust'), [$this, 'render_policy_meta_box'], 'ot_policy', 'side', 'high');
         add_meta_box('ot_sub_details', __('Subprocessor Details', 'opentrust'), [$this, 'render_sub_meta_box'], 'ot_subprocessor', 'normal', 'high');
         add_meta_box('ot_dp_details', __('Data Practice Details', 'opentrust'), [$this, 'render_dp_meta_box'], 'ot_data_practice', 'normal', 'high');
         add_meta_box('ot_faq_details', __('FAQ Details', 'opentrust'), [$this, 'render_faq_meta_box'], 'ot_faq', 'side', 'high');
-    }
-
-    public function render_policy_broadcast_meta_box(\WP_Post $post): void {
-        wp_nonce_field('opentrust_save_policy_broadcast', 'opentrust_policy_broadcast_nonce');
-        $last_sent     = get_post_meta($post->ID, '_ot_policy_last_broadcast_at', true);
-        $last_sent_n   = (int) get_post_meta($post->ID, '_ot_policy_last_broadcast_sent', true);
-        $last_failed_n = (int) get_post_meta($post->ID, '_ot_policy_last_broadcast_failed', true);
-
-        // Fresh-result callout: only shown briefly after a save that fired a
-        // broadcast. Read once and clear the transient so it disappears next render.
-        $just_sent = get_transient('opentrust_broadcast_result_' . $post->ID);
-        if (is_array($just_sent)) {
-            delete_transient('opentrust_broadcast_result_' . $post->ID);
-            $sent_count   = (int) ($just_sent['sent'] ?? 0);
-            $failed_count = (int) ($just_sent['failed'] ?? 0);
-
-            if ($sent_count === 0 && $failed_count === 0) {
-                $bg = '#fef3c7'; $bd = '#b45309'; $fg = '#92400e';
-                $msg = __('Broadcast triggered, but no active subscribers are opted in to policy updates.', 'opentrust');
-            } elseif ($failed_count === 0) {
-                $bg = '#dcfce7'; $bd = '#166534'; $fg = '#166534';
-                /* translators: %d: subscriber count */
-                $msg = sprintf(_n('Broadcast just sent to %d subscriber.', 'Broadcast just sent to %d subscribers.', $sent_count, 'opentrust'), $sent_count);
-            } else {
-                $bg = '#fef3c7'; $bd = '#b45309'; $fg = '#92400e';
-                /* translators: 1: delivered count, 2: failed count */
-                $msg = sprintf(__('Broadcast finished: %1$d delivered, %2$d failed.', 'opentrust'), $sent_count, $failed_count);
-            }
-            ?>
-            <div style="padding:10px 12px;background:<?php echo esc_attr($bg); ?>;border-left:3px solid <?php echo esc_attr($bd); ?>;border-radius:4px;margin-bottom:10px;font-size:12px;color:<?php echo esc_attr($fg); ?>">
-                <strong><?php echo esc_html($msg); ?></strong>
-            </div>
-            <?php
-        }
-        ?>
-        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
-            <input type="checkbox" name="ot_policy_broadcast" value="1" autocomplete="off" style="margin-top:3px">
-            <span>
-                <strong><?php esc_html_e('Broadcast this change to subscribers', 'opentrust'); ?></strong><br>
-                <span style="color:#6b7280;font-size:11px">
-                    <?php esc_html_e('Emails all active subscribers who opted in to policy updates. The checkbox resets after each save.', 'opentrust'); ?>
-                </span>
-            </span>
-        </label>
-        <?php if ($last_sent): ?>
-            <p class="description" style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5">
-                <?php
-                /* translators: %s: date and time */
-                printf(esc_html__('Last broadcast: %s', 'opentrust'), esc_html(wp_date(get_option('date_format', 'F j, Y') . ' \a\t ' . get_option('time_format', 'g:i a'), strtotime($last_sent))));
-                ?>
-                <br>
-                <?php
-                /* translators: 1: delivered count, 2: failed count */
-                printf(esc_html__('%1$d delivered, %2$d failed', 'opentrust'), intval($last_sent_n), intval($last_failed_n));
-                ?>
-            </p>
-        <?php endif; ?>
-        <?php
     }
 
     // ── Certification meta box ──
@@ -306,7 +259,7 @@ final class OpenTrust_CPT {
     public function render_cert_meta_box(\WP_Post $post): void {
         wp_nonce_field('opentrust_save_cert', 'opentrust_cert_nonce');
 
-        $type         = get_post_meta($post->ID, '_ot_cert_type', true) ?: 'certified';
+        $type         = get_post_meta($post->ID, '_ot_cert_type', true) ?: 'compliant';
         $issuing_body = get_post_meta($post->ID, '_ot_cert_issuing_body', true) ?: '';
         $status       = get_post_meta($post->ID, '_ot_cert_status', true) ?: 'active';
         $issue_date   = get_post_meta($post->ID, '_ot_cert_issue_date', true) ?: '';
@@ -393,22 +346,47 @@ final class OpenTrust_CPT {
         <?php
     }
 
+    /**
+     * Restrict the policy editor to a curated set of blocks. Authors keep the
+     * modern editor's authoring ergonomics without the noise of marketing,
+     * embed, or widget blocks that don't belong in a compliance document.
+     */
+    public static function filter_policy_allowed_blocks(array|bool $allowed, \WP_Block_Editor_Context $context): array|bool {
+        if (empty($context->post) || $context->post->post_type !== 'ot_policy') {
+            return $allowed;
+        }
+        return [
+            'core/paragraph',
+            'core/heading',
+            'core/list',
+            'core/list-item',
+            'core/table',
+            'core/quote',
+            'core/separator',
+            'core/image',
+            'core/code',
+            'core/details',
+        ];
+    }
+
     // ── Policy meta box (sidebar) ──
 
     public function render_policy_meta_box(\WP_Post $post): void {
         wp_nonce_field('opentrust_save_policy', 'opentrust_policy_nonce');
 
-        $category       = get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other';
+        $ref_id          = get_post_meta($post->ID, '_ot_policy_ref_id', true) ?: '';
+        $category        = get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other';
         $effective_date  = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
         $review_date     = get_post_meta($post->ID, '_ot_policy_review_date', true) ?: '';
-        $downloadable    = get_post_meta($post->ID, '_ot_policy_downloadable', true);
         $sort_order      = (int) get_post_meta($post->ID, '_ot_policy_sort_order', true);
         $version         = (int) get_post_meta($post->ID, '_ot_version', true) ?: 1;
 
-        // Default downloadable to true for new posts.
-        if ($downloadable === '') {
-            $downloadable = true;
-        }
+        $citations       = get_post_meta($post->ID, '_ot_policy_citations', true);
+        $citations       = is_array($citations) ? $citations : [];
+
+        $attachment_id   = (int) get_post_meta($post->ID, '_ot_policy_attachment_id', true);
+        $attachment_url  = $attachment_id ? wp_get_attachment_url($attachment_id) : '';
+        $attachment_name = $attachment_id ? get_the_title($attachment_id) : '';
 
         $categories = OpenTrust_Render::policy_category_labels();
         ?>
@@ -453,6 +431,12 @@ final class OpenTrust_CPT {
         <?php endif; ?>
 
         <div class="ot-meta-field">
+            <label for="ot_policy_ref_id"><?php esc_html_e('Policy ID', 'opentrust'); ?></label>
+            <input type="text" id="ot_policy_ref_id" name="ot_policy_ref_id" value="<?php echo esc_attr($ref_id); ?>" style="width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace" placeholder="<?php esc_attr_e('e.g., POL-012', 'opentrust'); ?>" maxlength="40">
+            <p class="description"><?php esc_html_e('Optional short reference (e.g., POL-012). Shown on the public listing and in security questionnaires.', 'opentrust'); ?></p>
+        </div>
+
+        <div class="ot-meta-field">
             <label for="ot_policy_category"><?php esc_html_e('Category', 'opentrust'); ?></label>
             <select id="ot_policy_category" name="ot_policy_category" style="width:100%">
                 <?php foreach ($categories as $key => $label): ?>
@@ -472,16 +456,38 @@ final class OpenTrust_CPT {
         </div>
 
         <div class="ot-meta-field">
-            <label for="ot_policy_sort_order"><?php esc_html_e('Sort Order', 'opentrust'); ?></label>
-            <input type="number" id="ot_policy_sort_order" name="ot_policy_sort_order" value="<?php echo esc_attr((string) $sort_order); ?>" min="0" step="1" style="width:100%">
-            <p class="description"><?php esc_html_e('Lower numbers appear first.', 'opentrust'); ?></p>
+            <label><?php esc_html_e('Framework Citations', 'opentrust'); ?></label>
+            <div class="ot-tags" data-ot-tags="ot_policy_citations">
+                <?php foreach ($citations as $ot_i => $ot_citation):
+                    $ot_citation_name = is_array($ot_citation) ? ($ot_citation['name'] ?? '') : (string) $ot_citation;
+                ?>
+                <span class="ot-tag">
+                    <span class="ot-tag__text"><?php echo esc_html($ot_citation_name); ?></span>
+                    <input type="hidden" name="ot_policy_citations[<?php echo (int) $ot_i; ?>][name]" value="<?php echo esc_attr($ot_citation_name); ?>">
+                    <button type="button" class="ot-tag__remove" aria-label="<?php esc_attr_e('Remove', 'opentrust'); ?>">&times;</button>
+                </span>
+                <?php endforeach; ?>
+                <input type="text" class="ot-tags__input" placeholder="<?php esc_attr_e('e.g., SOC 2 CC6.1, ISO 27001 A.9.2…', 'opentrust'); ?>" />
+            </div>
+            <p class="description"><?php esc_html_e('Framework or control references this policy satisfies. Appears as pill badges on the public page.', 'opentrust'); ?></p>
+        </div>
+
+        <div class="ot-meta-field" data-ot-policy-attachment>
+            <label><?php esc_html_e('PDF Attachment', 'opentrust'); ?></label>
+            <div class="ot-artifact-preview" <?php echo $attachment_id ? '' : 'style="display:none"'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>>
+                <span class="ot-artifact-preview__icon" aria-hidden="true">📄</span>
+                <a class="ot-artifact-preview__link" href="<?php echo esc_url($attachment_url); ?>" target="_blank" rel="noopener"><?php echo esc_html($attachment_name ?: __('View file', 'opentrust')); ?></a>
+            </div>
+            <input type="hidden" class="ot-policy-attachment-input" name="ot_policy_attachment_id" value="<?php echo esc_attr((string) $attachment_id); ?>">
+            <button type="button" class="button ot-upload-policy-attachment"><?php echo $attachment_id ? esc_html__('Replace PDF', 'opentrust') : esc_html__('Upload PDF', 'opentrust'); ?></button>
+            <button type="button" class="button ot-remove-policy-attachment" <?php echo $attachment_id ? '' : 'style="display:none"'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>><?php esc_html_e('Remove', 'opentrust'); ?></button>
+            <p class="description"><?php esc_html_e('Upload the signed PDF. Visitors see a "Download PDF" button only when a file is attached.', 'opentrust'); ?></p>
         </div>
 
         <div class="ot-meta-field">
-            <label>
-                <input type="checkbox" name="ot_policy_downloadable" value="1" <?php checked($downloadable); ?>>
-                <?php esc_html_e('Allow PDF download', 'opentrust'); ?>
-            </label>
+            <label for="ot_policy_sort_order"><?php esc_html_e('Sort Order', 'opentrust'); ?></label>
+            <input type="number" id="ot_policy_sort_order" name="ot_policy_sort_order" value="<?php echo esc_attr((string) $sort_order); ?>" min="0" step="1" style="width:100%">
+            <p class="description"><?php esc_html_e('Lower numbers appear first.', 'opentrust'); ?></p>
         </div>
         <?php
     }
@@ -659,95 +665,6 @@ final class OpenTrust_CPT {
             'ot_faq'           => $this->save_faq_meta($post_id),
             default            => null,
         };
-
-        // Policy broadcast checkbox (separate save flow so existing policy
-        // save is untouched and we can bail safely if notifications are off).
-        if ($post->post_type === 'ot_policy') {
-            $this->maybe_broadcast_policy($post_id);
-        }
-    }
-
-    /**
-     * If the admin ticked "Broadcast this change" on the policy edit screen,
-     * fire a one-shot email to all active policy subscribers. Result stats
-     * land in post meta and surface in the broadcast meta box on next render.
-     */
-    private function maybe_broadcast_policy(int $post_id): void {
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-            return;
-        }
-        if (!isset($_POST['opentrust_policy_broadcast_nonce']) || !wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['opentrust_policy_broadcast_nonce'] ) ), 'opentrust_save_policy_broadcast')) {
-            return;
-        }
-        if (!current_user_can('edit_post', $post_id)) {
-            return;
-        }
-        if (empty($_POST['ot_policy_broadcast'])) {
-            return;
-        }
-
-        $settings = OpenTrust::get_settings();
-        if (empty($settings['notifications_enabled'])) {
-            return;
-        }
-
-        $post = get_post($post_id);
-        if (!$post || $post->post_status !== 'publish') {
-            return;
-        }
-
-        $result = OpenTrust_Notify::instance()->broadcast_policy_change($post);
-
-        set_transient(
-            'opentrust_broadcast_result_' . $post_id,
-            ['sent' => (int) $result['sent'], 'failed' => (int) $result['failed']],
-            60
-        );
-    }
-
-    /**
-     * Render a one-shot admin notice on the policy edit screen after a save
-     * that triggered a broadcast. Reads (and immediately clears) a transient
-     * set by maybe_broadcast_policy().
-     */
-    public function render_broadcast_admin_notice(): void {
-        $screen = get_current_screen();
-        if (!$screen || $screen->base !== 'post' || $screen->post_type !== 'ot_policy') {
-            return;
-        }
-
-        $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen identifier
-        if ($post_id <= 0) {
-            return;
-        }
-
-        $key    = 'opentrust_broadcast_result_' . $post_id;
-        $result = get_transient($key);
-        if (!is_array($result)) {
-            return;
-        }
-        delete_transient($key);
-
-        $sent   = (int) ($result['sent'] ?? 0);
-        $failed = (int) ($result['failed'] ?? 0);
-
-        if ($sent === 0 && $failed === 0) {
-            $class   = 'notice-warning';
-            $message = __('Broadcast triggered, but no active subscribers are opted in to policy updates. Nothing was sent.', 'opentrust');
-        } elseif ($failed === 0) {
-            $class = 'notice-success';
-            /* translators: %d: subscriber count */
-            $message = sprintf(_n('Broadcast sent to %d subscriber.', 'Broadcast sent to %d subscribers.', $sent, 'opentrust'), $sent);
-        } else {
-            $class = 'notice-warning';
-            /* translators: 1: delivered count, 2: failed count */
-            $message = sprintf(__('Broadcast finished: %1$d delivered, %2$d failed. Check your SMTP configuration.', 'opentrust'), $sent, $failed);
-        }
-        ?>
-        <div class="notice <?php echo esc_attr($class); ?> is-dismissible">
-            <p><?php echo esc_html($message); ?></p>
-        </div>
-        <?php
     }
 
     private function save_cert_meta(int $post_id): void {
@@ -759,8 +676,8 @@ final class OpenTrust_CPT {
         }
 
         $valid_types = ['certified', 'compliant'];
-        $type = sanitize_text_field( wp_unslash( $_POST['ot_cert_type'] ?? 'certified' ) );
-        update_post_meta($post_id, '_ot_cert_type', in_array($type, $valid_types, true) ? $type : 'certified');
+        $type = sanitize_text_field( wp_unslash( $_POST['ot_cert_type'] ?? 'compliant' ) );
+        update_post_meta($post_id, '_ot_cert_type', in_array($type, $valid_types, true) ? $type : 'compliant');
 
         update_post_meta($post_id, '_ot_cert_issuing_body', sanitize_text_field( wp_unslash( $_POST['ot_cert_issuing_body'] ?? '' ) ));
 
@@ -795,14 +712,49 @@ final class OpenTrust_CPT {
         // Ensure first-publish posts get v1.
         OpenTrust_Version::ensure_initial_version($post_id);
 
+        $ref_id = sanitize_text_field( wp_unslash( $_POST['ot_policy_ref_id'] ?? '' ) );
+        // Collapse internal whitespace runs so "POL  012" becomes "POL 012" on save.
+        $ref_id = trim((string) preg_replace('/\s+/u', ' ', $ref_id));
+        if ($ref_id !== '') {
+            update_post_meta($post_id, '_ot_policy_ref_id', $ref_id);
+        } else {
+            delete_post_meta($post_id, '_ot_policy_ref_id');
+        }
+
         $valid_categories = ['security', 'privacy', 'compliance', 'operational', 'other'];
         $category = sanitize_text_field( wp_unslash( $_POST['ot_policy_category'] ?? 'other' ) );
         update_post_meta($post_id, '_ot_policy_category', in_array($category, $valid_categories, true) ? $category : 'other');
 
         update_post_meta($post_id, '_ot_policy_effective_date', sanitize_text_field( wp_unslash( $_POST['ot_policy_effective_date'] ?? '' ) ));
         update_post_meta($post_id, '_ot_policy_review_date', sanitize_text_field( wp_unslash( $_POST['ot_policy_review_date'] ?? '' ) ));
-        update_post_meta($post_id, '_ot_policy_downloadable', !empty($_POST['ot_policy_downloadable']));
         update_post_meta($post_id, '_ot_policy_sort_order', absint( wp_unslash( $_POST['ot_policy_sort_order'] ?? 0 ) ));
+
+        // Framework citations — repeater array, shape mirrors ot_dp_data_items.
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each element is individually sanitized below.
+        $raw_citations = wp_unslash( $_POST['ot_policy_citations'] ?? [] );
+        $citations = [];
+        if (is_array($raw_citations)) {
+            foreach ($raw_citations as $entry) {
+                $name = sanitize_text_field(is_array($entry) ? ($entry['name'] ?? '') : (string) $entry);
+                $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+                if ($name !== '') {
+                    $citations[] = ['name' => $name];
+                }
+            }
+        }
+        if (!empty($citations)) {
+            update_post_meta($post_id, '_ot_policy_citations', $citations);
+        } else {
+            delete_post_meta($post_id, '_ot_policy_citations');
+        }
+
+        // PDF attachment — only accept a real attachment the user can read.
+        $attachment_id = absint( wp_unslash( $_POST['ot_policy_attachment_id'] ?? 0 ) );
+        if ($attachment_id > 0 && get_post_type($attachment_id) === 'attachment') {
+            update_post_meta($post_id, '_ot_policy_attachment_id', $attachment_id);
+        } else {
+            delete_post_meta($post_id, '_ot_policy_attachment_id');
+        }
     }
 
     private function save_sub_meta(int $post_id): void {
@@ -905,7 +857,7 @@ final class OpenTrust_CPT {
             'ot_issuing_body' => print(esc_html(get_post_meta($post_id, '_ot_cert_issuing_body', true) ?: '—')),
             'ot_status'       => (function () use ($post_id): void {
                 $status = get_post_meta($post_id, '_ot_cert_status', true) ?: 'active';
-                $type   = get_post_meta($post_id, '_ot_cert_type', true) ?: 'certified';
+                $type   = get_post_meta($post_id, '_ot_cert_type', true) ?: 'compliant';
                 $labels = $type === 'compliant'
                     ? OpenTrust_Render::cert_aligned_status_labels()
                     : OpenTrust_Render::cert_status_labels();
@@ -932,16 +884,27 @@ final class OpenTrust_CPT {
         $new = [];
         $new['cb']    = $columns['cb'];
         $new['title'] = $columns['title'];
+        $new['ot_ref_id']   = __('ID', 'opentrust');
         $new['ot_category'] = __('Category', 'opentrust');
         $new['ot_version']  = __('Version', 'opentrust');
+        $new['ot_pdf']      = __('PDF', 'opentrust');
         $new['date']  = $columns['date'];
         return $new;
     }
 
     public function policy_column_content(string $column, int $post_id): void {
         match ($column) {
+            'ot_ref_id'   => (function () use ($post_id): void {
+                $ref = (string) get_post_meta($post_id, '_ot_policy_ref_id', true);
+                if ($ref === '') {
+                    print '<span style="color:#9ca3af">—</span>';
+                    return;
+                }
+                printf('<code style="font-size:11px;background:#f3f4f6;padding:2px 6px;border-radius:3px">%s</code>', esc_html($ref));
+            })(),
             'ot_category' => print(esc_html(OpenTrust_Render::policy_category_labels()[get_post_meta($post_id, '_ot_policy_category', true) ?: 'other'] ?? '')),
             'ot_version'  => printf('<span class="ot-version-badge">v%s</span>', esc_html((string) ((int) get_post_meta($post_id, '_ot_version', true) ?: 1))),
+            'ot_pdf'      => print(((int) get_post_meta($post_id, '_ot_policy_attachment_id', true)) > 0 ? '<span title="PDF attached" style="color:#16a34a">&#10003;</span>' : '<span style="color:#d1d5db">—</span>'),
             default       => null,
         };
     }

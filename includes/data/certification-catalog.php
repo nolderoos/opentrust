@@ -144,6 +144,16 @@ return [
 		'fields_review' => [],
 	],
 
+	'nis2' => [
+		'name'    => 'NIS2',
+		'aliases' => [ 'nis2', 'nis 2', 'network and information security directive', 'eu nis2' ],
+		'fields'  => [
+			'_ot_cert_type'        => 'compliant',
+			'_ot_cert_description' => 'European Union directive on measures for a high common level of cybersecurity across the Union, setting risk management, incident reporting, and supply chain security requirements for essential and important entities.',
+		],
+		'fields_review' => [],
+	],
+
 	'ccpa' => [
 		'name'    => 'CCPA',
 		'aliases' => [ 'ccpa', 'cpra', 'california consumer privacy act' ],

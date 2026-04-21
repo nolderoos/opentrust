@@ -4,15 +4,9 @@
  *
  * Variables available from parent: $ot_data, $ot_settings, $ot_base_url
  *
- * Renders a dark accent-colored section containing (in order):
+ * Renders a dark accent-colored section containing:
  *   1. Section title + optional intro + optional company description
  *   2. A vertical stack of contact rows (icon, label, stacked value lines)
- *   3. The existing Stay Informed subscribe card — inline at full container
- *      width — when notifications are enabled.
- *
- * No white container wraps the contact rows; they sit directly on the dark
- * accent background. The subscribe card below is the existing subscribe-cta
- * markup and stays exactly as designed (white card with Subscribe + RSS).
  */
 
 declare(strict_types=1);
@@ -30,8 +24,6 @@ $ot_contact_address     = trim((string) ($ot_settings['contact_address']     ?? 
 $ot_pgp_key_url         = trim((string) ($ot_settings['pgp_key_url']         ?? ''));
 $ot_company_reg         = trim((string) ($ot_settings['company_registration'] ?? ''));
 $ot_vat_number          = trim((string) ($ot_settings['vat_number']          ?? ''));
-
-$ot_notifications_on = !empty($ot_settings['notifications_enabled']);
 
 // Build the rows we will render. Each row is a definition-list entry: a
 // label on the left column, a stack of value lines on the right.
@@ -137,34 +129,5 @@ if ($ot_vat_number) {
                 </dl>
             <?php endif; ?>
         </div>
-
-        <?php if ($ot_notifications_on):
-            // Stay Informed — embedded inside the same section so the two
-            // read as one "get in touch" block. Uses the existing
-            // .ot-subscribe-cta__inner design exactly as before.
-            $ot_subscribe_url = esc_url($ot_base_url . 'subscribe/');
-            $ot_feed_url      = esc_url($ot_base_url . 'feed/');
-        ?>
-            <div class="ot-get-subscribe">
-                <div class="ot-subscribe-cta__inner">
-                    <div class="ot-subscribe-cta__content">
-                        <h3 class="ot-subscribe-cta__title"><?php esc_html_e('Stay informed', 'opentrust'); ?></h3>
-                        <p class="ot-subscribe-cta__text">
-                            <?php esc_html_e('Get notified when we update our policies, add subprocessors, or change our compliance posture.', 'opentrust'); ?>
-                        </p>
-                    </div>
-                    <div class="ot-subscribe-cta__actions">
-                        <a href="<?php echo $ot_subscribe_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Pre-escaped via esc_url() ?>" class="ot-btn ot-btn--primary">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-                            <?php esc_html_e('Subscribe to updates', 'opentrust'); ?>
-                        </a>
-                        <a href="<?php echo $ot_feed_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Pre-escaped via esc_url() ?>" class="ot-btn ot-btn--ghost" title="<?php esc_attr_e('RSS Feed', 'opentrust'); ?>">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
-                            <?php esc_html_e('RSS', 'opentrust'); ?>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
     </div>
 </section>

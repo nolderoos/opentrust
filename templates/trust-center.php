@@ -15,7 +15,6 @@ defined('ABSPATH') || exit;
 $ot_settings = $ot_data['settings'];
 $ot_hsl      = $ot_data['hsl'];
 $ot_view     = $ot_data['view'] ?? 'main';
-$ot_is_pdf   = $ot_view === 'policy_pdf';
 
 $ot_page_title   = esc_html($ot_settings['page_title'] ?: __('Trust Center', 'opentrust'));
 $ot_company_name = esc_html($ot_settings['company_name'] ?? '');
@@ -100,17 +99,8 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
         }
         ?>
     </style>
-    <?php
-    // Turnstile script — only on subscribe page when configured.
-    $ot_turnstile_key = $ot_settings['turnstile_site_key'] ?? '';
-    if ($ot_view === 'subscribe' && $ot_turnstile_key !== ''):
-        // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent, PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent, WordPress.WP.EnqueuedResourceParameters.MissingVersion -- Turnstile must load from Cloudflare CDN; version managed by CDN
-        wp_register_script( 'opentrust-turnstile', 'https://challenges.cloudflare.com/turnstile/v0/api.js', [], null, [ 'strategy' => 'defer' ] );
-        wp_print_scripts( 'opentrust-turnstile' );
-    endif;
-    ?>
 </head>
-<body class="ot-body<?php echo esc_attr( $ot_is_pdf ? ' ot-body--pdf' : '' ); ?>">
+<body class="ot-body">
 
     <a class="ot-skip-link" href="#ot-main"><?php esc_html_e('Skip to content', 'opentrust'); ?></a>
 
@@ -195,19 +185,8 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
                 }
 
                 // ── Get in touch ──
-                // The contact partial renders the Stay Informed subscribe
-                // card inline when notifications are enabled, so the two
-                // read as one unified dark-accent block.
-                $ot_contact_rendered = false;
                 if (!empty($ot_visible['contact']) && $ot_contact_has_content) {
                     include OPENTRUST_PLUGIN_DIR . 'templates/partials/contact.php';
-                    $ot_contact_rendered = true;
-                }
-
-                // Fallback: if the contact section isn't rendered but
-                // notifications are on, keep the standalone subscribe CTA.
-                if (!$ot_contact_rendered && !empty($ot_settings['notifications_enabled'])) {
-                    include OPENTRUST_PLUGIN_DIR . 'templates/partials/subscribe-cta.php';
                 }
 
                 // ── FAQ ──
@@ -229,16 +208,11 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
                 <?php endif; ?>
         </main>
 
-    <?php } elseif ($ot_view === 'policy_single' || $ot_view === 'policy_pdf') {
+    <?php } elseif ($ot_view === 'policy_single') {
         // ── Single Policy View ──
         include OPENTRUST_PLUGIN_DIR . 'templates/partials/policy-single.php';
-
-    } elseif (in_array($ot_view, ['subscribe', 'confirm', 'unsubscribe', 'preferences'], true)) {
-        // ── Notification pages ──
-        include OPENTRUST_PLUGIN_DIR . 'templates/partials/subscribe.php';
     } ?>
 
-    <?php if (!$ot_is_pdf): ?>
     <footer class="ot-footer">
         <div class="ot-container">
             <p>
@@ -257,7 +231,6 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
             </p>
         </div>
     </footer>
-    <?php endif; ?>
 
     <script>
         window.OT_CFG = <?php

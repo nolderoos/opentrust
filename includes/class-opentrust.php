@@ -37,7 +37,6 @@ final class OpenTrust {
         // Boot sub-systems.
         OpenTrust_CPT::instance();
         OpenTrust_Version::instance();
-        OpenTrust_Notify::instance();
         OpenTrust_Chat::instance();
 
         if (is_admin()) {
@@ -83,13 +82,6 @@ final class OpenTrust {
             'company_registration' => '',
             'vat_number'           => '',
 
-            'notifications_enabled'   => false,
-            'notification_from_name'  => '',
-            'notification_reply_to'   => '',
-            'rate_limit_per_hour'     => 5,
-            'turnstile_site_key'      => '',
-            'turnstile_secret_key'    => '',
-
             // ── AI chat (OTC) ──────────────────────────
             'ai_enabled'                => false,
             'ai_provider'               => '',
@@ -104,6 +96,10 @@ final class OpenTrust {
             'ai_show_model_attribution' => true,
             'ai_logging_enabled'        => true,
             'ai_turnstile_enabled'      => false,
+
+            // Cloudflare Turnstile — used by the AI chat when ai_turnstile_enabled is on.
+            'turnstile_site_key'        => '',
+            'turnstile_secret_key'      => '',
         ];
     }
 
@@ -135,43 +131,11 @@ final class OpenTrust {
             'index.php?opentrust=policy_version&ot_policy_slug=$matches[1]&ot_version=$matches[2]',
             'top'
         );
-        add_rewrite_rule(
-            '^' . preg_quote($slug, '/') . '/policy/([^/]+)/pdf/?$',
-            'index.php?opentrust=policy_pdf&ot_policy_slug=$matches[1]',
-            'top'
-        );
 
         // AI chat (OTC).
         add_rewrite_rule(
             '^' . preg_quote($slug, '/') . '/ask/?$',
             'index.php?opentrust=ask',
-            'top'
-        );
-
-        // Notification endpoints.
-        add_rewrite_rule(
-            '^' . preg_quote($slug, '/') . '/subscribe/?$',
-            'index.php?opentrust=subscribe',
-            'top'
-        );
-        add_rewrite_rule(
-            '^' . preg_quote($slug, '/') . '/confirm/([a-f0-9]{64})/?$',
-            'index.php?opentrust=confirm&ot_token=$matches[1]',
-            'top'
-        );
-        add_rewrite_rule(
-            '^' . preg_quote($slug, '/') . '/unsubscribe/([a-f0-9]{64})/?$',
-            'index.php?opentrust=unsubscribe&ot_token=$matches[1]',
-            'top'
-        );
-        add_rewrite_rule(
-            '^' . preg_quote($slug, '/') . '/preferences/([a-f0-9]{64})/?$',
-            'index.php?opentrust=preferences&ot_token=$matches[1]',
-            'top'
-        );
-        add_rewrite_rule(
-            '^' . preg_quote($slug, '/') . '/feed/?$',
-            'index.php?opentrust=feed',
             'top'
         );
     }
@@ -187,14 +151,44 @@ final class OpenTrust {
     public function maybe_upgrade(): void {
         $current = (int) get_option('opentrust_db_version', 1);
         if ($current < OPENTRUST_DB_VERSION) {
-            // v6: notification log schema moved from digest columns to broadcast columns.
-            if ($current < 6) {
-                OpenTrust_Notify::drop_log_table();
+            global $wpdb;
+
+            // v7: subscriptions + broadcasts feature moved to its own branch.
+            // Drop the subscriber / notification log tables and clear legacy cron
+            // state so production installs don't carry dead schema forward.
+            if ($current < 7) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
+                $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_subscribers");
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
+                $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_notification_log");
                 wp_clear_scheduled_hook('opentrust_weekly_digest');
                 delete_option('opentrust_notification_queue');
             }
 
-            OpenTrust_Notify::create_tables();
+            // v8: PDF printable-HTML route replaced by a real uploaded attachment.
+            // The "Allow PDF download" checkbox is gone — download visibility is
+            // now driven by whether _ot_policy_attachment_id is set.
+            if ($current < 8) {
+                delete_post_meta_by_key('_ot_policy_downloadable');
+            }
+
+            // v9: Turnstile secret is now encrypted at rest alongside AI provider
+            // keys. Detect legacy plaintext values and encrypt in place. We run
+            // on init:5, before OpenTrust_Admin::register_settings() attaches
+            // its sanitize callback on admin_init, so update_option here won't
+            // be intercepted by the carry-forward logic that would otherwise
+            // discard our new ciphertext.
+            if ($current < 9 && class_exists('OpenTrust_Chat_Secrets')) {
+                $settings = get_option('opentrust_settings');
+                if (is_array($settings)) {
+                    $secret = (string) ($settings['turnstile_secret_key'] ?? '');
+                    if ($secret !== '' && !str_starts_with($secret, 'ot_enc_v1:')) {
+                        $settings['turnstile_secret_key'] = OpenTrust_Chat_Secrets::encrypt($secret);
+                        update_option('opentrust_settings', $settings);
+                    }
+                }
+            }
+
             OpenTrust_CPT::migrate_data_practices_v2();
 
             // Chat (OTC) schema migration.

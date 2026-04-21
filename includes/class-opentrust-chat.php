@@ -100,10 +100,15 @@ final class OpenTrust_Chat {
         // Gate 2: Turnstile (if enabled and session not yet verified).
         if (OpenTrust_Chat_Budget::turnstile_required($settings)) {
             if (!OpenTrust_Chat_Budget::turnstile_session_verified($session_hash)) {
-                $token = (string) $request->get_param('turnstile_token');
-                $ok = OpenTrust_Chat_Budget::verify_turnstile_token(
+                // The secret is stored as a libsodium ciphertext blob in
+                // opentrust_settings; decrypt at the edge — if decryption
+                // fails we fail closed and surface the challenge error.
+                $stored_secret = (string) ($settings['turnstile_secret_key'] ?? '');
+                $secret        = OpenTrust_Chat_Secrets::decrypt($stored_secret) ?? '';
+                $token         = (string) $request->get_param('turnstile_token');
+                $ok = $secret !== '' && OpenTrust_Chat_Budget::verify_turnstile_token(
                     $token,
-                    (string) $settings['turnstile_secret_key'],
+                    $secret,
                     $session_hash,
                     $ip_hash
                 );
