@@ -24,6 +24,14 @@
     var strings = config.strings || {};
     var STORAGE_KEY = 'opentrust.chat.history';
 
+    // Honor the visitor's reduced-motion preference. When set, we skip the
+    // rAF-paced typewriter and render whatever's in the buffer the moment a
+    // token arrives — still progressively-formatted, just not smoothed.
+    var REDUCED_MOTION = false;
+    try {
+        REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches === true;
+    } catch (e) { /* old browsers — keep default */ }
+
     // ── DOM refs ──────────────────────────────
 
     var shellEl    = document.querySelector('[data-ot-chat-shell]');
@@ -329,7 +337,14 @@
             return consumeSSE(resp, bubble, thinkingEl, userText);
         }).catch(function (err) {
             if (err && err.name === 'AbortError') {
-                // User hit Stop. Leave whatever is buffered in the bubble.
+                // User hit Stop. Finalize the partial response so the cursor
+                // stops blinking and the action bar shows up — but only if
+                // we already had a streaming bubble going.
+                if (bubble && bubble.usedStreaming && !bubble.finalized) {
+                    bubble.streamDone = true;
+                    commitAssistantFromBubble(bubble);
+                    forceFinalize(bubble);
+                }
             } else {
                 thinkingEl.remove();
                 appendRetryBanner(userText);
@@ -351,8 +366,12 @@
             return reader.read().then(function (result) {
                 if (result.done) {
                     if (!doneReceived) {
-                        // Server closed without a done event. Leave whatever arrived.
+                        // Server closed without a done event. Leave whatever
+                        // arrived but still finalize so the cursor stops
+                        // blinking and the action bar shows up.
+                        bubble.streamDone = true;
                         commitAssistantFromBubble(bubble);
+                        forceFinalize(bubble);
                     }
                     streaming = false;
                     setSendButtonMode('send');
@@ -413,13 +432,24 @@
             case 'citation':
                 if (evt.data && evt.data.url) {
                     bubble.citations.push(evt.data);
-                    appendCitationMarker(bubble, evt.data);
+                    // No DOM insert here — Sources panel renders them on finalize.
                 }
                 break;
             case 'done':
                 bubble.refused = !!(evt.data && evt.data.refused);
-                finalizeBubble(bubble);
+                bubble.streamDone = true;
+                // Save to history immediately so the record doesn't depend on
+                // the typewriter finishing.
                 commitAssistantFromBubble(bubble);
+                if (REDUCED_MOTION || !bubble.usedStreaming) {
+                    finalizeBubble(bubble);
+                } else {
+                    // Defer finalize until the typewriter has played out the
+                    // tail. The rAF loop will call finalizeBubble itself once
+                    // streamRendered catches up.
+                    bubble.streamFinalizePending = true;
+                    scheduleTypewriter(bubble);
+                }
                 break;
             case 'error':
                 if (evt.data && evt.data.message) {
@@ -437,7 +467,6 @@
     var WARNING_SVG    = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
     var COPY_SVG       = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     var CHECK_SVG      = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    var SHARE_SVG      = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
     var PRINT_SVG      = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
 
     function svgIcon(markup) {
@@ -563,6 +592,16 @@
             citations:   citations || [],
             refused:     refused,
             finalized:   false,
+            // Streaming render state. usedStreaming is set the moment a token
+            // arrives — finalizeBubble keys off it to decide whether to keep
+            // the live tree or do a one-shot static render (history replay).
+            usedStreaming:    false,
+            streamCharBuffer: text.replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, ''),
+            streamRendered:   0,
+            streamDone:       false,
+            streamRaf:        null,
+            streamThinkingHidden: false,
+            streamFinalizePending: false,
         };
 
         if (finalized) {
@@ -574,35 +613,239 @@
 
     function appendTokenText(bubble, text) {
         bubble.tokenBuffer += text;
-        // Strip any inline [[cite:id]] tags from the visible stream — server
+        // Strip [[cite:id]] tags before they reach the visible buffer — server
         // emits citation events for them separately.
-        var cleaned = bubble.tokenBuffer.replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, '');
-        bubble.textNode.data = cleaned;
+        bubble.streamCharBuffer = bubble.tokenBuffer.replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, '');
+        bubble.usedStreaming = true;
+        // Drop the placeholder text node the first time real content arrives —
+        // it lives next to the thinking indicator and otherwise persists as a
+        // stale empty node beneath the parsed tree.
+        if (bubble.textNode && bubble.textNode.parentNode) {
+            bubble.textNode.parentNode.removeChild(bubble.textNode);
+            bubble.textNode = null;
+        }
+        scheduleTypewriter(bubble);
     }
 
     function appendCitationMarker(bubble, citation) {
-        // While streaming (not yet finalized), append chips after the text node
-        // at the end of the body. On finalize, renderMarkdown may re-insert them.
-        var sup = document.createElement('a');
-        sup.className = 'ot-chat-cite';
-        sup.href = citation.url;
-        sup.target = '_self';
-        sup.setAttribute('aria-label', (strings.cite || 'Cite source') + ': ' + (citation.title || ''));
-        sup.title = citation.title || '';
-        sup.textContent = String(bubble.citations.length);
-        bubble.bodyEl.appendChild(sup);
+        // Server emits citations in a batch right before the `done` event.
+        // We collect them and let the Sources panel render them on finalize —
+        // inserting inline chips here would only flash for one rAF tick before
+        // the next render-frame replaceChildren wipes them.
+        bubble.citations.push(citation);
+    }
+
+    // ── Typewriter cadence + progressive markdown ─────
+    //
+    // Decouples network arrival from visual rendering. Tokens accumulate in
+    // streamCharBuffer; an rAF loop drips them into the parser at a rate that
+    // tries to clear the backlog over ~6 frames (~100ms) with a per-frame cap
+    // so a fat burst doesn't dump instantly. Result: smooth Claude/ChatGPT
+    // flow regardless of whether the provider hands us one char at a time or
+    // a 200-char chunk every half-second.
+
+    function scheduleTypewriter(bubble) {
+        if (REDUCED_MOTION) {
+            // Skip the cadence layer entirely — show whatever's been received.
+            bubble.streamRendered = bubble.streamCharBuffer.length;
+            renderStreamFrame(bubble);
+            if (bubble.streamFinalizePending) {
+                bubble.streamFinalizePending = false;
+                finalizeBubble(bubble);
+            }
+            return;
+        }
+        if (bubble.streamRaf !== null) return;
+        bubble.streamRaf = requestAnimationFrame(function () {
+            bubble.streamRaf = null;
+            advanceTypewriter(bubble);
+        });
+    }
+
+    function advanceTypewriter(bubble) {
+        // Time-based cadence: accumulate fractional chars per frame so we hit
+        // the target characters-per-second exactly, instead of being floored
+        // to "1 char per frame = 60 cps minimum". Backlog and the done-flag
+        // bump the rate so we don't drag when the buffer is far ahead.
+        var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        var dt = bubble.streamLastTick ? Math.min(now - bubble.streamLastTick, 100) : 16;
+        bubble.streamLastTick = now;
+
+        var target = bubble.streamCharBuffer.length;
+        var current = bubble.streamRendered;
+        var gap = target - current;
+
+        if (gap > 0) {
+            // Steady-state typing speed. Tuned to match the Claude/ChatGPT
+            // visual pace — slow enough to be readable, fast enough to feel
+            // responsive.
+            var cps = 50;
+            if (bubble.streamDone) cps = 120;       // race the tail after done
+            else if (gap > 200) cps = 220;          // big network burst
+            else if (gap > 80)  cps = 100;          // small backlog catch-up
+
+            bubble.streamCharsAccrued = (bubble.streamCharsAccrued || 0) + (cps * dt / 1000);
+            var step = Math.floor(bubble.streamCharsAccrued);
+            if (step > 0) {
+                bubble.streamCharsAccrued -= step;
+                bubble.streamRendered = current + step;
+                if (bubble.streamRendered > target) bubble.streamRendered = target;
+                renderStreamFrame(bubble);
+            }
+        }
+
+        var caughtUp = bubble.streamRendered >= bubble.streamCharBuffer.length;
+
+        if (!caughtUp || !bubble.streamDone) {
+            bubble.streamRaf = requestAnimationFrame(function () {
+                bubble.streamRaf = null;
+                advanceTypewriter(bubble);
+            });
+            return;
+        }
+
+        if (bubble.streamFinalizePending) {
+            bubble.streamFinalizePending = false;
+            finalizeBubble(bubble);
+        }
+    }
+
+    function renderStreamFrame(bubble) {
+        var visible = bubble.streamCharBuffer.substring(0, bubble.streamRendered);
+
+        // Hide the "Thinking…" indicator the first time a character actually
+        // becomes visible. Removing it on token arrival (the old behavior) made
+        // it disappear before any text was on screen, leaving a gap.
+        if (!bubble.streamThinkingHidden && visible.length > 0) {
+            bubble.streamThinkingHidden = true;
+            var thinking = bubble.bodyEl.querySelector('.ot-chat-thinking');
+            if (thinking) thinking.remove();
+        }
+
+        // Pad unclosed inline markers so partial **bold**, *italic*, and `code`
+        // render optimistically as they're typed instead of showing as raw
+        // asterisks until the closer arrives.
+        var patched = patchOpenInlineMarkers(visible);
+        var tree = renderMarkdown(patched);
+
+        // Blinking caret rides at the end of the deepest leaf while we type.
+        if (!bubble.streamDone || bubble.streamRendered < bubble.streamCharBuffer.length) {
+            attachStreamCursor(tree);
+        }
+
+        bubble.bodyEl.replaceChildren(tree);
+        maybeAutoScroll();
+    }
+
+    function patchOpenInlineMarkers(text) {
+        // Order matters: count `**` first (bold), then count solo `*` after
+        // stripping pairs (italic), then ``` and ` (code). Each unclosed
+        // marker gets its closer appended; the parser then emits a complete
+        // `<strong>partial</strong>` instead of literal `**partial`.
+        var out = text;
+
+        // Bold: number of `**` occurrences. Odd → unclosed.
+        var boldMatches = text.match(/\*\*/g);
+        var boldCount = boldMatches ? boldMatches.length : 0;
+        if (boldCount % 2 === 1) out += '**';
+
+        // Italic: solo `*` (after stripping `**`). Odd → unclosed.
+        var stripped = text.replace(/\*\*/g, '');
+        var italicMatches = stripped.match(/\*/g);
+        var italicCount = italicMatches ? italicMatches.length : 0;
+        if (italicCount % 2 === 1) out += '*';
+
+        // Inline code.
+        var codeMatches = text.match(/`/g);
+        var codeCount = codeMatches ? codeMatches.length : 0;
+        if (codeCount % 2 === 1) out += '`';
+
+        return out;
+    }
+
+    function attachStreamCursor(rootEl) {
+        // Walk to the deepest last child element so the caret sits at the end
+        // of the most recently typed character. Falls back to the root when
+        // the tree is empty (first frames).
+        var leaf = rootEl;
+        while (leaf.lastElementChild) {
+            leaf = leaf.lastElementChild;
+        }
+        var cursor = document.createElement('span');
+        cursor.className = 'ot-chat-stream-cursor';
+        cursor.setAttribute('aria-hidden', 'true');
+        leaf.appendChild(cursor);
+    }
+
+    // After streaming completes we still want bare URLs in the answer to
+    // become clickable, but we couldn't anchorize them mid-stream because
+    // we don't know where the URL ends until a boundary char arrives.
+    // Walk text nodes in the streamed tree once and replace URL substrings
+    // with <a> elements.
+    function linkifyTextNodesInPlace(rootEl) {
+        var URL_RE = /https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g;
+        var walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+        var nodes = [];
+        var node;
+        while ((node = walker.nextNode())) {
+            // Skip text already inside an <a> — e.g., explicit links from MD.
+            if (node.parentNode && node.parentNode.nodeName === 'A') continue;
+            if (URL_RE.test(node.data)) nodes.push(node);
+            URL_RE.lastIndex = 0;
+        }
+        nodes.forEach(function (textNode) {
+            var text = textNode.data;
+            var frag = document.createDocumentFragment();
+            var lastEnd = 0;
+            var m;
+            URL_RE.lastIndex = 0;
+            while ((m = URL_RE.exec(text)) !== null) {
+                if (m.index > lastEnd) {
+                    frag.appendChild(document.createTextNode(text.substring(lastEnd, m.index)));
+                }
+                var a = document.createElement('a');
+                a.href = m[0];
+                a.textContent = m[0];
+                a.rel = 'noopener';
+                frag.appendChild(a);
+                lastEnd = m.index + m[0].length;
+            }
+            if (lastEnd < text.length) {
+                frag.appendChild(document.createTextNode(text.substring(lastEnd)));
+            }
+            if (textNode.parentNode) {
+                textNode.parentNode.replaceChild(frag, textNode);
+            }
+        });
     }
 
     function finalizeBubble(bubble) {
         if (bubble.finalized) return;
         bubble.finalized = true;
 
-        // Re-render the body: parse the accumulated tokenBuffer as markdown and
-        // replace the streaming text-node tree with a structured tree. This only
-        // runs once per message at completion — never mid-stream — so there's no
-        // risk of partial-markdown flicker.
+        // Cancel any pending typewriter frame — we're taking over.
+        if (bubble.streamRaf !== null) {
+            cancelAnimationFrame(bubble.streamRaf);
+            bubble.streamRaf = null;
+        }
+
         var cleanText = (bubble.tokenBuffer || '').replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, '');
-        var mdTree = renderMarkdown(cleanText);
+
+        if (bubble.usedStreaming) {
+            // Streaming path: the tree was built progressively. Render one
+            // final frame from the COMPLETE buffer (no marker patching needed
+            // because it's no longer partial), strip the cursor, then anchor
+            // bare URLs that we couldn't resolve mid-stream. This produces the
+            // exact same tree as the static parser would, so no visible jump.
+            bubble.streamRendered = bubble.streamCharBuffer.length;
+            var finalTree = renderMarkdown(bubble.streamCharBuffer);
+            bubble.bodyEl.replaceChildren(finalTree);
+            linkifyTextNodesInPlace(bubble.bodyEl);
+        } else {
+            // History replay or JSON-fallback path: parse and replace once.
+            var mdTree = renderMarkdown(cleanText);
+            bubble.bodyEl.replaceChildren(mdTree);
+        }
 
         // Empty body guard: if the model returned nothing, show a placeholder.
         if (cleanText.trim().length === 0 && !bubble.refused) {
@@ -610,10 +853,15 @@
             empty.style.color = '#9ca3af';
             empty.style.fontStyle = 'italic';
             empty.textContent = strings.empty_response || 'No content returned by the model.';
-            mdTree.appendChild(empty);
+            bubble.bodyEl.replaceChildren(empty);
         }
 
-        bubble.bodyEl.replaceChildren(mdTree);
+        // Only animate the post-stream elements in if this bubble was
+        // actually streamed live. History replay and JSON-fallback paths
+        // render fully-formed messages — animating them on every reload
+        // would be visual noise.
+        var animateReveal = bubble.usedStreaming && !REDUCED_MOTION;
+        var revealClass = animateReveal ? ' ot-chat-msg__reveal' : '';
 
         // Refusal copy + contact CTA.
         if (bubble.refused && bubble.citations.length === 0) {
@@ -628,13 +876,14 @@
             }
 
             if (cleanText.trim().length === 0) {
-                var p = mdTree.querySelector('p') || document.createElement('p');
+                var p = bubble.bodyEl.querySelector('p') || document.createElement('p');
                 p.textContent = strings.refused_headline || "I don't have enough information to answer that.";
-                if (!p.parentNode) mdTree.appendChild(p);
+                if (!p.parentNode) bubble.bodyEl.appendChild(p);
             }
             if (config.contact_url) {
                 var cta = document.createElement('a');
-                cta.className = 'ot-chat-contact-btn';
+                cta.className = 'ot-chat-contact-btn' + revealClass;
+                if (animateReveal) cta.style.animationDelay = '40ms';
                 cta.href = config.contact_url;
                 cta.textContent = strings.refused_contact || 'Contact security team →';
                 bubble.bodyEl.appendChild(cta);
@@ -644,7 +893,8 @@
         // Sources block (after the body, inside content column).
         if (bubble.citations.length > 0) {
             var sources = document.createElement('div');
-            sources.className = 'ot-chat-msg__sources';
+            sources.className = 'ot-chat-msg__sources' + revealClass;
+            if (animateReveal) sources.style.animationDelay = '40ms';
 
             var h4 = document.createElement('h4');
             h4.textContent = strings.sources_label || 'Sources';
@@ -669,16 +919,17 @@
         // the sources above" to "I don't have enough info" is nonsensical.
         if (!(bubble.refused && bubble.citations.length === 0)) {
             var disclaimer = document.createElement('p');
-            disclaimer.className = 'ot-chat-msg__disclaimer';
+            disclaimer.className = 'ot-chat-msg__disclaimer' + revealClass;
+            if (animateReveal) disclaimer.style.animationDelay = '140ms';
             disclaimer.textContent = strings.disclaimer || 'AI-generated answer. Not legal, security, or compliance advice. Verify against the sources above.';
             bubble.bodyEl.parentNode.appendChild(disclaimer);
         }
 
         // Action bar — Copy / Share / Print with icons.
         var actions = document.createElement('div');
-        actions.className = 'ot-chat-msg__actions';
+        actions.className = 'ot-chat-msg__actions' + revealClass;
+        if (animateReveal) actions.style.animationDelay = '220ms';
         actions.appendChild(buildActionButton(COPY_SVG, strings.copy || 'Copy', function (btn) { copyBubble(bubble, btn); }));
-        actions.appendChild(buildActionButton(SHARE_SVG, strings.share || 'Share', function (btn) { shareLastQuestion(btn); }));
         actions.appendChild(buildActionButton(PRINT_SVG, strings.print || 'Print', function () { window.print(); }));
         bubble.bodyEl.parentNode.appendChild(actions);
 
@@ -708,6 +959,21 @@
             btn.replaceChildren.apply(btn, originals);
             btn.classList.remove('is-success');
         }, 1600);
+    }
+
+    /**
+     * Drain the typewriter immediately and finalize. Used when the stream
+     * ends abnormally (server closed without `done`, user hit Stop) — we
+     * don't want the cursor to keep blinking on a stalled bubble.
+     */
+    function forceFinalize(bubble) {
+        if (bubble.finalized) return;
+        if (bubble.streamRaf !== null) {
+            cancelAnimationFrame(bubble.streamRaf);
+            bubble.streamRaf = null;
+        }
+        bubble.streamRendered = bubble.streamCharBuffer.length;
+        finalizeBubble(bubble);
     }
 
     function commitAssistantFromBubble(bubble) {
@@ -1127,18 +1393,6 @@
         // Disable inputs.
         [input, sendBtn, resetBtn].forEach(function (el) {
             if (el) el.disabled = true;
-        });
-    }
-
-    function shareLastQuestion(btn) {
-        var lastUser = null;
-        for (var i = history.length - 1; i >= 0; i--) {
-            if (history[i].role === 'user') { lastUser = history[i]; break; }
-        }
-        if (!lastUser) return;
-        var url = (config.base_url || '') + 'ask/?q=' + encodeURIComponent(lastUser.content);
-        copyToClipboard(url).then(function (ok) {
-            if (ok) flashButton(btn, strings.link_copied || 'Link copied');
         });
     }
 

@@ -124,7 +124,7 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <div class="ot-nav__search">
+            <div class="ot-nav__cta">
                 <span class="ot-nav__ask ot-nav__ask--active" aria-current="page">
                     <svg class="ot-nav__ask-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
@@ -335,9 +335,7 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
                     'refused_contact'   => __('Contact security team →', 'opentrust'),
                     'copy'              => __('Copy', 'opentrust'),
                     'copied'            => __('Copied', 'opentrust'),
-                    'share'             => __('Share', 'opentrust'),
                     'print'             => __('Print', 'opentrust'),
-                    'link_copied'       => __('Link copied', 'opentrust'),
                     'start_new'         => __('Start a new conversation', 'opentrust'),
                     'long_hint'         => __('This conversation is getting long. Start fresh for better answers.', 'opentrust'),
                     'sources_label'     => __('Sources', 'opentrust'),

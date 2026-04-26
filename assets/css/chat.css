@@ -398,6 +398,46 @@
         .ot-chat-thinking-dot { animation: none; opacity: 0.6; }
     }
 
+    /* ─── Streaming caret ───────────────────────── */
+    /* A blinking vertical bar at the tail of an in-flight assistant message
+       — same idea Claude/ChatGPT use to signal "still typing". The bar lives
+       inside the deepest leaf element so it follows along as paragraphs and
+       list items are added during the stream. */
+    .ot-chat-stream-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1.05em;
+        margin: 0 1px -3px 2px;
+        vertical-align: text-bottom;
+        background: hsl(var(--ot-accent-h), var(--ot-accent-s), var(--ot-accent-l));
+        border-radius: 1px;
+        animation: ot-chat-cursor-blink 1s steps(2, jump-none) infinite;
+    }
+    @keyframes ot-chat-cursor-blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ot-chat-stream-cursor { animation: none; opacity: 1; }
+    }
+
+    /* ─── Post-stream reveal ────────────────────── */
+    /* When an assistant message finishes streaming, the Sources panel,
+       disclaimer, action bar, and refused-state CTA fade up in a short
+       staggered cascade rather than appearing instantly. Only applied to
+       live-streamed bubbles — history replay renders fully-formed.
+       Per-element animation-delay is set inline by chat.js. */
+    @keyframes ot-chat-reveal {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .ot-chat-msg__reveal {
+        animation: ot-chat-reveal 360ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ot-chat-msg__reveal { animation: none; }
+    }
+
     /* Contact CTA inside refused messages. Explicit link-state colors so
        browser UA visited/hover styles can never override the contrast. */
     .ot-chat-msg .ot-chat-contact-btn,
