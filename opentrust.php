@@ -3,7 +3,7 @@
  * Plugin Name: OpenTrust
  * Plugin URI:  https://github.com/opentrust/opentrust
  * Description: A self-hosted, open-source trust center for publishing security policies, subprocessors, certifications, and data practices.
- * Version:     0.8.0
+ * Version:     0.8.1
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author:      OpenTrust
@@ -18,7 +18,7 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-define('OPENTRUST_VERSION', '0.8.0');
+define('OPENTRUST_VERSION', '0.8.1');
 define('OPENTRUST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('OPENTRUST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('OPENTRUST_PLUGIN_FILE', __FILE__);
