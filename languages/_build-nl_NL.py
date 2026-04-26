@@ -59,7 +59,6 @@ NL: dict[str, str] = {
     "What we collect and how we handle your data.": "Welke gegevens we verzamelen en hoe we ze gebruiken.",
     "Overview": "Overzicht",
     "Search": "Zoeken",
-    "Search policies, subprocessors, certifications…": "Zoek in beleid, subverwerkers, certificeringen…",
 
     # ── Hero ────────────────────────────────────────
     "%d Active Certification": "%d Actieve certificering",
@@ -126,7 +125,6 @@ NL: dict[str, str] = {
 
     # ── Chat UI ─────────────────────────────────────
     "Ask anything about our security and compliance…": "Stel een vraag over onze beveiliging en compliance…",
-    "Ask anything about our security…": "Stel een vraag over onze beveiliging…",
     "Ask AI": "Vraag de AI",
     "Ask %s — Trust Center": "Vraag het aan %s — Trust Center",
     "Send": "Versturen",
@@ -160,7 +158,7 @@ NL: dict[str, str] = {
     "Are you SOC 2 compliant?": "Zijn jullie SOC 2-compliant?",
     "Where is customer data stored?": "Waar worden klantgegevens opgeslagen?",
     "Which subprocessors do you use?": "Welke subverwerkers gebruiken jullie?",
-    "What is your incident response process?": "Wat is jullie incident-responseproces?",
+    "What's your incident response process?": "Wat is jullie incident-responseproces?",
 
     # ── Subscribe / notifications ───────────────────
     "Subscribe to updates": "Abonneer op updates",

@@ -1,0 +1,129 @@
+.governdocs-doc-box {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border: 2px solid #dae1ed;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 20px rgba(0,0,0,.06);
+    max-width: 100%;
+    margin-bottom: 20px;
+    color: #222;
+}
+.governdocs-doc-box.governdocs-doc-box-full {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}
+.governdocs-doc-icon {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 3px 0 0 0;
+}
+.governdocs-doc-icon svg{
+    width: 26px;
+    height: 26px;
+    display: block;
+}
+.governdocs-doc-body{
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.governdocs-doc-title {
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+    line-height: 1.3;
+    font-weight: 600;
+}
+.governdocs-doc-title a{
+    text-decoration: none;
+}
+.governdocs-doc-meta {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #6b7280;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 0;
+    list-style: none;
+}
+.governdocs-doc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 12px;
+    border-radius: 999px;
+    border: 1px solid #dae1ed;
+    background: #fafafa;
+    font-size: 0.8rem;
+    color: #222;
+}
+.governdocs-doc-actions{
+    flex: 0 0 auto;
+}
+.governdocs-doc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 5px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 5px 0 0 0;
+}
+.governdocs-doc-btn:hover{
+    background: #f9fafb;
+}
+.governdocs-doc-desc {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #374151;
+}
+.governdocs-meeting-sections {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+}
+
+.governdocs-meeting-sections:has(> .governdocs-meeting-section:nth-child(2)):not(:has(> .governdocs-meeting-section:nth-child(3))) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.governdocs-meeting-section {
+    min-width: 0;
+}
+.governdocs-meeting-section{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    padding:14px 0 0 0;
+    border-top:1px solid #dae1ed;
+}
+.governdocs-meeting-section:first-child {
+    border-right: 1px solid #dae1ed;
+    padding-right: 20px;
+}
+.governdocs-meeting-section:last-child {
+    padding-left: 20px;
+}
+.governdocs-meeting-section-body{
+    min-width:0;
+    flex:1 1 auto;
+}
+.governdocs-meeting-section-title{
+    margin:0 0 10px 0;
+    font-size:1rem;
+    line-height:1.3;
+    font-weight:600;
+}
+.governdocs-meeting-section-title a{
+    text-decoration:none;
+}

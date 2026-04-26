@@ -303,34 +303,10 @@
         font-weight: 500;
     }
 
-    .ot-nav__search {
+    .ot-nav__cta {
         margin-inline-start: auto;
         padding: var(--ot-space-2) 0;
         flex-shrink: 0;
-    }
-
-    .ot-search-input {
-        font-family: var(--ot-font);
-        font-size: var(--ot-text-sm);
-        padding: var(--ot-space-2) var(--ot-space-3);
-        padding-inline-start: 36px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: var(--ot-radius-sm);
-        outline: none;
-        width: 220px;
-        transition: border-color var(--ot-transition-fast), box-shadow var(--ot-transition-fast);
-        background-color: rgba(255, 255, 255, 0.06);
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='rgba(255,255,255,0.4)' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: 12px center;
-        background-size: 14px;
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .ot-search-input:focus {
-        border-color: rgba(255, 255, 255, 0.3);
-        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
-        background-color: rgba(255, 255, 255, 0.1);
     }
 
     /* ──────────────────────────────────────────────
@@ -418,10 +394,6 @@
         .ot-body a.ot-nav__ask:hover .ot-nav__ask-icon {
             transform: none;
         }
-    }
-
-    .ot-search-input::placeholder {
-        color: rgba(255, 255, 255, 0.35);
     }
 
     /* ═══════════════════════════════════════════════
@@ -1708,7 +1680,6 @@
 
     @media print {
         .ot-nav,
-        .ot-search-input,
         .ot-footer,
         .ot-policy-single__actions,
         .ot-policy-single__back {
@@ -1821,10 +1792,6 @@
             font-size: var(--ot-text-2xl);
         }
 
-        .ot-nav__search {
-            display: none;
-        }
-
         /* Data practices cards — single column on mobile */
         .ot-dp-cards {
             grid-template-columns: 1fr;
@@ -1847,22 +1814,6 @@
         .ot-table td {
             padding: var(--ot-space-3) var(--ot-space-3);
         }
-    }
-
-    /* ═══════════════════════════════════════════════
-       SEARCH / FILTER STATE
-       ═══════════════════════════════════════════════ */
-
-    .ot-card--hidden,
-    .ot-table-row--hidden,
-    .ot-dp-card--hidden {
-        display: none;
-    }
-
-    .ot-search-count {
-        font-size: var(--ot-text-sm);
-        color: var(--ot-gray-400);
-        margin-bottom: var(--ot-space-4);
     }
 
     /* ═══════════════════════════════════════════════

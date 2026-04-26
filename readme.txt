@@ -2,7 +2,7 @@
 Contributors: opentrust
 Tags: trust-center, security, compliance, privacy, subprocessors
 Requires at least: 6.0
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 8.1
 Stable tag: 0.8.0
 License: GPL-2.0-or-later

@@ -3,7 +3,6 @@
  *
  * - Smooth scroll for anchor links
  * - Scroll-spy for sticky navigation
- * - Global search across cards and table rows
  * - Table column sorting
  */
 (function () {
@@ -14,7 +13,6 @@
     function init() {
         initSmoothScroll();
         initScrollSpy();
-        initSearch();
         initTableSort();
         initDpCards();
         initVersionHistory();
@@ -84,105 +82,6 @@
 
         window.addEventListener('scroll', throttle(update, 100), { passive: true });
         update();
-    }
-
-    // ── Search ─────────────────────────────────────
-
-    function initSearch() {
-        var input = document.getElementById('ot-search');
-        if (!input) return;
-
-        // Dual-mode: if AI is enabled on this site, upgrade the search input
-        // into an "Ask AI" affordance. Otherwise keep the substring filter.
-        var cfg = window.OT_CFG || {};
-        if (cfg.ai_enabled && cfg.ask_url) {
-            initAiSearch(input, cfg);
-        } else {
-            initSubstringSearch(input);
-        }
-    }
-
-    function initAiSearch(input, cfg) {
-        input.setAttribute('placeholder', (cfg.ask_placeholder) || 'Ask anything about our security…');
-        input.setAttribute('aria-label', (cfg.ask_label) || 'Ask AI');
-        input.autocomplete = 'off';
-
-        var askUrl = cfg.ask_url;
-
-        // Below 480px the input is useless inline — clicking opens the chat page.
-        if (window.matchMedia && window.matchMedia('(max-width: 480px)').matches) {
-            input.addEventListener('focus', function (e) {
-                e.preventDefault();
-                input.blur();
-                window.location.href = askUrl;
-            });
-        }
-
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                var q = (input.value || '').trim();
-                if (q) {
-                    window.location.href = askUrl + '?q=' + encodeURIComponent(q);
-                } else {
-                    window.location.href = askUrl;
-                }
-            }
-        });
-
-        // Rotating placeholder — disabled when reduced-motion is requested.
-        if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            var prompts = (cfg.ask_prompts && cfg.ask_prompts.length) ? cfg.ask_prompts : [
-                'Are you SOC 2 compliant?',
-                'Where is customer data stored?',
-                'Which subprocessors do you use?',
-                'What is your incident response process?'
-            ];
-            var idx = 0;
-            setInterval(function () {
-                if (document.activeElement === input) return;
-                idx = (idx + 1) % prompts.length;
-                input.setAttribute('placeholder', prompts[idx]);
-            }, 4000);
-        }
-    }
-
-    function initSubstringSearch(input) {
-        input.addEventListener('input', function () {
-            var query = this.value.toLowerCase().trim();
-
-            // Filter cards.
-            document.querySelectorAll('.ot-card').forEach(function (card) {
-                var text = card.textContent.toLowerCase();
-                card.classList.toggle('ot-card--hidden', query !== '' && !text.includes(query));
-            });
-
-            // Filter table rows.
-            document.querySelectorAll('.ot-table tbody tr').forEach(function (row) {
-                var text = row.textContent.toLowerCase();
-                row.classList.toggle('ot-table-row--hidden', query !== '' && !text.includes(query));
-            });
-
-            // Filter data practice cards.
-            document.querySelectorAll('.ot-dp-card').forEach(function (card) {
-                var text = card.textContent.toLowerCase();
-                card.classList.toggle('ot-dp-card--hidden', query !== '' && !text.includes(query));
-            });
-
-            // Show/hide empty sections.
-            document.querySelectorAll('.ot-section').forEach(function (section) {
-                var visibleCards = section.querySelectorAll('.ot-card:not(.ot-card--hidden)').length;
-                var visibleRows = section.querySelectorAll('.ot-table tbody tr:not(.ot-table-row--hidden)').length;
-                var visibleDp = section.querySelectorAll('.ot-dp-card:not(.ot-dp-card--hidden)').length;
-                var hasContent = visibleCards > 0 || visibleRows > 0 || visibleDp > 0;
-
-                if (query) {
-                    section.style.display = hasContent ? '' : 'none';
-                } else {
-                    section.style.display = '';
-                }
-            });
-        });
     }
 
     // ── Table Sort ─────────────────────────────────

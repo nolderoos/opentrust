@@ -1929,12 +1929,10 @@ msgid "Ask"
 msgstr ""
 
 #: templates/chat.php:221
-#: templates/trust-center.php:241
 msgid "Are you SOC 2 compliant?"
 msgstr ""
 
 #: templates/chat.php:222
-#: templates/trust-center.php:242
 msgid "Where is customer data stored?"
 msgstr ""
 
@@ -1943,7 +1941,6 @@ msgid "What's your incident response process?"
 msgstr ""
 
 #: templates/chat.php:224
-#: templates/trust-center.php:243
 msgid "Which subprocessors do you use?"
 msgstr ""
 
@@ -2366,14 +2363,6 @@ msgstr ""
 msgid "Ask AI"
 msgstr ""
 
-#: templates/trust-center.php:147
-msgid "Search..."
-msgstr ""
-
-#: templates/trust-center.php:148
-msgid "Search trust center"
-msgstr ""
-
 #: templates/trust-center.php:194
 msgid "Trust center content is being prepared. Check back soon."
 msgstr ""
@@ -2388,10 +2377,3 @@ msgstr ""
 msgid "Powered by OpenTrust"
 msgstr ""
 
-#: templates/trust-center.php:238
-msgid "Ask anything about our security…"
-msgstr ""
-
-#: templates/trust-center.php:244
-msgid "What is your incident response process?"
-msgstr ""

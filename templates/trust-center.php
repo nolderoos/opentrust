@@ -135,8 +135,8 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
-                    <div class="ot-nav__search">
-                        <?php if ($ot_ai_enabled): ?>
+                    <?php if ($ot_ai_enabled): ?>
+                        <div class="ot-nav__cta">
                             <a href="<?php echo esc_url(trailingslashit($ot_base_url) . 'ask/'); ?>" class="ot-nav__ask">
                                 <svg class="ot-nav__ask-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
@@ -147,14 +147,8 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
                                 </svg>
                                 <span class="ot-nav__ask-label"><?php esc_html_e('Ask AI', 'opentrust'); ?></span>
                             </a>
-                        <?php else: ?>
-                            <input type="search"
-                                   class="ot-search-input"
-                                   id="ot-search"
-                                   placeholder="<?php esc_attr_e('Search...', 'opentrust'); ?>"
-                                   aria-label="<?php esc_attr_e('Search trust center', 'opentrust'); ?>">
-                        <?php endif; ?>
-                    </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </nav>
         <?php
@@ -233,24 +227,6 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
     </footer>
 
     <script>
-        window.OT_CFG = <?php
-            $ot_ai_enabled_for_js = !empty($ot_settings['ai_enabled'])
-                && !empty($ot_settings['ai_provider'])
-                && !empty($ot_settings['ai_model'])
-                && OpenTrust_Chat_Secrets::get((string) $ot_settings['ai_provider']) !== null;
-            echo wp_json_encode([
-                'ai_enabled'    => $ot_ai_enabled_for_js,
-                'ask_url'       => trailingslashit($ot_base_url) . 'ask/',
-                'ask_placeholder' => __('Ask anything about our security…', 'opentrust'),
-                'ask_label'     => __('Ask AI', 'opentrust'),
-                'ask_prompts'   => [
-                    __('Are you SOC 2 compliant?', 'opentrust'),
-                    __('Where is customer data stored?', 'opentrust'),
-                    __('Which subprocessors do you use?', 'opentrust'),
-                    __('What is your incident response process?', 'opentrust'),
-                ],
-            ]);
-        ?>;
         <?php
         $ot_js_path = OPENTRUST_PLUGIN_DIR . 'assets/js/frontend.js';
         if (file_exists($ot_js_path)) {
