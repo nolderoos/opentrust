@@ -398,130 +398,38 @@ final class OpenTrust_Admin {
             return OpenTrust::defaults();
         }
 
-        $old_settings = OpenTrust::get_settings();
-
-        // Each tab's form carries a sentinel (`__<tab>_tab_save`) so this callback
-        // can tell which subset of keys came from the submission. Any field outside
-        // the active tab's scope is carried forward from $old_settings byte-for-byte,
-        // so saving one tab never clobbers another tab's values.
+        $old = OpenTrust::get_settings();
         $sanitized = [];
 
-        // ── General tab (General + Branding + Visible Sections) ──
-        if (!empty($input['__general_tab_save'])) {
-            $sanitized['endpoint_slug']      = sanitize_title($input['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) ?: OpenTrust::DEFAULT_ENDPOINT_SLUG;
-            $sanitized['page_title']         = sanitize_text_field($input['page_title'] ?? '');
-            $sanitized['company_name']       = sanitize_text_field($input['company_name'] ?? '');
-            $sanitized['tagline']            = sanitize_textarea_field($input['tagline'] ?? '');
-            $sanitized['logo_id']            = absint($input['logo_id'] ?? 0);
-            $sanitized['avatar_id']          = absint($input['avatar_id'] ?? 0);
-            $sanitized['accent_color']       = sanitize_hex_color($input['accent_color'] ?? '#2563EB') ?: '#2563EB';
-            $sanitized['accent_force_exact'] = !empty($input['accent_force_exact']);
-            $sanitized['sections_visible']   = [
-                'certifications' => !empty($input['sections_visible']['certifications']),
-                'policies'       => !empty($input['sections_visible']['policies']),
-                'subprocessors'  => !empty($input['sections_visible']['subprocessors']),
-                'data_practices' => !empty($input['sections_visible']['data_practices']),
-                'faqs'           => !empty($input['sections_visible']['faqs']),
-                'contact'        => !empty($input['sections_visible']['contact']),
-            ];
-        } else {
-            $sanitized['endpoint_slug']      = (string) ($old_settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG);
-            $sanitized['page_title']         = (string) ($old_settings['page_title'] ?? '');
-            $sanitized['company_name']       = (string) ($old_settings['company_name'] ?? '');
-            $sanitized['tagline']            = (string) ($old_settings['tagline'] ?? '');
-            $sanitized['logo_id']            = (int) ($old_settings['logo_id'] ?? 0);
-            $sanitized['avatar_id']          = (int) ($old_settings['avatar_id'] ?? 0);
-            $sanitized['accent_color']       = (string) ($old_settings['accent_color'] ?? '#2563EB');
-            $sanitized['accent_force_exact'] = !empty($old_settings['accent_force_exact']);
-            $sanitized['sections_visible']   = is_array($old_settings['sections_visible'] ?? null)
-                ? $old_settings['sections_visible']
-                : [
-                    'certifications' => true,
-                    'policies'       => true,
-                    'subprocessors'  => true,
-                    'data_practices' => true,
-                    'faqs'           => true,
-                    'contact'        => true,
-                ];
+        // Schema-driven dispatch. Each tab's form carries a save sentinel
+        // (`__<tab>_tab_save`); fields belonging to the active tab come from
+        // the form and run through their sanitize callback, while other tabs'
+        // fields are pulled from $old. Either way the same sanitize closure
+        // runs as a type-coercion guard, so saving one tab never clobbers
+        // another and the produced array is always shape-stable.
+        foreach (self::settings_schema() as $key => $spec) {
+            $sentinel  = '__' . $spec['tab'] . '_tab_save';
+            $from_form = !empty($input[$sentinel]);
+            $value     = $from_form ? ($input[$key] ?? null) : ($old[$key] ?? $spec['default']);
+            $sanitized[$key] = ($spec['sanitize'])($value, $old[$key] ?? $spec['default']);
         }
 
-        // ── Contact tab (Get in touch block) ──
-        if (!empty($input['__contact_tab_save'])) {
-            $sanitized['company_description']  = sanitize_textarea_field($input['company_description'] ?? '');
-            $sanitized['dpo_name']             = sanitize_text_field($input['dpo_name']                ?? '');
-            $sanitized['dpo_email']            = sanitize_email($input['dpo_email']                    ?? '');
-            $sanitized['security_email']       = sanitize_email($input['security_email']               ?? '');
-            $sanitized['contact_form_url']     = esc_url_raw($input['contact_form_url']                ?? '');
-            $sanitized['contact_address']      = sanitize_textarea_field($input['contact_address']     ?? '');
-            $sanitized['pgp_key_url']          = esc_url_raw($input['pgp_key_url']                     ?? '');
-            $sanitized['company_registration'] = sanitize_text_field($input['company_registration']    ?? '');
-            $sanitized['vat_number']           = sanitize_text_field($input['vat_number']              ?? '');
-        } else {
-            $sanitized['company_description']  = (string) ($old_settings['company_description']  ?? '');
-            $sanitized['dpo_name']             = (string) ($old_settings['dpo_name']             ?? '');
-            $sanitized['dpo_email']            = (string) ($old_settings['dpo_email']            ?? '');
-            $sanitized['security_email']       = (string) ($old_settings['security_email']       ?? '');
-            $sanitized['contact_form_url']     = (string) ($old_settings['contact_form_url']     ?? '');
-            $sanitized['contact_address']      = (string) ($old_settings['contact_address']      ?? '');
-            $sanitized['pgp_key_url']          = (string) ($old_settings['pgp_key_url']          ?? '');
-            $sanitized['company_registration'] = (string) ($old_settings['company_registration'] ?? '');
-            $sanitized['vat_number']           = (string) ($old_settings['vat_number']           ?? '');
-        }
+        // Server-controlled fields — set by the key-save / model-refresh
+        // handlers, never sourced from a settings form.
+        $sanitized['ai_enabled']              = !empty($old['ai_enabled']);
+        $sanitized['ai_provider']             = sanitize_key($old['ai_provider'] ?? '');
+        $sanitized['ai_model_list_cached_at'] = (int) ($old['ai_model_list_cached_at'] ?? 0);
 
-        // ── Per-site salt ─────────────────────────────────────────
-        // Written out-of-band by OpenTrust_Chat_Budget::site_salt(). Never
-        // sourced from the form — carry forward byte-for-byte so saving settings
-        // doesn't force a salt regeneration (which would invalidate all
-        // in-flight rate-limit hashes and Turnstile bypass transients).
-        if (isset($old_settings['opentrust_site_salt']) && is_string($old_settings['opentrust_site_salt'])) {
-            $sanitized['opentrust_site_salt'] = $old_settings['opentrust_site_salt'];
-        }
-
-        // ── AI chat (OTC) ──────────────────────────
-        // `ai_enabled`, `ai_provider`, and `ai_model_list_cached_at` are
-        // server-controlled by the key-save handler — never sourced from the form.
-        $sanitized['ai_enabled']              = !empty($old_settings['ai_enabled']);
-        $sanitized['ai_provider']             = sanitize_key($old_settings['ai_provider'] ?? '');
-        $sanitized['ai_model_list_cached_at'] = (int) ($old_settings['ai_model_list_cached_at'] ?? 0);
-
-        // The AI tab's save form carries a sentinel flag so we only parse AI
-        // fields from the submission when we're on that tab. On other tabs,
-        // AI fields are absent from $input and must be preserved from old settings.
-        if (!empty($input['__ai_tab_save'])) {
-            $sanitized['ai_model']                  = sanitize_text_field($input['ai_model'] ?? ($old_settings['ai_model'] ?? ''));
-            $sanitized['ai_daily_token_budget']     = max(0, absint($input['ai_daily_token_budget']   ?? OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET));
-            $sanitized['ai_monthly_token_budget']   = max(0, absint($input['ai_monthly_token_budget'] ?? OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET));
-            $sanitized['ai_rate_limit_per_ip']      = max(0, min(1000,  absint($input['ai_rate_limit_per_ip']      ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP)));
-            $sanitized['ai_rate_limit_per_session'] = max(0, min(10000, absint($input['ai_rate_limit_per_session'] ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION)));
-            $sanitized['ai_max_message_length']     = max(100, min(4000, absint($input['ai_max_message_length'] ?? OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH)));
-            $sanitized['ai_contact_url']            = esc_url_raw($input['ai_contact_url'] ?? '');
-            $sanitized['ai_show_model_attribution'] = !empty($input['ai_show_model_attribution']);
-            $sanitized['ai_logging_enabled']        = !empty($input['ai_logging_enabled']);
-            $sanitized['ai_turnstile_enabled']      = !empty($input['ai_turnstile_enabled']);
-            $sanitized['ai_auto_summarize']         = !empty($input['ai_auto_summarize']);
-            $sanitized['turnstile_site_key']        = sanitize_text_field($input['turnstile_site_key'] ?? '');
-            $sanitized['turnstile_secret_key']      = self::sanitize_secret_field(
-                $input['turnstile_secret_key'] ?? '',
-                $old_settings['turnstile_secret_key'] ?? ''
-            );
-        } else {
-            $sanitized['ai_model']                  = sanitize_text_field($old_settings['ai_model'] ?? '');
-            $sanitized['ai_daily_token_budget']     = (int) ($old_settings['ai_daily_token_budget']     ?? OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET);
-            $sanitized['ai_monthly_token_budget']   = (int) ($old_settings['ai_monthly_token_budget']   ?? OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET);
-            $sanitized['ai_rate_limit_per_ip']      = (int) ($old_settings['ai_rate_limit_per_ip']      ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP);
-            $sanitized['ai_rate_limit_per_session'] = (int) ($old_settings['ai_rate_limit_per_session'] ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION);
-            $sanitized['ai_max_message_length']     = (int) ($old_settings['ai_max_message_length']     ?? OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH);
-            $sanitized['ai_contact_url']            = (string) ($old_settings['ai_contact_url']         ?? '');
-            $sanitized['ai_show_model_attribution'] = !empty($old_settings['ai_show_model_attribution']);
-            $sanitized['ai_logging_enabled']        = !empty($old_settings['ai_logging_enabled']);
-            $sanitized['ai_turnstile_enabled']      = !empty($old_settings['ai_turnstile_enabled']);
-            $sanitized['ai_auto_summarize']         = !empty($old_settings['ai_auto_summarize']);
-            $sanitized['turnstile_site_key']        = (string) ($old_settings['turnstile_site_key']   ?? '');
-            $sanitized['turnstile_secret_key']      = (string) ($old_settings['turnstile_secret_key'] ?? '');
+        // Per-site salt — written out-of-band by OpenTrust_Chat_Budget::site_salt().
+        // Carry forward byte-for-byte so saving settings doesn't force a
+        // regeneration (which would invalidate all in-flight rate-limit
+        // hashes and Turnstile bypass transients).
+        if (isset($old['opentrust_site_salt']) && is_string($old['opentrust_site_salt'])) {
+            $sanitized['opentrust_site_salt'] = $old['opentrust_site_salt'];
         }
 
         // Flag rewrite flush if slug changed.
-        if ($sanitized['endpoint_slug'] !== ($old_settings['endpoint_slug'] ?? '')) {
+        if ($sanitized['endpoint_slug'] !== ($old['endpoint_slug'] ?? '')) {
             set_transient('opentrust_flush_rewrite', true);
         }
 
@@ -529,15 +437,157 @@ final class OpenTrust_Admin {
     }
 
     /**
+     * Settings schema: per-key {tab, default, sanitize}. The sanitize
+     * callback receives `($value, $old_value)` and must be idempotent on
+     * its own output — it runs both on form input (active tab) and on
+     * already-stored values (inactive tab) without intermediate type drift.
+     *
+     * Adding a new setting is a single entry here — no edits to the
+     * tab-dispatch loop, no tracking which else-branch needs updating.
+     *
+     * Three settings are deliberately excluded:
+     *   - `ai_enabled`, `ai_provider`, `ai_model_list_cached_at` — server-
+     *     controlled by the key-save handler.
+     *   - `opentrust_site_salt` — written out-of-band by Chat_Budget.
+     *
+     * @return array<string, array{tab:string, default:mixed, sanitize:callable}>
+     */
+    private static function settings_schema(): array {
+        // Shared sanitizers. All idempotent on already-sanitized data so the
+        // inactive-tab path (which feeds previously-stored values back through
+        // the same callback) doesn't drift on type or shape.
+        $string   = static fn($v): string => sanitize_text_field((string) ($v ?? ''));
+        $textarea = static fn($v): string => sanitize_textarea_field((string) ($v ?? ''));
+        $email    = static fn($v): string => sanitize_email((string) ($v ?? ''));
+        $url      = static fn($v): string => esc_url_raw((string) ($v ?? ''));
+        $bool     = static fn($v): bool   => !empty($v);
+        $abs_int  = static fn($v): int    => absint($v ?? 0);
+
+        // Bounded-int factory: clamps to [$min, $max], defaulting missing
+        // values to $default before clamping.
+        $bounded_int = static fn(int $min, int $max, int $default): callable =>
+            static fn($v): int => max($min, min($max, absint($v ?? $default)));
+
+        // Section visibility — the form sends nested array keys; the inactive
+        // path may receive an already-flat associative array of bools. Either
+        // shape collapses to the same structured set of bools.
+        $sections_default = [
+            'certifications' => true,
+            'policies'       => true,
+            'subprocessors'  => true,
+            'data_practices' => true,
+            'faqs'           => true,
+            'contact'        => true,
+        ];
+
+        return [
+            // ── General tab ──
+            'endpoint_slug' => [
+                'tab' => 'general',
+                'default' => OpenTrust::DEFAULT_ENDPOINT_SLUG,
+                'sanitize' => static fn($v) => sanitize_title((string) ($v ?? '')) ?: OpenTrust::DEFAULT_ENDPOINT_SLUG,
+            ],
+            'page_title'         => ['tab' => 'general', 'default' => '',        'sanitize' => $string],
+            'company_name'       => ['tab' => 'general', 'default' => '',        'sanitize' => $string],
+            'tagline'            => ['tab' => 'general', 'default' => '',        'sanitize' => $textarea],
+            'logo_id'            => ['tab' => 'general', 'default' => 0,         'sanitize' => $abs_int],
+            'avatar_id'          => ['tab' => 'general', 'default' => 0,         'sanitize' => $abs_int],
+            'accent_color'       => [
+                'tab' => 'general',
+                'default' => '#2563EB',
+                'sanitize' => static fn($v) => sanitize_hex_color((string) ($v ?? '#2563EB')) ?: '#2563EB',
+            ],
+            'accent_force_exact' => ['tab' => 'general', 'default' => false,     'sanitize' => $bool],
+            'sections_visible' => [
+                'tab' => 'general',
+                'default' => $sections_default,
+                'sanitize' => static fn($v) => is_array($v) ? [
+                    'certifications' => !empty($v['certifications']),
+                    'policies'       => !empty($v['policies']),
+                    'subprocessors'  => !empty($v['subprocessors']),
+                    'data_practices' => !empty($v['data_practices']),
+                    'faqs'           => !empty($v['faqs']),
+                    'contact'        => !empty($v['contact']),
+                ] : $sections_default,
+            ],
+
+            // ── Contact tab ──
+            'company_description'  => ['tab' => 'contact', 'default' => '', 'sanitize' => $textarea],
+            'dpo_name'             => ['tab' => 'contact', 'default' => '', 'sanitize' => $string],
+            'dpo_email'            => ['tab' => 'contact', 'default' => '', 'sanitize' => $email],
+            'security_email'       => ['tab' => 'contact', 'default' => '', 'sanitize' => $email],
+            'contact_form_url'     => ['tab' => 'contact', 'default' => '', 'sanitize' => $url],
+            'contact_address'      => ['tab' => 'contact', 'default' => '', 'sanitize' => $textarea],
+            'pgp_key_url'          => ['tab' => 'contact', 'default' => '', 'sanitize' => $url],
+            'company_registration' => ['tab' => 'contact', 'default' => '', 'sanitize' => $string],
+            'vat_number'           => ['tab' => 'contact', 'default' => '', 'sanitize' => $string],
+
+            // ── AI tab ──
+            'ai_model' => ['tab' => 'ai', 'default' => '', 'sanitize' => $string],
+            'ai_daily_token_budget' => [
+                'tab' => 'ai',
+                'default' => OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET,
+                'sanitize' => static fn($v): int => max(0, absint($v ?? OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET)),
+            ],
+            'ai_monthly_token_budget' => [
+                'tab' => 'ai',
+                'default' => OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET,
+                'sanitize' => static fn($v): int => max(0, absint($v ?? OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET)),
+            ],
+            'ai_rate_limit_per_ip' => [
+                'tab' => 'ai',
+                'default' => OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP,
+                'sanitize' => $bounded_int(0, 1000, OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP),
+            ],
+            'ai_rate_limit_per_session' => [
+                'tab' => 'ai',
+                'default' => OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION,
+                'sanitize' => $bounded_int(0, 10000, OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION),
+            ],
+            'ai_max_message_length' => [
+                'tab' => 'ai',
+                'default' => OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH,
+                'sanitize' => $bounded_int(100, 4000, OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH),
+            ],
+            'ai_contact_url'            => ['tab' => 'ai', 'default' => '',    'sanitize' => $url],
+            'ai_show_model_attribution' => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
+            'ai_logging_enabled'        => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
+            'ai_turnstile_enabled'      => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
+            'ai_auto_summarize'         => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
+            'turnstile_site_key'        => ['tab' => 'ai', 'default' => '',    'sanitize' => $string],
+            'turnstile_secret_key'      => [
+                'tab' => 'ai',
+                'default' => '',
+                // sanitize_secret_field is the only callback that needs $old:
+                // a real new plaintext gets encrypted; the masked-bullet
+                // placeholder + already-encrypted ciphertext both pass through
+                // unchanged (the latter via the ot_enc_v1: idempotency guard).
+                'sanitize' => static fn($v, $old) => self::sanitize_secret_field((string) ($v ?? ''), (string) ($old ?? '')),
+            ],
+        ];
+    }
+
+    /**
      * Persist a form-submitted secret as libsodium ciphertext.
      *
-     * If the submitted value is empty or the masked-bullet placeholder, the
-     * existing stored ciphertext is preserved unchanged. A real new value is
-     * text-sanitized and then encrypted with OpenTrust_Chat_Secrets so the
-     * option never carries the plaintext — even though opentrust_settings is
-     * autoloaded, the on-disk value is useless without AUTH_KEY.
+     * Three input shapes are passed through unchanged:
+     *  - empty / masked-bullet placeholder (user didn't change the field) →
+     *    return the existing stored ciphertext.
+     *  - already-encrypted `ot_enc_v1:` blob (the schema-driven sanitize
+     *    feeds the OLD value back through this callback on the inactive-tab
+     *    path; without this guard re-sanitization would clobber the
+     *    ciphertext) → return as-is.
+     *
+     * Anything else is text-sanitized and then encrypted via
+     * OpenTrust_Chat_Secrets, so the option never carries the plaintext.
      */
     private static function sanitize_secret_field(string $new_value, string $old_value): string {
+        // Idempotency: already-encrypted ciphertext passes through. Stored
+        // values created by OpenTrust_Chat_Secrets::encrypt() always carry
+        // this prefix, so trusting it here costs nothing real-world.
+        if (str_starts_with($new_value, 'ot_enc_v1:')) {
+            return $new_value;
+        }
         // Masked placeholder — user didn't change it.
         if ($new_value === '' || $new_value === str_repeat('•', 20) || str_starts_with($new_value, '••••')) {
             return $old_value;
