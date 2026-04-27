@@ -219,7 +219,7 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
                 );
                 ?>
                 &nbsp;·&nbsp;
-                <a href="https://github.com/opentrust/opentrust" target="_blank" rel="noopener">
+                <a href="https://ettic.nl/opentrust" target="_blank" rel="noopener">
                     <?php esc_html_e('Powered by OpenTrust', 'opentrust'); ?>
                 </a>
             </p>

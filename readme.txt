@@ -1,10 +1,10 @@
 === OpenTrust ===
-Contributors: opentrust
+Contributors: ettic
 Tags: trust-center, security, compliance, privacy, subprocessors
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.9.6
+Stable tag: 0.9.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
