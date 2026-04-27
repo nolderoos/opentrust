@@ -21,7 +21,14 @@ final class OpenTrust_Chat {
 
     public const REST_NAMESPACE = 'opentrust/v1';
     public const REST_ROUTE     = '/chat';
-    public const MAX_TOOL_TURNS = 4;
+    /**
+     * Cap on how many round-trips the model can make in one chat request.
+     * 8 covers: search → refine → fetch A → fetch B → answer, with two
+     * rounds of recovery from a missed search or 404'd id. Loop detection
+     * inside resolve_tool() prevents the same call recurring within a
+     * request, so the cap is rarely the actual limiter.
+     */
+    public const MAX_TOOL_TURNS = 8;
 
     private static ?self $instance = null;
 
@@ -41,6 +48,13 @@ final class OpenTrust_Chat {
         add_action('untrashed_post',[OpenTrust_Chat_Corpus::class, 'invalidate']);
         add_action('transition_post_status', [$this, 'maybe_invalidate_corpus_on_transition'], 10, 3);
         add_action('update_option_opentrust_settings', [OpenTrust_Chat_Corpus::class, 'invalidate']);
+
+        // Auto-summarize hooks. Independent of corpus invalidation — the
+        // summarizer schedules a debounced cron call rather than running
+        // inline on save_post, so it doesn't block the editor.
+        if (class_exists('OpenTrust_Chat_Summarizer')) {
+            OpenTrust_Chat_Summarizer::bootstrap();
+        }
     }
 
     /**
@@ -194,15 +208,13 @@ final class OpenTrust_Chat {
             );
         }
 
-        // Gate 3: corpus available and under budget?
-        $corpus = OpenTrust_Chat_Corpus::get_or_build();
-        if (!empty($corpus['over_budget'])) {
-            return new WP_Error(
-                'ai_corpus_over_budget',
-                __('Published content exceeds the AI chat size limit.', 'opentrust'),
-                ['status' => 503]
-            );
-        }
+        // Gate 3: build (or fetch) the corpus for the visitor's locale. With
+        // agentic retrieval the corpus has no top-level size cap — the model
+        // never sees the full content, only the slim index in the system
+        // prompt and whatever it pulls in via tool calls. Per-document
+        // truncation lives inside the corpus formatter.
+        $locale = (string) determine_locale();
+        $corpus = OpenTrust_Chat_Corpus::get_or_build($locale);
 
         // Reserve against the token budget BEFORE the upstream call.
         $estimated = $this->estimate_request_tokens($messages, $corpus);
@@ -218,8 +230,13 @@ final class OpenTrust_Chat {
         }
 
         $args = [
-            'system'   => $this->build_system_prompt($settings, $corpus),
-            'corpus'   => $corpus['documents'],
+            'system'   => self::build_system_prompt($settings, $corpus),
+            // Pass the full corpus struct (documents + url_to_id + bm25 + …).
+            // Providers pluck what they need: Anthropic uses url_to_id for
+            // citation reverse-lookup; OpenAI consumes documents for
+            // [[cite:id]] resolution. The shape was previously the documents
+            // array directly; the agentic engine needs richer context.
+            'corpus'   => $corpus,
             'messages' => $messages,
             'tools'    => self::tool_definitions(),
             'model'    => (string) $settings['ai_model'],
@@ -260,6 +277,8 @@ final class OpenTrust_Chat {
                     'citation_count' => $result['citation_count'],
                     'refused'        => $result['refused'],
                     'response_ms'    => (int) (microtime(true) * 1000) - $start_ms,
+                    'tool_turns'     => (int)    ($result['tool_turns'] ?? 0),
+                    'tool_names'     => (string) ($result['tool_names'] ?? ''),
                 ]));
                 exit;
             }
@@ -272,6 +291,8 @@ final class OpenTrust_Chat {
                 'citation_count' => (int) ($blocking_stats['citation_count'] ?? 0),
                 'refused'        => !empty($blocking_stats['refused']),
                 'response_ms'    => (int) (microtime(true) * 1000) - $start_ms,
+                'tool_turns'     => (int)    ($blocking_stats['tool_turns'] ?? 0),
+                'tool_names'     => (string) ($blocking_stats['tool_names'] ?? ''),
             ]));
             return $response;
         } catch (\Throwable $e) {
@@ -281,17 +302,25 @@ final class OpenTrust_Chat {
     }
 
     /**
-     * Rough request-token estimator: chars / 4 rule of thumb for the corpus +
-     * system + messages. Intentionally generous so we don't under-reserve.
+     * Reserve token budget for one chat request. Post-migration the request
+     * footprint scales with: conversation history, the (cached) index in the
+     * system prompt, and an upper bound for tool round-trips and the answer.
+     * Intentionally generous — over-reservation is reclaimed on commit; an
+     * under-reservation lets concurrent requests collectively exceed the cap.
      */
     private function estimate_request_tokens(array $messages, array $corpus): int {
-        $total = 0;
+        $history_chars = 0;
         foreach ($messages as $msg) {
-            $total += strlen((string) ($msg['content'] ?? '')) / 4;
+            $history_chars += strlen((string) ($msg['content'] ?? ''));
         }
-        $total += (int) ($corpus['est_tokens'] ?? 0);
-        $total += 512; // system prompt + tool schemas + response headroom
-        return (int) ceil($total);
+        $history_tokens = (int) ceil($history_chars / 4);
+        $index_tokens   = (int) ($corpus['index_tokens'] ?? 0);
+        // ~3K headroom per tool turn covers a search_result block plus the
+        // model's intermediate thinking. The cap rarely binds in practice.
+        $tool_headroom  = self::MAX_TOOL_TURNS * 3000;
+        $answer_room    = 2000;
+        $overhead       = 512; // tool schemas + framing
+        return $history_tokens + $index_tokens + $tool_headroom + $answer_room + $overhead;
     }
 
     // ──────────────────────────────────────────────
@@ -345,6 +374,7 @@ final class OpenTrust_Chat {
             'refused'        => false,
             'cache_creation' => 0,
             'cache_read'     => 0,
+            'tool_names'     => [], // names emitted via tool_call events, in order
         ];
 
         $on_chunk = function (array $event) use (&$collected, $whitelist): void {
@@ -386,12 +416,30 @@ final class OpenTrust_Chat {
                 $collected['answer'] .= (string) ($data['text'] ?? '');
             }
 
+            // Capture tool_call events for the log (while still forwarding
+            // to the client below). Per-turn aggregation: one event covers
+            // many tool calls, so unpack data.names[] when present.
+            if ($type === 'tool_call') {
+                if (!empty($data['names']) && is_array($data['names'])) {
+                    foreach ($data['names'] as $n) {
+                        $collected['tool_names'][] = (string) $n;
+                    }
+                } elseif (!empty($data['name'])) {
+                    $collected['tool_names'][] = (string) $data['name'];
+                }
+            }
+
             // Forward user-visible events (token, tool_call, error).
             self::send_sse($type, $data);
         };
 
-        $tool_resolver = function (string $name, array $tool_args) use ($corpus): string {
-            return self::resolve_tool($name, $tool_args, $corpus);
+        // Per-request loop detection: same name + canonical args → guidance
+        // result instead of running the same query a second time. Ref-passed
+        // into the resolver so state spans every turn of this request.
+        $seen_calls = [];
+
+        $tool_resolver = function (string $name, array $tool_args) use ($corpus, &$seen_calls): array {
+            return self::resolve_tool($name, $tool_args, $corpus, $seen_calls);
         };
 
         try {
@@ -427,6 +475,8 @@ final class OpenTrust_Chat {
             'tokens_out'     => $collected['tokens_out'],
             'citation_count' => count($collected['citations']),
             'refused'        => (bool) $collected['refused'],
+            'tool_turns'     => count($collected['tool_names']),
+            'tool_names'     => self::format_tool_names_for_log($collected['tool_names']),
         ];
     }
 
@@ -444,6 +494,7 @@ final class OpenTrust_Chat {
             'tokens_in'      => 0,
             'tokens_out'     => 0,
             'error'          => null,
+            'tool_names'     => [],
         ];
 
         $on_chunk = function (array $event) use (&$buffer, $whitelist): void {
@@ -475,14 +526,25 @@ final class OpenTrust_Chat {
                     $buffer['tokens_in']  += (int) ($data['tokens_in']  ?? 0);
                     $buffer['tokens_out'] += (int) ($data['tokens_out'] ?? 0);
                     break;
+                case 'tool_call':
+                    if (!empty($data['names']) && is_array($data['names'])) {
+                        foreach ($data['names'] as $n) {
+                            $buffer['tool_names'][] = (string) $n;
+                        }
+                    } elseif (!empty($data['name'])) {
+                        $buffer['tool_names'][] = (string) $data['name'];
+                    }
+                    break;
                 case 'error':
                     $buffer['error'] = (string) ($data['message'] ?? 'error');
                     break;
             }
         };
 
-        $tool_resolver = function (string $name, array $tool_args) use ($corpus): string {
-            return self::resolve_tool($name, $tool_args, $corpus);
+        $seen_calls = [];
+
+        $tool_resolver = function (string $name, array $tool_args) use ($corpus, &$seen_calls): array {
+            return self::resolve_tool($name, $tool_args, $corpus, $seen_calls);
         };
 
         try {
@@ -503,6 +565,8 @@ final class OpenTrust_Chat {
             'tokens_out'     => $buffer['tokens_out'],
             'citation_count' => count($buffer['citations']),
             'refused'        => $refused,
+            'tool_turns'     => count($buffer['tool_names']),
+            'tool_names'     => self::format_tool_names_for_log($buffer['tool_names']),
         ];
 
         return new WP_REST_Response([
@@ -569,6 +633,8 @@ final class OpenTrust_Chat {
             'does not contain',
             "doesn't contain",
             "don't have information",
+            "i didn't find",           // post-tool-call: "I didn't find any reference to …"
+            "i couldn't find",         // also: cap-hit soft refusal we synthesize ourselves
             'i cannot',
             "i can't help",
             "i can't assist",
@@ -592,7 +658,15 @@ final class OpenTrust_Chat {
     // System prompt
     // ──────────────────────────────────────────────
 
-    private function build_system_prompt(array $settings, array $corpus): string {
+    /**
+     * Build the system prompt sent on every chat request. Includes the
+     * baseline role + behavior rules, the corpus index (table of contents),
+     * and the retrieval-grounding rules specific to the agentic engine.
+     *
+     * Public + static so the noscript chat path in OpenTrust_Render can use
+     * the same prompt as the streaming path — they're functionally identical.
+     */
+    public static function build_system_prompt(array $settings, array $corpus): string {
         $company = (string) ($settings['company_name'] ?? get_bloginfo('name'));
         $contact = (string) ($settings['ai_contact_url'] ?? '');
         if ($contact === '') {
@@ -601,22 +675,50 @@ final class OpenTrust_Chat {
 
         $lines = [];
         $lines[] = "You are {$company}'s trust center assistant.";
-        $lines[] = "Your ONLY job is to report facts that are literally present in the published trust center documents provided below. You are a retrieval tool, not an advisor, auditor, or evaluator.";
+        $lines[] = "Your ONLY job is to report facts that are literally present in the published trust center documents you can retrieve via the tools below. You are a retrieval tool, not an advisor, auditor, or evaluator.";
         $lines[] = '';
         $lines[] = 'Rules:';
         $lines[] = '- Answer concisely and accurately in plain language. No marketing fluff.';
-        $lines[] = '- Ground every factual claim in the provided documents. Use the citation mechanism — do not write inline "Source:" lines, bracketed URLs, or markdown links pointing at trust-center pages inside your answer text. The front end renders an automatic Sources panel beneath your reply from the citations you attach, so inline source callouts are duplicate noise. Write the answer naturally, as if the sources list appears on its own below your text.';
+        $lines[] = '- Ground every factual claim in the documents returned by your tool calls. Use the citation mechanism — do not write inline "Source:" lines, bracketed URLs, or markdown links pointing at trust-center pages inside your answer text. The front end renders an automatic Sources panel beneath your reply from the citations you attach, so inline source callouts are duplicate noise. Write the answer naturally, as if the sources list appears on its own below your text.';
         $lines[] = '- NEVER express opinions, concerns, worries, risks, red flags, gaps, or recommendations — even if directly asked. You do not assess, evaluate, judge, or interpret. You only report what the documents say.';
         $lines[] = '- NEVER infer compliance status, security posture, or adequacy from the data. Facts only, not implications.';
         $lines[] = '- If a visitor asks for your opinion, whether something is concerning, whether something is a risk, or what they should do, reply: "I can only share the factual information published in this trust center. For an assessment or recommendation, please contact ' . $contact . '." Then, if appropriate, offer to show them the underlying facts.';
-        $lines[] = '- Do not speculate. Do not invent URLs, policies, certifications, subprocessors, dates, or statuses not in the provided documents.';
+        $lines[] = '- Do not speculate. Do not invent URLs, policies, certifications, subprocessors, dates, or statuses not in the documents your tools have returned.';
         $lines[] = '- When a visitor asks for a plain-language definition of a common security, privacy, or compliance term (e.g., SOC 2, GDPR, DPA, ISMS, subprocessor, encryption at rest), you may provide a brief one-sentence neutral definition from general industry knowledge, then pivot to what the trust center says about it for ' . $company . '. Never editorialize about whether the term applies well or poorly. Never use this clause to introduce assessment, risk, or recommendation language.';
-        $lines[] = '- If the documents do not confidently answer the question, say so plainly and point the visitor to ' . $contact . '.';
+        $lines[] = '- If retrieval does not confidently answer the question, say so plainly and point the visitor to ' . $contact . '.';
         $lines[] = '- If the visitor asks something unrelated to the trust center, politely redirect them to their question about security, privacy, or compliance.';
         $lines[] = '- If the visitor\'s message contains slurs, hate speech, profanity, threats, personal attacks, or other hostile or abusive content — whether directed at a person, group, or the assistant — do not engage with the content and do not treat it as a question to answer. Reply with exactly: "I can only share the factual information published in this trust center. Please keep your questions focused on ' . $company . '\'s security, privacy, or compliance." Do not repeat the abusive content, do not moralize, do not explain why it was unacceptable, and do not offer a list of topics.';
-        $lines[] = '- When using a tool, call it with the arguments needed and wait for the result before forming your final answer.';
+        $lines[] = '';
+        $lines[] = 'Retrieval rules:';
+        $lines[] = '- ALWAYS call get_document or search_documents BEFORE answering any question about this company. Never answer from prior knowledge or training data.';
+        $lines[] = '- After every tool call, base your answer ONLY on the search_result content that came back. Do not extrapolate beyond it.';
+        $lines[] = '- If your first search returns nothing relevant, retry once with broader keywords or alternative phrasings before giving up.';
+        $lines[] = '- Do not invent document ids. The only valid ids are the ones listed in the index below.';
+        $lines[] = '- Before each tool call you may write ONE short, natural sentence stating what you\'re about to look up — for example, "Let me check our subprocessors list." or "Looking at the data retention policy." Keep it under 12 words, skip it when the visitor\'s question makes your intent obvious, and never write more than one such sentence per tool call. Do not say "I\'ll do X then Y" — just do X first. After the tool result returns, continue with the answer.';
+
+        // Append the corpus index (table of contents). The model uses this to
+        // decide which document to fetch.
+        $index = is_array($corpus['index'] ?? null) ? $corpus['index'] : [];
+        if (!empty($index)) {
+            $lines[] = '';
+            $lines[] = OpenTrust_Chat_Corpus::format_index_for_prompt($index, $company);
+        }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Format the per-request list of tool names into the column shape the
+     * chat log uses: comma-separated, capped at MAX_TOOL_TURNS entries to
+     * stay under the VARCHAR(255) column.
+     *
+     * @param array<int, string> $names
+     */
+    private static function format_tool_names_for_log(array $names): string {
+        if (empty($names)) {
+            return '';
+        }
+        return implode(',', array_slice($names, 0, self::MAX_TOOL_TURNS));
     }
 
     // ──────────────────────────────────────────────
@@ -624,55 +726,50 @@ final class OpenTrust_Chat {
     // ──────────────────────────────────────────────
 
     /**
-     * Return the three tool definitions in OpenAI-compatible shape.
-     * Each adapter converts to its provider-specific format.
+     * Two-tool surface for the agentic chat engine. Returned in
+     * OpenAI-compatible shape; each provider adapter renames `parameters`
+     * (Anthropic uses `input_schema`) and wraps as needed.
+     *
+     * Descriptions are deliberately specific — the model uses them as the
+     * primary signal for which tool to pick. Vague descriptions cause it to
+     * default to search when get_document would have been one round-trip
+     * shorter (or vice versa).
      *
      * @return array<int, array{name:string, description:string, parameters:array}>
      */
     public static function tool_definitions(): array {
         return [
             [
-                'name'        => 'get_certification_status',
-                'description' => 'Get the current status, issuing body, and validity dates of a named certification.',
+                'name'        => 'get_document',
+                'description' => 'Fetch the full text of one specific trust center document by its id. Use this when the corpus index lists a document whose title obviously matches the question — e.g. for "Are you SOC 2 certified?" call get_document with the id of the SOC 2 certification entry. Always prefer this over search_documents when an id is clearly identifiable from the index.',
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
-                        'name' => [
+                        'id' => [
                             'type'        => 'string',
-                            'description' => 'Certification name, e.g. "SOC 2", "ISO 27001", "HIPAA".',
+                            'description' => 'Document id from the corpus index (e.g. "policy-privacy", "sub-amazon-web-services", "cert-iso-27001"). Must match exactly. Do not invent ids that are not in the index.',
                         ],
                     ],
-                    'required'             => ['name'],
+                    'required'             => ['id'],
                     'additionalProperties' => false,
                 ],
             ],
             [
-                'name'        => 'get_subprocessor_list',
-                'description' => 'List subprocessors used by the company, optionally filtered by a search term matching name, purpose, or country.',
+                'name'        => 'search_documents',
+                'description' => 'Keyword-search across every trust center document. Use this when no document id in the index obviously matches the question, when the question uses a synonym (e.g. "data deletion" might map to a "Data Retention Policy"), or when the answer might span several documents. Returns up to `limit` matching documents ranked by relevance. Always check search_documents results before declaring that information is not available — if the first query returns nothing, try a broader query or alternative phrasings.',
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
-                        'filter' => [
+                        'query' => [
                             'type'        => 'string',
-                            'description' => 'Optional search term. Matches name, purpose, or country substrings, case-insensitive.',
+                            'description' => 'Two to five keywords describing what to find. Examples: "data retention deletion", "encryption at rest", "incident response notification".',
+                        ],
+                        'limit' => [
+                            'type'        => 'integer',
+                            'description' => 'Maximum number of documents to return (1–10, default 5). Use a smaller limit for narrow questions.',
                         ],
                     ],
-                    'required'             => [],
-                    'additionalProperties' => false,
-                ],
-            ],
-            [
-                'name'        => 'get_policy_url',
-                'description' => 'Return the canonical URL for a policy, looked up by its slug or title.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'slug' => [
-                            'type'        => 'string',
-                            'description' => 'Policy slug (e.g. "privacy") or title (e.g. "Privacy Policy").',
-                        ],
-                    ],
-                    'required'             => ['slug'],
+                    'required'             => ['query'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -680,66 +777,135 @@ final class OpenTrust_Chat {
     }
 
     /**
-     * Execute a tool call against the cached corpus. Returns a string result
-     * that is fed back to the provider as the tool's output.
+     * Execute a tool call against the cached corpus. Returns an array of
+     * `search_result` content blocks that providers feed back to the model.
      *
-     * @param array{documents?: array, urls?: array} $corpus
+     * Anthropic consumes the array verbatim as the `tool_result.content`
+     * field. OpenAI/OpenRouter serialize it to an XML-tagged string before
+     * stuffing into the OpenAI `tool` role message.
+     *
+     * Loop detection: the same name + canonical-arg-json combination cannot
+     * fire twice in one request. The second hit returns a guidance result
+     * pointing the model at alternative tactics. This makes MAX_TOOL_TURNS
+     * a soft ceiling rather than a hard limit on legitimate work.
+     *
+     * @param array<int, mixed>     $corpus      Full corpus struct (documents + bm25 + …).
+     * @param array<string, bool>   $seen_calls  Per-request seen-calls map (passed by reference).
+     * @return array<int, array{type:string,source:string,title:string,content:array,citations:array}>
      */
-    public static function resolve_tool(string $name, array $args, array $corpus): string {
-        $documents = $corpus['documents'] ?? [];
+    public static function resolve_tool(string $name, array $args, array $corpus, array &$seen_calls = []): array {
+        $documents = is_array($corpus['documents'] ?? null) ? $corpus['documents'] : [];
+        $bm25      = is_array($corpus['bm25']      ?? null) ? $corpus['bm25']      : null;
+
+        // Canonicalize the args for the seen-calls signature so trivial key-
+        // order differences don't fool the loop detector.
+        ksort($args);
+        $signature = $name . '|' . (string) wp_json_encode($args, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (isset($seen_calls[$signature])) {
+            return [self::error_search_result(sprintf(
+                /* translators: %s is the tool name (get_document or search_documents). */
+                __('You already called %s with the same arguments earlier in this conversation. Pick a different document id from the index, or rephrase the search query with different keywords.', 'opentrust'),
+                $name
+            ))];
+        }
+        $seen_calls[$signature] = true;
 
         switch ($name) {
-            case 'get_certification_status':
-                $needle = strtolower(trim((string) ($args['name'] ?? '')));
-                if ($needle === '') {
-                    return 'Error: certification name is required.';
+            case 'get_document':
+                $id = trim((string) ($args['id'] ?? ''));
+                if ($id === '') {
+                    return [self::error_search_result(__('Document id is required.', 'opentrust'))];
                 }
                 foreach ($documents as $doc) {
-                    if (($doc['type'] ?? '') !== 'certification') {
-                        continue;
-                    }
-                    if (str_contains(strtolower((string) $doc['title']), $needle)) {
-                        return "CERTIFICATION: {$doc['title']}\n" . $doc['content'] . "\nURL: {$doc['url']}";
+                    if ((string) ($doc['id'] ?? '') === $id) {
+                        return [self::doc_to_search_result($doc)];
                     }
                 }
-                return "No certification matching \"{$needle}\" found in the published trust center.";
+                return [self::error_search_result(sprintf(
+                    /* translators: %s is the requested document id. */
+                    __('No document with id "%s". Pick one of the ids listed in the corpus index above.', 'opentrust'),
+                    $id
+                ))];
 
-            case 'get_subprocessor_list':
-                $filter = strtolower(trim((string) ($args['filter'] ?? '')));
-                $matches = [];
-                foreach ($documents as $doc) {
-                    if (($doc['type'] ?? '') !== 'subprocessor') {
-                        continue;
-                    }
-                    if ($filter === '' || str_contains(strtolower($doc['title'] . ' ' . $doc['content']), $filter)) {
-                        $matches[] = '- ' . $doc['title'] . "\n  " . str_replace("\n", "\n  ", $doc['content']);
-                    }
+            case 'search_documents':
+                $query = trim((string) ($args['query'] ?? ''));
+                $limit = max(1, min(10, (int) ($args['limit'] ?? 5)));
+                if ($query === '') {
+                    return [self::error_search_result(__('Search query is empty.', 'opentrust'))];
                 }
-                if (empty($matches)) {
-                    return $filter === ''
-                        ? 'No subprocessors published.'
-                        : "No subprocessors matching \"{$filter}\".";
+                if ($bm25 === null) {
+                    return [self::error_search_result(__('Search index unavailable.', 'opentrust'))];
                 }
-                return "SUBPROCESSORS:\n" . implode("\n\n", $matches);
-
-            case 'get_policy_url':
-                $needle = strtolower(trim((string) ($args['slug'] ?? '')));
-                if ($needle === '') {
-                    return 'Error: slug or title is required.';
+                $hits = OpenTrust_Chat_Search::search($bm25, $query, $limit);
+                if (empty($hits)) {
+                    return [self::error_search_result(sprintf(
+                        /* translators: %s is the search query. */
+                        __('No documents matched "%s". Try broader keywords or pick a document id from the corpus index above.', 'opentrust'),
+                        $query
+                    ))];
                 }
-                foreach ($documents as $doc) {
-                    if (($doc['type'] ?? '') !== 'policy') {
-                        continue;
-                    }
-                    $slug = strtolower((string) ($doc['metadata']['slug'] ?? ''));
-                    if ($slug === $needle || str_contains(strtolower((string) $doc['title']), $needle)) {
-                        return "URL: {$doc['url']}\nTITLE: {$doc['title']}";
+                $results = [];
+                foreach ($hits as $idx) {
+                    if (isset($documents[$idx])) {
+                        $results[] = self::doc_to_search_result($documents[$idx]);
                     }
                 }
-                return "No policy matching \"{$needle}\" found.";
+                return $results !== []
+                    ? $results
+                    : [self::error_search_result(__('Search ranking returned no usable results.', 'opentrust'))];
         }
 
-        return "Unknown tool: {$name}";
+        return [self::error_search_result(sprintf(
+            /* translators: %s is the unknown tool name. */
+            __('Unknown tool: %s', 'opentrust'),
+            $name
+        ))];
+    }
+
+    /**
+     * Convert a corpus document into an Anthropic-compatible search_result
+     * content block. The OpenAI provider further serializes this to an XML-
+     * tagged string before passing it to the model.
+     *
+     * @param array{id?:string,url?:string,title?:string,content?:string} $doc
+     */
+    private static function doc_to_search_result(array $doc): array {
+        $content = (string) ($doc['content'] ?? '');
+        if ($content === '') {
+            // Anthropic rejects empty `text` inside search_result.content[].
+            // Fall back to the title or a one-word stub so the request is valid.
+            $content = (string) ($doc['title'] ?? '(empty document)');
+        }
+        return [
+            'type'      => 'search_result',
+            'source'    => (string) ($doc['url']   ?? ''),
+            'title'     => (string) ($doc['title'] ?? ''),
+            'content'   => [
+                ['type' => 'text', 'text' => $content],
+            ],
+            'citations' => ['enabled' => true],
+        ];
+    }
+
+    /**
+     * Build a "no result" search_result block. The `about:none` source is
+     * structurally invalid for citation (url_allowed() rejects it), so the
+     * model sees the explanation but cannot accidentally cite the error.
+     *
+     * Anthropic enforces an all-or-nothing rule on citations.enabled across
+     * a single request, so error blocks set the same `enabled: true` value
+     * as real result blocks. The URL whitelist is what keeps them inert.
+     */
+    private static function error_search_result(string $msg): array {
+        return [
+            'type'      => 'search_result',
+            'source'    => 'about:none',
+            'title'     => 'Retrieval error',
+            'content'   => [
+                ['type' => 'text', 'text' => $msg],
+            ],
+            'citations' => ['enabled' => true],
+        ];
     }
 
     // ──────────────────────────────────────────────
@@ -747,7 +913,9 @@ final class OpenTrust_Chat {
     // ──────────────────────────────────────────────
 
     public static function url_allowed(string $url, array $whitelist): bool {
-        if ($url === '' || empty($whitelist)) {
+        // about:none is the inert source set on retrieval-error blocks. Reject
+        // explicitly so a future refactor can't accidentally let one through.
+        if ($url === '' || $url === 'about:none' || empty($whitelist)) {
             return false;
         }
 

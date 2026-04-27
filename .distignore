@@ -1,5 +1,6 @@
 # Development files
 .claude/
+research/
 CLAUDE.md
 PLUGIN-CHECK-FINDINGS.md
 PLUGIN-CHECK-BASELINE.md

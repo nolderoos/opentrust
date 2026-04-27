@@ -51,6 +51,8 @@ final class OpenTrust_Chat_Log {
             citation_count  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             response_ms     INT UNSIGNED NOT NULL DEFAULT 0,
             refused         TINYINT(1) NOT NULL DEFAULT 0,
+            tool_turns      TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            tool_names      VARCHAR(255) NOT NULL DEFAULT '',
             PRIMARY KEY  (id),
             KEY created_at (created_at),
             KEY session_hash (session_hash)
@@ -78,6 +80,11 @@ final class OpenTrust_Chat_Log {
             $question = substr($question, 0, self::QUESTION_MAX);
         }
 
+        $tool_names = (string) ($args['tool_names'] ?? '');
+        if (strlen($tool_names) > 255) {
+            $tool_names = substr($tool_names, 0, 255);
+        }
+
         $data = [
             'created_at'     => current_time('mysql', true),
             'session_hash'   => (string) ($args['session_hash']   ?? ''),
@@ -90,11 +97,13 @@ final class OpenTrust_Chat_Log {
             'citation_count' => (int)    ($args['citation_count'] ?? 0),
             'response_ms'    => (int)    ($args['response_ms']    ?? 0),
             'refused'        => !empty($args['refused']) ? 1 : 0,
+            'tool_turns'     => (int)    ($args['tool_turns']     ?? 0),
+            'tool_names'     => $tool_names,
         ];
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Writing to custom log table
         $wpdb->insert(self::table_name(), $data, [
-            '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%d',
+            '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%d', '%d', '%s',
         ]);
     }
 

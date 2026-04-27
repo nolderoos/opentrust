@@ -3,7 +3,7 @@
  * Plugin Name: OpenTrust
  * Plugin URI:  https://github.com/opentrust/opentrust
  * Description: A self-hosted, open-source trust center for publishing security policies, subprocessors, certifications, and data practices.
- * Version:     0.8.1
+ * Version:     0.9.6
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author:      OpenTrust
@@ -18,11 +18,11 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-define('OPENTRUST_VERSION', '0.8.1');
+define('OPENTRUST_VERSION', '0.9.6');
 define('OPENTRUST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('OPENTRUST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('OPENTRUST_PLUGIN_FILE', __FILE__);
-define('OPENTRUST_DB_VERSION', 9);
+define('OPENTRUST_DB_VERSION', 10);
 
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin.php';
@@ -37,9 +37,11 @@ require_once OPENTRUST_PLUGIN_DIR . 'includes/providers/class-opentrust-chat-pro
 require_once OPENTRUST_PLUGIN_DIR . 'includes/providers/class-opentrust-chat-provider-anthropic.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/providers/class-opentrust-chat-provider-openai.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/providers/class-opentrust-chat-provider-openrouter.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-search.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-corpus.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-budget.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-log.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-summarizer.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat.php';
 
 add_action('plugins_loaded', static function (): void {

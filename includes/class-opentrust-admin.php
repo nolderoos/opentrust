@@ -33,6 +33,9 @@ final class OpenTrust_Admin {
         add_action('admin_post_opentrust_ai_questions_clear',   [$this, 'handle_ai_questions_clear']);
         add_action('admin_post_opentrust_ai_toggle_logging',    [$this, 'handle_ai_toggle_logging']);
 
+        // AI auto-summary: backfill sweep.
+        add_action('admin_post_opentrust_ai_summarize_sweep',   [$this, 'handle_ai_summarize_sweep']);
+
         // Warn admins on every OpenTrust admin page when the site is on Plain
         // permalinks — the plugin's pretty URLs all 404 in that mode.
         add_action('admin_notices', [$this, 'render_plain_permalinks_notice']);
@@ -514,6 +517,7 @@ final class OpenTrust_Admin {
             $sanitized['ai_show_model_attribution'] = !empty($input['ai_show_model_attribution']);
             $sanitized['ai_logging_enabled']        = !empty($input['ai_logging_enabled']);
             $sanitized['ai_turnstile_enabled']      = !empty($input['ai_turnstile_enabled']);
+            $sanitized['ai_auto_summarize']         = !empty($input['ai_auto_summarize']);
             $sanitized['turnstile_site_key']        = sanitize_text_field($input['turnstile_site_key'] ?? '');
             $sanitized['turnstile_secret_key']      = self::sanitize_secret_field(
                 $input['turnstile_secret_key'] ?? '',
@@ -530,6 +534,7 @@ final class OpenTrust_Admin {
             $sanitized['ai_show_model_attribution'] = !empty($old_settings['ai_show_model_attribution']);
             $sanitized['ai_logging_enabled']        = !empty($old_settings['ai_logging_enabled']);
             $sanitized['ai_turnstile_enabled']      = !empty($old_settings['ai_turnstile_enabled']);
+            $sanitized['ai_auto_summarize']         = !empty($old_settings['ai_auto_summarize']);
             $sanitized['turnstile_site_key']        = (string) ($old_settings['turnstile_site_key']   ?? '');
             $sanitized['turnstile_secret_key']      = (string) ($old_settings['turnstile_secret_key'] ?? '');
         }
@@ -981,6 +986,75 @@ final class OpenTrust_Admin {
                         </label>
                     </td>
                 </tr>
+
+                <tr>
+                    <th scope="row"><?php esc_html_e('Improve answer quality', 'opentrust'); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="opentrust_settings[ai_auto_summarize]" value="1" <?php checked(!empty($settings['ai_auto_summarize'])); ?>>
+                            <?php esc_html_e('Generate AI summaries of each policy', 'opentrust'); ?>
+                        </label>
+                        <p class="description" style="max-width:680px">
+                            <?php esc_html_e('When on, the AI generates a 2–3 sentence summary of each published policy and stores it for routing decisions. Improves answers on questions like "What\'s your data deletion policy?" that don\'t match a title literally. Cost is roughly $0.05–$0.10 per 50 policies, lifetime — pennies per edit afterward. Uses your configured AI key.', 'opentrust'); ?>
+                        </p>
+                        <?php if (!empty($settings['ai_auto_summarize']) && class_exists('OpenTrust_Chat_Summarizer')): ?>
+                            <?php $ot_missing = OpenTrust_Chat_Summarizer::missing_summary_count(); ?>
+                            <?php if ($ot_missing > 0): ?>
+                                <div style="margin-top:10px;padding:10px 14px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;max-width:680px">
+                                    <p style="margin:0 0 8px">
+                                        <?php
+                                        printf(
+                                            esc_html(
+                                                /* translators: %d is the number of policies missing AI summaries. */
+                                                _n(
+                                                    '%d policy is missing an AI summary.',
+                                                    '%d policies are missing AI summaries.',
+                                                    $ot_missing,
+                                                    'opentrust'
+                                                )
+                                            ),
+                                            (int) $ot_missing
+                                        );
+                                        ?>
+                                    </p>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline">
+                                        <?php wp_nonce_field('opentrust_ai_summarize_sweep'); ?>
+                                        <input type="hidden" name="action" value="opentrust_ai_summarize_sweep">
+                                        <button type="submit" class="button button-secondary"><?php esc_html_e('Generate now', 'opentrust'); ?></button>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+
+                <?php if (class_exists('OpenTrust_Chat_Corpus')): ?>
+                    <?php $ot_oversized = OpenTrust_Chat_Corpus::oversized_policies(); ?>
+                    <?php if (!empty($ot_oversized)): ?>
+                        <tr>
+                            <th scope="row"><?php esc_html_e('Oversized policies', 'opentrust'); ?></th>
+                            <td>
+                                <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:4px;max-width:680px">
+                                    <p style="margin:0 0 6px">
+                                        <?php esc_html_e('The following policies are large enough that the AI will receive only a truncated version when retrieving them. Consider splitting them into shorter documents:', 'opentrust'); ?>
+                                    </p>
+                                    <ul style="margin:6px 0 0 18px">
+                                        <?php foreach ($ot_oversized as $row): ?>
+                                            <li><?php
+                                                printf(
+                                                    /* translators: 1: policy title, 2: token count. */
+                                                    esc_html__('%1$s (~%2$s tokens)', 'opentrust'),
+                                                    esc_html((string) $row['title']),
+                                                    esc_html(number_format_i18n((int) $row['tokens']))
+                                                );
+                                            ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                <?php endif; ?>
             </table>
 
             <h3 style="margin-top:24px"><?php esc_html_e('Advanced — Turnstile anti-abuse', 'opentrust'); ?></h3>
@@ -1475,6 +1549,48 @@ final class OpenTrust_Admin {
             MINUTE_IN_SECONDS
         );
         wp_safe_redirect(admin_url('admin.php?page=opentrust-questions'));
+        exit;
+    }
+
+    /**
+     * Backfill missing AI summaries across every published policy in one go.
+     * Triggered by the "Generate now" button on the AI Chat settings tab.
+     *
+     * Each policy is enqueued via wp_schedule_single_event with a 2-second
+     * stagger so we don't hammer the AI provider in parallel. The next
+     * admin page load will see fewer (or zero) missing summaries.
+     */
+    public function handle_ai_summarize_sweep(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to perform this action.', 'opentrust'), '', ['response' => 403]);
+        }
+        check_admin_referer('opentrust_ai_summarize_sweep');
+
+        $count = 0;
+        if (class_exists('OpenTrust_Chat_Summarizer')) {
+            $count = OpenTrust_Chat_Summarizer::sweep_all();
+        }
+
+        set_transient(
+            'opentrust_ai_notice_' . get_current_user_id(),
+            [
+                'type'    => 'success',
+                'message' => $count > 0
+                    ? sprintf(
+                        /* translators: %d is the number of policies enqueued for summary generation. */
+                        _n(
+                            'Queued %d policy for AI summary generation. Summaries will appear over the next minute.',
+                            'Queued %d policies for AI summary generation. Summaries will appear over the next few minutes.',
+                            $count,
+                            'opentrust'
+                        ),
+                        (int) $count
+                    )
+                    : __('All policies already have up-to-date AI summaries.', 'opentrust'),
+            ],
+            MINUTE_IN_SECONDS
+        );
+        wp_safe_redirect(admin_url('admin.php?page=opentrust-settings#tab-ai'));
         exit;
     }
 

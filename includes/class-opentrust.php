@@ -96,6 +96,11 @@ final class OpenTrust {
             'ai_show_model_attribution' => true,
             'ai_logging_enabled'        => true,
             'ai_turnstile_enabled'      => false,
+            // Opt-IN. When true, the configured chat provider generates a
+            // 2–3 sentence summary for each policy on save_post. Off by
+            // default so installs on free-tier accounts don't burn API
+            // credits without an explicit opt-in.
+            'ai_auto_summarize'         => false,
 
             // Cloudflare Turnstile — used by the AI chat when ai_turnstile_enabled is on.
             'turnstile_site_key'        => '',
@@ -191,7 +196,30 @@ final class OpenTrust {
 
             OpenTrust_CPT::migrate_data_practices_v2();
 
-            // Chat (OTC) schema migration.
+            // v10: agentic chat engine.
+            //   - ai_auto_summarize setting added (default off; opt-in only).
+            //   - chat-log table grew tool_turns + tool_names columns
+            //     (additive; dbDelta picks them up via create_table()).
+            //   - Corpus shape changed (index + bm25 + url_to_id); the cached
+            //     transient must be flushed so the next request rebuilds it.
+            //   - 120K corpus cap + over_budget flag are gone — installs that
+            //     were stuck on `ai_corpus_over_budget` reactivate cleanly.
+            if ($current < 10) {
+                $settings = get_option('opentrust_settings');
+                if (is_array($settings) && !array_key_exists('ai_auto_summarize', $settings)) {
+                    $settings['ai_auto_summarize'] = false;
+                    update_option('opentrust_settings', $settings);
+                }
+                if (class_exists('OpenTrust_Chat_Corpus')) {
+                    OpenTrust_Chat_Corpus::invalidate();
+                }
+            }
+
+            // Chat (OTC) schema migration. dbDelta is idempotent on real
+            // MySQL and adds the v10 tool_turns + tool_names columns to
+            // existing installs. (Note: WP Studio's sqlite-database-
+            // integration shim mishandles dbDelta column-adds on existing
+            // tables — a Studio-environment quirk, not a production bug.)
             if (class_exists('OpenTrust_Chat_Log')) {
                 OpenTrust_Chat_Log::create_table();
                 OpenTrust_Chat_Log::schedule_cron();

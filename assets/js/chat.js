@@ -429,6 +429,41 @@
                     appendTokenText(bubble, evt.data.text);
                 }
                 break;
+            case 'tool_intent':
+                // Early-intent pill. Fired by the Anthropic provider the
+                // moment it sees the first tool_use content block in the
+                // stream — well before the model has finished generating
+                // all the parallel tool inputs and the aggregated tool_call
+                // event can be emitted. Lets the visitor see a "Searching
+                // documents…" pill in ~1-2s instead of staring at the
+                // thinking dots for 6-8s. Does NOT increment totalToolCount;
+                // the aggregated tool_call event below carries the real
+                // count and will morph this pill's label via the reuse path.
+                if (evt.data && typeof evt.data.summary === 'string' && evt.data.summary !== '') {
+                    var thinkingEl = bubble.bodyEl.querySelector('.ot-chat-thinking');
+                    if (thinkingEl) thinkingEl.remove();
+                    showToolStatus(bubble, evt.data.summary);
+                }
+                break;
+            case 'tool_call':
+                // ONE morphing pill per bubble. First event creates it,
+                // subsequent events update its label and extend the timer.
+                // Track total tools fired for the past-tense settle label,
+                // and capture the per-turn settled_summary so single-turn
+                // flows can morph the pill's verb tense at settle (e.g.
+                // "Searching for X" → "Searched for X") instead of leaving
+                // the active-tense label up forever.
+                if (evt.data && typeof evt.data.summary === 'string' && evt.data.summary !== '') {
+                    var thinking = bubble.bodyEl.querySelector('.ot-chat-thinking');
+                    if (thinking) thinking.remove();
+                    bubble.totalToolCount      = (bubble.totalToolCount || 0) + (parseInt(evt.data.count, 10) || 1);
+                    bubble.toolCallEventCount  = (bubble.toolCallEventCount || 0) + 1;
+                    if (typeof evt.data.settled_summary === 'string' && evt.data.settled_summary !== '') {
+                        bubble.lastSettledSummary = evt.data.settled_summary;
+                    }
+                    showToolStatus(bubble, evt.data.summary);
+                }
+                break;
             case 'citation':
                 if (evt.data && evt.data.url) {
                     bubble.citations.push(evt.data);
@@ -436,6 +471,11 @@
                 }
                 break;
             case 'done':
+                // Settle any still-active pill so its dots stop animating —
+                // the conversation is over, no more retrieval is happening.
+                // We do NOT remove the pill: it stays as a permanent record
+                // of what the model retrieved.
+                settleActivePill(bubble);
                 bubble.refused = !!(evt.data && evt.data.refused);
                 bubble.streamDone = true;
                 // Save to history immediately so the record doesn't depend on
@@ -452,6 +492,7 @@
                 }
                 break;
             case 'error':
+                settleActivePill(bubble);
                 if (evt.data && evt.data.message) {
                     appendBanner('error', evt.data.message);
                 }
@@ -596,12 +637,29 @@
             // arrives — finalizeBubble keys off it to decide whether to keep
             // the live tree or do a one-shot static render (history replay).
             usedStreaming:    false,
+            // Current LIVE text segment (typewriter operates on this). When a
+            // tool_call arrives we lock the current buffer into priorSegments
+            // and reset streamCharBuffer for the next text segment.
             streamCharBuffer: text.replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, ''),
             streamRendered:   0,
             streamDone:       false,
             streamRaf:        null,
             streamThinkingHidden: false,
             streamFinalizePending: false,
+            // Inline retrieval markers + completed text segments. Renders to
+            // the body in order: priorSegments[] → live streamCharBuffer.
+            // While activePill is non-null, incoming tokens are buffered on
+            // the pill until its min-duration window elapses, so the answer
+            // visibly waits at the pill rather than running ahead of it.
+            priorSegments: [],
+            activePill:    null,
+            // Stable DOM nodes for the segment-aware render. Prior segments
+            // are appended once and never replaced; only the liveTailEl is
+            // re-rendered per typewriter frame. Without this, replaceChildren
+            // every ~16ms would restart each pill's entry animation and the
+            // dots would never reach full opacity.
+            priorSegmentsRendered: 0,
+            liveTailEl:    null,
         };
 
         if (finalized) {
@@ -611,12 +669,18 @@
         return obj;
     }
 
+    // Inline status pill: minimum visible duration. On cached prompts the
+    // tool→answer turnaround can be under 200ms — well below the threshold
+    // for reading a label that pops in and out. We hold incoming tokens
+    // (and the answer's visible advance) on the pill for this long after
+    // it first appears, so the visitor actually sees what the model is
+    // doing instead of catching it in their peripheral vision.
+    var TOOL_STATUS_MIN_MS = 1200;
+
     function appendTokenText(bubble, text) {
         bubble.tokenBuffer += text;
-        // Strip [[cite:id]] tags before they reach the visible buffer — server
-        // emits citation events for them separately.
-        bubble.streamCharBuffer = bubble.tokenBuffer.replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, '');
         bubble.usedStreaming = true;
+
         // Drop the placeholder text node the first time real content arrives —
         // it lives next to the thinking indicator and otherwise persists as a
         // stale empty node beneath the parsed tree.
@@ -624,7 +688,252 @@
             bubble.textNode.parentNode.removeChild(bubble.textNode);
             bubble.textNode = null;
         }
+
+        // Strip [[cite:id]] tags before they reach the visible buffer — server
+        // emits citation events for them separately.
+        var cleaned = text.replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, '');
+
+        // If a status pill is currently mid-min-duration, buffer the tokens
+        // on the pill so the answer doesn't visibly race past while the
+        // pill's "Searching for X…" label is still on screen. The pill's
+        // own setTimeout flushes the buffer when its time is up.
+        if (bubble.activePill) {
+            bubble.activePill.bufferedText = (bubble.activePill.bufferedText || '') + cleaned;
+            scheduleTypewriter(bubble);
+            return;
+        }
+
+        bubble.streamCharBuffer += cleaned;
         scheduleTypewriter(bubble);
+    }
+
+    /**
+     * Show or update the bubble's single tool-status pill. First call:
+     * lock any in-flight live text into a prior segment, push a pill
+     * segment at the cursor position. Subsequent calls reuse the same pill
+     * — they update its label and reset its min-duration timer so the
+     * answer keeps waiting until retrieval truly settles.
+     *
+     * No preamble case (tokenBuffer empty when first tool_call fires): the
+     * pill is the first thing rendered. Preamble case: pill sits between
+     * the locked preamble text and the (paused) answer text.
+     */
+    function showToolStatus(bubble, summary) {
+        if (!bubble || !bubble.bodyEl) return;
+
+        // Reuse path — pill already exists on this bubble. Update label and
+        // restart the min-duration timer so the answer keeps waiting if the
+        // model fires another tool call.
+        if (bubble.toolPill) {
+            var pill = bubble.toolPill;
+
+            // Lock any tokens that have buffered on the pill since the
+            // last tool call (typically a between-turn preamble like
+            // "Let me search more specifically…") as their own prior
+            // text segment. Without this, every preamble the model
+            // writes between turns would accumulate on the pill and end
+            // up mashed into the final answer body when the pill
+            // settled. Insert the segment AFTER the pill so the
+            // visible order matches the conversation: preamble1 →
+            // [pill] → preamble2 → [pill re-active] → answer.
+            if (pill.bufferedText && pill.bufferedText.length > 0) {
+                bubble.priorSegments.push({ kind: 'text', text: pill.bufferedText });
+                pill.bufferedText = '';
+                ensureLiveTail(bubble);
+                flushPendingPriorSegments(bubble);
+            }
+
+            pill.summary  = summary;
+            pill.locked   = false;
+            pill.shownAt  = Date.now();
+            bubble.activePill = pill;
+
+            if (pill.el) {
+                pill.el.classList.remove('is-static');
+                var labelEl = pill.el.querySelector('.ot-chat-thinking__label');
+                if (labelEl) labelEl.textContent = summary;
+            }
+            if (bubble.toolPillTimer) clearTimeout(bubble.toolPillTimer);
+            bubble.toolPillTimer = setTimeout(function () { settlePillTimer(bubble, pill); }, TOOL_STATUS_MIN_MS);
+            scheduleTypewriter(bubble);
+            return;
+        }
+
+        // First-tool path — create the pill segment at the cursor position.
+
+        // Drop the placeholder text node if still present — otherwise it sits
+        // as a stale empty node above the pill once we insert it.
+        if (bubble.textNode && bubble.textNode.parentNode) {
+            bubble.textNode.parentNode.removeChild(bubble.textNode);
+            bubble.textNode = null;
+        }
+
+        // 1. Lock whatever live text exists today as a finished prior segment.
+        if (bubble.streamCharBuffer && bubble.streamCharBuffer.length > 0) {
+            bubble.priorSegments.push({ kind: 'text', text: bubble.streamCharBuffer });
+        }
+        bubble.streamCharBuffer = '';
+        bubble.streamRendered   = 0;
+
+        // 2. Push the new pill. While active it animates and buffers tokens.
+        var newPill = {
+            kind:         'pill',
+            summary:      summary,
+            shownAt:      Date.now(),
+            locked:       false,
+            bufferedText: '',
+        };
+        bubble.priorSegments.push(newPill);
+        bubble.toolPill   = newPill;
+        bubble.activePill = newPill;
+
+        // 3. Insert the pill (and any preamble text segment) into the DOM
+        //    SYNCHRONOUSLY — not on the next rAF. On cached prompts the
+        //    full SSE burst (tool_call → tokens → done) lands in one task
+        //    tick; if we waited for renderStreamFrame the pill would be
+        //    born after `done` had already mutated locked=true, so it
+        //    would render with `is-static` and never animate.
+        ensureLiveTail(bubble);
+        flushPendingPriorSegments(bubble);
+        // Hide the "Thinking…" indicator now that the pill is on screen —
+        // both serve the same "something is happening" purpose.
+        bubble.streamThinkingHidden = true;
+        var thinkingEl = bubble.bodyEl.querySelector('.ot-chat-thinking');
+        if (thinkingEl) thinkingEl.remove();
+
+        bubble.toolPillTimer = setTimeout(function () { settlePillTimer(bubble, newPill); }, TOOL_STATUS_MIN_MS);
+        scheduleTypewriter(bubble);
+    }
+
+    /**
+     * Ensure the live-tail span (the per-frame replaceChildren target) exists
+     * inside the bubble body. Prior segments are inserted before it so the
+     * order in the DOM matches the order in `priorSegments`.
+     */
+    function ensureLiveTail(bubble) {
+        if (!bubble.liveTailEl) {
+            bubble.liveTailEl = document.createElement('span');
+            bubble.liveTailEl.className = 'ot-chat-msg__live-tail';
+            bubble.bodyEl.appendChild(bubble.liveTailEl);
+        }
+    }
+
+    /**
+     * Walk `priorSegments` from the last-rendered index up to the current
+     * length and append stable DOM for each new entry. Pills cache their
+     * element on the segment so timer callbacks can mutate the class
+     * directly without rebuilding.
+     */
+    function flushPendingPriorSegments(bubble) {
+        var segs = bubble.priorSegments || [];
+        while (bubble.priorSegmentsRendered < segs.length) {
+            var seg = segs[bubble.priorSegmentsRendered];
+            var el  = null;
+            if (seg.kind === 'text') {
+                el = document.createElement('div');
+                el.className = 'ot-chat-msg__seg-text';
+                el.appendChild(renderMarkdown(seg.text));
+            } else if (seg.kind === 'pill') {
+                el = buildPillElement(seg.summary, seg.locked);
+            }
+            if (el) {
+                seg.el = el;
+                bubble.bodyEl.insertBefore(el, bubble.liveTailEl);
+            }
+            bubble.priorSegmentsRendered++;
+        }
+    }
+
+    /**
+     * Internal: timer-fire handler that locks the pill's animated state,
+     * flushes any buffered tokens into the live stream, and clears the
+     * activePill flag so further tokens render normally. Called either
+     * from the natural 1.2s timer OR from `settleActivePill` once the
+     * remainder of the min-duration window has elapsed after `done`.
+     */
+    function settlePillTimer(bubble, pill) {
+        settlePillNow(bubble, pill);
+    }
+
+    /**
+     * Lock the pill, flush buffered tokens, and (if `done` has been
+     * received and we know the final tool count) swap the label to its
+     * past-tense aggregate. Idempotent — safe to call even after the
+     * pill is already locked.
+     */
+    function settlePillNow(bubble, pill) {
+        if (bubble.toolPillTimer) {
+            clearTimeout(bubble.toolPillTimer);
+            bubble.toolPillTimer = null;
+        }
+
+        if (pill.bufferedText) {
+            bubble.streamCharBuffer += pill.bufferedText;
+            pill.bufferedText = '';
+        }
+
+        pill.locked = true;
+        if (pill.el) pill.el.classList.add('is-static');
+
+        // Aggregate label only when `done` has been received — for a
+        // mid-stream natural-timer settle we keep the active label so a
+        // subsequent tool_call can update it cleanly.
+        //
+        // Three settle-label paths, in priority order:
+        //  1. Multi-turn aggregate ("Searched N documents") — when more
+        //     than one tool_call event fired across multiple turns. The
+        //     specific per-turn label can't represent the whole arc.
+        //  2. Server-supplied past-tense summary — when only one turn
+        //     fired tool calls (single OR parallel). Server already knows
+        //     the right verb form ("Searched for X" / "Read X" / "Read N
+        //     documents") and ships it as `settled_summary`.
+        //  3. Otherwise keep the current active label — typically when
+        //     only the early intent fired and no aggregated tool_call
+        //     followed (failure path; rare).
+        if (bubble.toolPillSettlePending) {
+            bubble.toolPillSettlePending = false;
+            var total       = bubble.totalToolCount     || 0;
+            var turnsFired  = bubble.toolCallEventCount || 0;
+            var settled     = null;
+            if (turnsFired > 1) {
+                settled = 'Searched ' + total + ' documents';
+            } else if (bubble.lastSettledSummary) {
+                settled = bubble.lastSettledSummary;
+            }
+            if (settled) {
+                pill.summary = settled;
+                if (pill.el) {
+                    var labelEl = pill.el.querySelector('.ot-chat-thinking__label');
+                    if (labelEl) labelEl.textContent = settled;
+                }
+            }
+        }
+
+        if (bubble.activePill === pill) {
+            bubble.activePill = null;
+        }
+        scheduleTypewriter(bubble);
+    }
+
+    /**
+     * Build a DOM node for one inline status pill. `locked=true` switches
+     * to the settled appearance — dots stop animating, label stays as a
+     * permanent record of what the model retrieved at this point in the
+     * conversation.
+     */
+    function buildPillElement(summary, locked) {
+        var pill = document.createElement('div');
+        pill.className = 'ot-chat-tool-status' + (locked ? ' is-static' : '');
+        for (var i = 0; i < 3; i++) {
+            var dot = document.createElement('span');
+            dot.className = 'ot-chat-thinking-dot';
+            pill.appendChild(dot);
+        }
+        var label = document.createElement('span');
+        label.className = 'ot-chat-thinking__label';
+        label.textContent = summary;
+        pill.appendChild(label);
+        return pill;
     }
 
     function appendCitationMarker(bubble, citation) {
@@ -696,6 +1005,17 @@
 
         var caughtUp = bubble.streamRendered >= bubble.streamCharBuffer.length;
 
+        // Hold the typewriter while a pill is mid-min-duration. Without
+        // this, `done` arriving in the same task tick as `tool_call`
+        // would short-circuit straight to finalize: streamCharBuffer is
+        // empty (tokens are buffered on the pill), so `caughtUp` is true,
+        // and `streamDone` is true, so the bubble would render its final
+        // tree immediately — defeating the whole min-duration window.
+        // settlePillNow will scheduleTypewriter again once it fires.
+        if (bubble.activePill) {
+            return;
+        }
+
         if (!caughtUp || !bubble.streamDone) {
             bubble.streamRaf = requestAnimationFrame(function () {
                 bubble.streamRaf = null;
@@ -714,27 +1034,78 @@
         var visible = bubble.streamCharBuffer.substring(0, bubble.streamRendered);
 
         // Hide the "Thinking…" indicator the first time a character actually
-        // becomes visible. Removing it on token arrival (the old behavior) made
-        // it disappear before any text was on screen, leaving a gap.
-        if (!bubble.streamThinkingHidden && visible.length > 0) {
+        // becomes visible OR the first time a pill / prior segment exists.
+        // The pill is itself a "something is happening" signal — keeping the
+        // dots indicator alongside it would be redundant.
+        var hasPriorContent = (bubble.priorSegments && bubble.priorSegments.length > 0);
+        if (!bubble.streamThinkingHidden && (visible.length > 0 || hasPriorContent)) {
             bubble.streamThinkingHidden = true;
             var thinking = bubble.bodyEl.querySelector('.ot-chat-thinking');
             if (thinking) thinking.remove();
         }
 
-        // Pad unclosed inline markers so partial **bold**, *italic*, and `code`
-        // render optimistically as they're typed instead of showing as raw
-        // asterisks until the closer arrives.
-        var patched = patchOpenInlineMarkers(visible);
-        var tree = renderMarkdown(patched);
+        // The live-tail container is the ONE element we re-render every
+        // typewriter tick; everything before it is appended once and never
+        // replaced. Without this the pill's entry animation would restart
+        // each frame and the dots would never reach full opacity. Pills
+        // (and any locked preamble text) are typically already in the DOM
+        // here — `showToolStatus` inserts them synchronously — but text
+        // segments locked later (mid-stream tool_call after some answer
+        // text) still arrive through this path.
+        ensureLiveTail(bubble);
+        flushPendingPriorSegments(bubble);
 
-        // Blinking caret rides at the end of the deepest leaf while we type.
-        if (!bubble.streamDone || bubble.streamRendered < bubble.streamCharBuffer.length) {
-            attachStreamCursor(tree);
+        // Render the live tail. Pad unclosed inline markers so partial
+        // **bold**, *italic*, and `code` render optimistically as they're
+        // typed instead of showing as raw asterisks until the closer arrives.
+        var patched  = patchOpenInlineMarkers(visible);
+        var liveTree = renderMarkdown(patched);
+
+        bubble.liveTailEl.replaceChildren(liveTree);
+        maybeAutoScroll();
+    }
+
+    /**
+     * Final-state pill handler. Called from `done`, `error`, and
+     * `finalizeBubble`. Locks the pill (dots stop animating) and, when
+     * more than one tool fired during the message, swaps the active label
+     * ("Reading 8 documents") for a past-tense aggregate ("Searched 8
+     * documents").
+     *
+     * Honors the 1.2s minimum-duration window: on cached prompts where
+     * `done` arrives in the same task tick as `tool_call`, settling
+     * immediately would steal the visitor's chance to read the pill at
+     * all. So if the window hasn't elapsed yet, we defer the lock + flush
+     * until it does — only the activePill flag stays set in the meantime,
+     * which keeps the typewriter paused.
+     *
+     * `force: true` overrides the window — used by `finalizeBubble` so
+     * the final render never blocks behind a not-yet-fired timer.
+     */
+    function settleActivePill(bubble, opts) {
+        if (!bubble) return;
+        opts = opts || {};
+        var pill = bubble.toolPill;
+        if (!pill) return;
+
+        // Mark that the next settle should apply the aggregate label.
+        // settlePillNow consumes this flag whether it runs now (force /
+        // window-elapsed) or later (deferred via the timer).
+        bubble.toolPillSettlePending = true;
+
+        if (!opts.force) {
+            var elapsed = Date.now() - (pill.shownAt || 0);
+            var remaining = TOOL_STATUS_MIN_MS - elapsed;
+            if (remaining > 0) {
+                if (bubble.toolPillTimer) clearTimeout(bubble.toolPillTimer);
+                bubble.toolPillTimer = setTimeout(function () {
+                    settlePillNow(bubble, pill);
+                }, remaining);
+                return;
+            }
         }
 
-        bubble.bodyEl.replaceChildren(tree);
-        maybeAutoScroll();
+        settlePillNow(bubble, pill);
     }
 
     function patchOpenInlineMarkers(text) {
@@ -761,20 +1132,6 @@
         if (codeCount % 2 === 1) out += '`';
 
         return out;
-    }
-
-    function attachStreamCursor(rootEl) {
-        // Walk to the deepest last child element so the caret sits at the end
-        // of the most recently typed character. Falls back to the root when
-        // the tree is empty (first frames).
-        var leaf = rootEl;
-        while (leaf.lastElementChild) {
-            leaf = leaf.lastElementChild;
-        }
-        var cursor = document.createElement('span');
-        cursor.className = 'ot-chat-stream-cursor';
-        cursor.setAttribute('aria-hidden', 'true');
-        leaf.appendChild(cursor);
     }
 
     // After streaming completes we still want bare URLs in the answer to
@@ -832,14 +1189,25 @@
         var cleanText = (bubble.tokenBuffer || '').replace(/\[\[cite:[a-z0-9_\-]+\]\]/gi, '');
 
         if (bubble.usedStreaming) {
-            // Streaming path: the tree was built progressively. Render one
-            // final frame from the COMPLETE buffer (no marker patching needed
-            // because it's no longer partial), strip the cursor, then anchor
-            // bare URLs that we couldn't resolve mid-stream. This produces the
-            // exact same tree as the static parser would, so no visible jump.
+            // Streaming path: the tree was built progressively from prior
+            // segments + a live buffer. Settle the bubble first — drain any
+            // tokens still buffered on an active pill, mark it locked — then
+            // render one final frame including all pills + text in order.
+            // Force the settle even if the min-duration window hasn't
+            // elapsed; finalize is the absolute end of the road.
+            settleActivePill(bubble, { force: true });
             bubble.streamRendered = bubble.streamCharBuffer.length;
-            var finalTree = renderMarkdown(bubble.streamCharBuffer);
-            bubble.bodyEl.replaceChildren(finalTree);
+
+            var frag = document.createDocumentFragment();
+            (bubble.priorSegments || []).forEach(function (seg) {
+                if (seg.kind === 'text') {
+                    frag.appendChild(renderMarkdown(seg.text));
+                } else if (seg.kind === 'pill') {
+                    frag.appendChild(buildPillElement(seg.summary, true));
+                }
+            });
+            frag.appendChild(renderMarkdown(bubble.streamCharBuffer));
+            bubble.bodyEl.replaceChildren(frag);
             linkifyTextNodesInPlace(bubble.bodyEl);
         } else {
             // History replay or JSON-fallback path: parse and replace once.

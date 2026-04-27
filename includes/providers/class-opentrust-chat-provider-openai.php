@@ -175,20 +175,24 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
         $api_key  = (string) ($args['api_key']  ?? '');
         $model    = (string) ($args['model']    ?? '');
         $system   = (string) ($args['system']   ?? '');
-        $corpus   = is_array($args['corpus'] ?? null) ? $args['corpus'] : [];
-        $messages = is_array($args['messages'] ?? null) ? $args['messages'] : [];
-        $tools    = is_array($args['tools'] ?? null) ? $args['tools'] : [];
+        // Full corpus struct (documents + url_to_id + bm25 + …). The OpenAI
+        // path only needs `documents` for [[cite:id]] resolution.
+        $corpus    = is_array($args['corpus']   ?? null) ? $args['corpus']   : [];
+        $documents = is_array($corpus['documents'] ?? null) ? $corpus['documents'] : [];
+        $messages  = is_array($args['messages'] ?? null) ? $args['messages'] : [];
+        $tools     = is_array($args['tools']    ?? null) ? $args['tools']    : [];
 
         if ($api_key === '' || $model === '' || empty($messages)) {
             $on_chunk(['type' => 'error', 'data' => ['message' => __('OpenAI adapter missing required args.', 'opentrust')]]);
             return;
         }
 
-        // OpenAI / OpenRouter use plain streaming with inline citation tags.
-        // The system prompt embeds the full corpus and instructs the model to
-        // emit references as `[[cite:<doc-id>]]` tags inline. We parse these
-        // tags out of the streamed text post-hoc and emit citation events.
-        $system_full = $this->build_system_prompt_with_corpus($system, $corpus);
+        // The system prompt arrives pre-built with the corpus index already
+        // appended (see OpenTrust_Chat::build_system_prompt). We tack on a
+        // tail that sets up the inline-citation contract specific to OpenAI/
+        // OpenRouter — Anthropic uses native search_result_location citations
+        // and doesn't need this block.
+        $system_full = $this->append_citation_instructions($system);
 
         // OpenAI tool definitions wrap each tool in { type: 'function', function: {...} }.
         $openai_tools = [];
@@ -214,6 +218,10 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
 
         $full_answer_buffer = '';
 
+        // Force a tool call on turn 1 so the model can never bypass retrieval
+        // and answer from training data. After any tool call we relax to auto.
+        $has_called_tool = false;
+
         $turn = 0;
         while ($turn < OpenTrust_Chat::MAX_TOOL_TURNS) {
             $turn++;
@@ -226,7 +234,7 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
             ];
             if (!empty($openai_tools)) {
                 $payload['tools']       = $openai_tools;
-                $payload['tool_choice'] = 'auto';
+                $payload['tool_choice'] = $has_called_tool ? 'auto' : 'required';
             }
 
             $state = [
@@ -270,6 +278,34 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
 
             // Tool calls? Resolve and continue.
             if ($state['finish_reason'] === 'tool_calls' && !empty($state['tool_calls'])) {
+                $has_called_tool = true;
+
+                // Emit ONE aggregated tool_call SSE event per turn so the UI
+                // can show a single morphing status pill rather than a wall
+                // of N separate pills when the model fires parallel tools.
+                $turn_names  = [];
+                $turn_inputs = [];
+                foreach ($state['tool_calls'] as $tc) {
+                    $turn_names[] = (string) $tc['name'];
+                    $input = json_decode((string) $tc['arguments_json'], true);
+                    $turn_inputs[] = is_array($input) ? $input : [];
+                }
+                $turn_count = count($turn_names);
+                if ($turn_count === 1) {
+                    $turn_summary = $this->summarize_tool_call($turn_names[0], $turn_inputs[0], $documents);
+                } else {
+                    $turn_summary = $this->summarize_turn_batch($turn_names, $turn_count);
+                }
+                $on_chunk([
+                    'type' => 'tool_call',
+                    'data' => [
+                        'name'    => $turn_names[0] ?? 'tool_call',
+                        'summary' => $turn_summary,
+                        'count'   => $turn_count,
+                        'names'   => $turn_names,
+                    ],
+                ]);
+
                 // Append the assistant message with the tool_calls it made.
                 $assistant_tool_calls = [];
                 foreach ($state['tool_calls'] as $tc) {
@@ -288,17 +324,24 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
                     'tool_calls' => $assistant_tool_calls,
                 ];
 
-                // Append tool results.
+                // Append tool results. The resolver returns an array of
+                // search_result blocks; OpenAI's `tool` message takes a
+                // string, so we serialize to <document>-tagged XML that the
+                // model recognizes from the system prompt's CITATION FORMAT
+                // instructions.
                 foreach ($state['tool_calls'] as $tc) {
                     $input = json_decode((string) $tc['arguments_json'], true);
                     if (!is_array($input)) {
                         $input = [];
                     }
-                    $result = $tool_resolver((string) $tc['name'], $input);
+                    $result      = $tool_resolver((string) $tc['name'], $input);
+                    $result_blocks = is_array($result)
+                        ? $result
+                        : [['type' => 'text', 'text' => (string) $result]];
                     $api_messages[] = [
                         'role'         => 'tool',
                         'tool_call_id' => (string) $tc['id'],
-                        'content'      => $result,
+                        'content'      => $this->search_results_to_xml($result_blocks, $corpus),
                     ];
                 }
 
@@ -306,13 +349,18 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
             }
 
             // Stream ended without tool call — parse citations from the full answer.
-            $this->extract_and_emit_citations($full_answer_buffer, $corpus, $on_chunk);
+            $this->extract_and_emit_citations($full_answer_buffer, $documents, $on_chunk);
             return;
         }
 
+        // Tool-turn cap hit. Synthesize a soft refusal as token text — the
+        // existing detect_refusal() picks up "I couldn't find" so the UI
+        // routes through the contact CTA instead of an error banner.
         $on_chunk([
-            'type' => 'error',
-            'data' => ['message' => __('Conversation exceeded tool-use depth limit.', 'opentrust')],
+            'type' => 'token',
+            'data' => [
+                'text' => __("I couldn't find a confident answer in the published trust center documents. Please contact the team for help.", 'opentrust'),
+            ],
         ]);
     }
 
@@ -324,29 +372,146 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
     }
 
     /**
-     * Embed the corpus into the system prompt and instruct the model to emit
-     * inline citation tags like [[cite:policy-privacy]] that we convert to
-     * citation events server-side.
+     * Append the OpenAI/OpenRouter-specific citation contract to the base
+     * system prompt. The base prompt already contains the corpus index and
+     * the role rules — see OpenTrust_Chat::build_system_prompt(). All we
+     * add is how this provider should mark citations inline so the server
+     * can convert them into structured citation events.
+     *
+     * Anthropic doesn't need this block — its native search_result_location
+     * citations come through the streaming envelope automatically.
      */
-    private function build_system_prompt_with_corpus(string $base_prompt, array $corpus): string {
-        $chunks = [$base_prompt, '', '<documents>'];
-        foreach ($corpus as $doc) {
-            $chunks[] = sprintf(
-                '<document id="%s" type="%s" url="%s" title="%s">',
-                esc_attr((string) $doc['id']),
-                esc_attr((string) $doc['type']),
-                esc_attr((string) $doc['url']),
-                esc_attr((string) $doc['title'])
-            );
-            $chunks[] = (string) $doc['content'];
-            $chunks[] = '</document>';
-        }
-        $chunks[] = '</documents>';
-        $chunks[] = '';
-        $chunks[] = 'CITATION FORMAT: When referencing a document, embed the tag [[cite:<document-id>]] inline in your answer at the exact point the claim is made. The <document-id> must match one of the id attributes in the documents above exactly. Example: "Our data is encrypted at rest [[cite:policy-infosec]] and in transit."';
-        $chunks[] = 'Do not invent document IDs. If you cannot cite a specific document for a claim, do not make the claim.';
-
+    private function append_citation_instructions(string $base_prompt): string {
+        $chunks = [
+            $base_prompt,
+            '',
+            'CITATION FORMAT: When referencing a document in your answer, embed the tag [[cite:<document-id>]] inline at the exact point the claim is made. The <document-id> must match exactly an id from a document the tools returned to you. Example: "Our data is encrypted at rest [[cite:policy-infosec]] and in transit."',
+            'Do not invent document ids. The only ids you may cite are those the tools have explicitly returned in their <document> blocks. If a tool returned no usable result, do not cite anything for that claim.',
+        ];
         return implode("\n", $chunks);
+    }
+
+    /**
+     * Convert an array of search_result content blocks (the resolver's return
+     * shape) into the XML-tagged string OpenAI's `tool` role message takes.
+     * The model parses the <document> tags to recover the doc id needed for
+     * its inline [[cite:id]] citations.
+     *
+     * Error blocks (source = `about:none`) become <retrieval-error> tags so
+     * the model has explicit "no result" framing without an associated id.
+     *
+     * @param array<int, array<string, mixed>> $blocks Search-result blocks.
+     * @param array<string, mixed>             $corpus Full corpus struct.
+     */
+    private function search_results_to_xml(array $blocks, array $corpus): string {
+        $url_to_id = is_array($corpus['url_to_id'] ?? null) ? $corpus['url_to_id'] : [];
+        $parts     = [];
+
+        foreach ($blocks as $b) {
+            if (!is_array($b)) {
+                continue;
+            }
+            $title  = (string) ($b['title']  ?? '');
+            $source = (string) ($b['source'] ?? '');
+
+            // Concatenate every text content fragment into one body.
+            $body = '';
+            foreach ((array) ($b['content'] ?? []) as $c) {
+                if (is_array($c) && ($c['type'] ?? '') === 'text') {
+                    $body .= (string) ($c['text'] ?? '');
+                }
+            }
+
+            // Error block → no id, distinct tag so the model treats it as
+            // an explicit "nothing found" framing rather than a citation
+            // candidate.
+            if ($source === 'about:none' || $source === '') {
+                $parts[] = sprintf(
+                    "<retrieval-error>%s</retrieval-error>",
+                    $body
+                );
+                continue;
+            }
+
+            $id = (string) ($url_to_id[$source] ?? '');
+
+            $parts[] = sprintf(
+                "<document id=\"%s\" url=\"%s\" title=\"%s\">\n%s\n</document>",
+                esc_attr($id),
+                esc_attr($source),
+                esc_attr($title),
+                $body
+            );
+        }
+
+        return implode("\n", $parts);
+    }
+
+    /**
+     * Aggregate label for a turn carrying multiple parallel tool calls.
+     * Mirrors the Anthropic provider's summarize_pending_turn so the UI sees
+     * the same wording regardless of which provider is configured.
+     *
+     * @param array<int, string> $names Tool names emitted in this turn.
+     */
+    private function summarize_turn_batch(array $names, int $count): string {
+        $all_get    = true;
+        $all_search = true;
+        foreach ($names as $n) {
+            if ($n !== 'get_document')     { $all_get    = false; }
+            if ($n !== 'search_documents') { $all_search = false; }
+        }
+        if ($all_get) {
+            /* translators: %d is the number of documents being read in parallel. */
+            return sprintf(__('Reading %d documents', 'opentrust'), $count);
+        }
+        if ($all_search) {
+            /* translators: %d is the number of search queries fired in parallel. */
+            return sprintf(__('Running %d searches', 'opentrust'), $count);
+        }
+        /* translators: %d is the number of parallel retrieval calls (mixed types). */
+        return sprintf(__('Running %d retrievals', 'opentrust'), $count);
+    }
+
+    /**
+     * Build a short user-facing label for a `tool_call` SSE event so the UI
+     * can replace "Thinking…" with something specific. Mirrors the Anthropic
+     * provider's helper of the same name.
+     *
+     * @param array<int, array<string, mixed>> $documents
+     */
+    private function summarize_tool_call(string $name, array $args, array $documents): string {
+        if ($name === 'get_document') {
+            $id = trim((string) ($args['id'] ?? ''));
+            if ($id !== '') {
+                foreach ($documents as $doc) {
+                    if ((string) ($doc['id'] ?? '') === $id) {
+                        $title = (string) ($doc['title'] ?? '');
+                        if ($title !== '') {
+                            /* translators: %s is the document title. */
+                            return sprintf(__('Reading "%s"', 'opentrust'), $title);
+                        }
+                    }
+                }
+                /* translators: %s is the document id. */
+                return sprintf(__('Reading %s', 'opentrust'), $id);
+            }
+            return __('Reading a document', 'opentrust');
+        }
+        if ($name === 'search_documents') {
+            $q = trim((string) ($args['query'] ?? ''));
+            if ($q !== '') {
+                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
+                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
+                } elseif (strlen($q) > 30) {
+                    $q = rtrim(substr($q, 0, 30)) . '…';
+                }
+                /* translators: %s is the search query. */
+                return sprintf(__('Searching for "%s"', 'opentrust'), $q);
+            }
+            return __('Searching documents', 'opentrust');
+        }
+        return $name;
     }
 
     /**
@@ -428,14 +593,14 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
      * with URLs resolved from the corpus. Unknown IDs are ignored here;
      * URL whitelist enforcement happens upstream in OpenTrust_Chat.
      */
-    private function extract_and_emit_citations(string $answer, array $corpus, callable $on_chunk): void {
-        if ($answer === '' || empty($corpus)) {
+    private function extract_and_emit_citations(string $answer, array $documents, callable $on_chunk): void {
+        if ($answer === '' || empty($documents)) {
             return;
         }
 
-        // Index corpus by id for O(1) lookup.
+        // Index documents by id for O(1) lookup.
         $by_id = [];
-        foreach ($corpus as $doc) {
+        foreach ($documents as $doc) {
             $by_id[(string) $doc['id']] = $doc;
         }
 

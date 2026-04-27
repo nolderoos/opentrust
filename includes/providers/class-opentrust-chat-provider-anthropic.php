@@ -125,9 +125,13 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
         $api_key  = (string) ($args['api_key']  ?? '');
         $model    = (string) ($args['model']    ?? '');
         $system   = (string) ($args['system']   ?? '');
+        // The corpus is now the full struct (documents + url_to_id + bm25 + …)
+        // rather than just the document array. Pluck what this provider needs.
         $corpus   = is_array($args['corpus'] ?? null) ? $args['corpus'] : [];
-        $messages = is_array($args['messages'] ?? null) ? $args['messages'] : [];
-        $tools    = is_array($args['tools'] ?? null) ? $args['tools'] : [];
+        $documents = is_array($corpus['documents'] ?? null) ? $corpus['documents'] : [];
+        $url_to_id = is_array($corpus['url_to_id'] ?? null) ? $corpus['url_to_id'] : [];
+        $messages  = is_array($args['messages'] ?? null) ? $args['messages'] : [];
+        $tools     = is_array($args['tools']    ?? null) ? $args['tools']    : [];
 
         if ($api_key === '' || $model === '' || empty($messages)) {
             $on_chunk(['type' => 'error', 'data' => ['message' => __('Anthropic adapter missing required args.', 'opentrust')]]);
@@ -135,6 +139,9 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
         }
 
         // Anthropic tool definitions use 'input_schema' instead of 'parameters'.
+        // The system prompt + index is the only large stable block now, so we
+        // also place a cache breakpoint on the tools array — that pair is what
+        // remains stable across turns and across visitors.
         $anthropic_tools = [];
         foreach ($tools as $tool) {
             $anthropic_tools[] = [
@@ -143,11 +150,21 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
                 'input_schema' => $tool['parameters'] ?? ['type' => 'object', 'properties' => (object) []],
             ];
         }
+        if (!empty($anthropic_tools)) {
+            $last = count($anthropic_tools) - 1;
+            $anthropic_tools[$last]['cache_control'] = ['type' => 'ephemeral'];
+        }
 
-        // Build the initial messages array. Attach the corpus as `document` content
-        // blocks on the FIRST user message so the Citations API can cite them.
-        // The base system prompt is sent separately with prompt caching.
-        $api_messages = $this->build_initial_messages($messages, $corpus);
+        // No more document-block attachment on the first user message. The
+        // corpus now lives in the cached system prompt as an index, and the
+        // model retrieves full content via tools. Pass conversation history
+        // through unchanged.
+        $api_messages = $this->build_messages($messages);
+
+        // Force a tool call on turn 1 so the model can never bypass retrieval
+        // and answer from training data. After the model has called any tool
+        // we relax to default (auto), so it can synthesize from results.
+        $has_called_tool = false;
 
         // Loop: make a request, handle tool uses, repeat until end_turn.
         $turn = 0;
@@ -169,17 +186,28 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
             ];
             if (!empty($anthropic_tools)) {
                 $payload['tools'] = $anthropic_tools;
+                if (!$has_called_tool) {
+                    $payload['tool_choice'] = ['type' => 'any'];
+                }
             }
 
             $state = [
-                'current_event'    => '',
-                'content_blocks'   => [], // accumulated for next turn (if tool_use)
-                'active_block_idx' => -1,
-                'stop_reason'      => '',
-                'pending_tool_use' => [],
-                'usage'            => ['in' => 0, 'out' => 0, 'cache_create' => 0, 'cache_read' => 0],
-                'corpus'           => $corpus,
-                'on_chunk'         => $on_chunk,
+                'current_event'       => '',
+                'content_blocks'      => [], // accumulated for next turn (if tool_use)
+                'active_block_idx'    => -1,
+                'stop_reason'         => '',
+                'pending_tool_use'    => [],
+                // Per-turn flag: have we already emitted the early `tool_intent`
+                // SSE event? We fire it the moment Anthropic's stream signals
+                // its FIRST tool_use content block so the visitor sees the pill
+                // within ~1-2s of submit instead of waiting 6-8s for the model
+                // to finish generating all parallel tool_use blocks. Reset
+                // every turn (state is rebuilt at the top of the while loop).
+                'tool_intent_emitted' => false,
+                'usage'               => ['in' => 0, 'out' => 0, 'cache_create' => 0, 'cache_read' => 0],
+                'corpus'              => $documents,
+                'url_to_id'           => $url_to_id,
+                'on_chunk'            => $on_chunk,
             ];
 
             $response = $this->stream_post(
@@ -215,6 +243,33 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
             if ($state['stop_reason'] !== 'tool_use' || empty($state['pending_tool_use'])) {
                 return;
             }
+            $has_called_tool = true;
+
+            // Emit ONE aggregated tool_call SSE event per turn so the UI can
+            // show a single morphing status pill rather than a wall of N
+            // separate pills when the model fires parallel tool uses (e.g.
+            // 8 get_document calls in one response). The event carries the
+            // active-state summary, the count, and the per-tool names for
+            // logging.
+            $turn_names = [];
+            foreach ($state['pending_tool_use'] as $pending) {
+                $turn_names[] = (string) $pending['name'];
+            }
+            $on_chunk([
+                'type' => 'tool_call',
+                'data' => [
+                    'name'            => $turn_names[0] ?? 'tool_call',
+                    'summary'         => $this->summarize_pending_turn($state['pending_tool_use'], $documents),
+                    // Past-tense form for the settled-pill state — used by
+                    // the JS when the single-turn case keeps the pill's
+                    // specific label (e.g. "Searched for X" instead of
+                    // "Searching for X"). For multi-turn flows the JS
+                    // builds a cross-turn count aggregate of its own.
+                    'settled_summary' => $this->summarize_settled_turn($state['pending_tool_use'], $documents),
+                    'count'           => count($state['pending_tool_use']),
+                    'names'           => $turn_names,
+                ],
+            ]);
 
             // Serialize our internal content_blocks shape into Anthropic's
             // API-expected shape for echo-back. Critical transforms:
@@ -270,75 +325,218 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
                     ? (json_decode($pending['input_json'], true) ?: [])
                     : [];
                 $result = $tool_resolver((string) $pending['name'], is_array($input) ? $input : []);
+
+                // Resolver returns an array of search_result blocks; pass
+                // through verbatim. Defensively coerce a stray string return
+                // (legacy callers) into a plain text content array.
+                $tool_content = is_array($result)
+                    ? array_values($result)
+                    : [['type' => 'text', 'text' => (string) $result]];
+
                 $tool_results[] = [
                     'type'        => 'tool_result',
                     'tool_use_id' => (string) $pending['id'],
-                    'content'     => (string) $result,
+                    'content'     => $tool_content,
                 ];
             }
             $api_messages[] = ['role' => 'user', 'content' => $tool_results];
             // Loop again for the next turn.
         }
 
-        // Exceeded tool turn cap without concluding.
+        // Tool-turn cap hit. Synthesize a soft refusal as token text — the
+        // existing detect_refusal() picks up "I couldn't find" and
+        // drive_stream's done event sets refused=true so the UI shows the
+        // contact CTA instead of an error banner.
         $on_chunk([
-            'type' => 'error',
-            'data' => ['message' => __('Conversation exceeded tool-use depth limit.', 'opentrust')],
+            'type' => 'token',
+            'data' => [
+                'text' => __("I couldn't find a confident answer in the published trust center documents. Please contact the team for help.", 'opentrust'),
+            ],
         ]);
     }
 
     /**
-     * Build the messages array sent to Anthropic on the first turn.
-     * Attaches the corpus as `document` content blocks to the first user message.
+     * Aggregate label for one Anthropic turn that may carry multiple
+     * parallel tool_use blocks. Single-tool turns keep the specific label
+     * ("Reading Privacy Policy"); multi-tool turns collapse to a count
+     * ("Reading 8 documents") so the UI can show one morphing pill instead
+     * of a wall of per-tool pills.
+     *
+     * @param array<int, array{id?:string, name?:string, input_json?:string}> $pending
+     * @param array<int, array<string, mixed>>                                 $documents
      */
-    private function build_initial_messages(array $messages, array $corpus): array {
-        // Find the first user message in the conversation.
-        $first_user_idx = null;
-        foreach ($messages as $i => $msg) {
-            if (($msg['role'] ?? '') === 'user') {
-                $first_user_idx = $i;
-                break;
+    private function summarize_pending_turn(array $pending, array $documents): string {
+        $count = count($pending);
+        if ($count === 1) {
+            $only = $pending[0];
+            $input_raw = is_string($only['input_json'] ?? null) ? (string) $only['input_json'] : '';
+            $input     = $input_raw !== '' ? (json_decode($input_raw, true) ?: []) : [];
+            return $this->summarize_tool_call(
+                (string) ($only['name'] ?? ''),
+                is_array($input) ? $input : [],
+                $documents
+            );
+        }
+
+        $all_get    = true;
+        $all_search = true;
+        foreach ($pending as $p) {
+            $n = (string) ($p['name'] ?? '');
+            if ($n !== 'get_document')      { $all_get    = false; }
+            if ($n !== 'search_documents')  { $all_search = false; }
+        }
+        if ($all_get) {
+            /* translators: %d is the number of documents being read in parallel. */
+            return sprintf(__('Reading %d documents', 'opentrust'), $count);
+        }
+        if ($all_search) {
+            /* translators: %d is the number of search queries fired in parallel. */
+            return sprintf(__('Running %d searches', 'opentrust'), $count);
+        }
+        /* translators: %d is the number of parallel retrieval calls (mixed types). */
+        return sprintf(__('Running %d retrievals', 'opentrust'), $count);
+    }
+
+    /**
+     * Build a short user-facing label for a `tool_call` SSE event so the UI
+     * can replace "Thinking…" with something specific. Pure formatting; never
+     * fails — falls back to the tool name if anything is missing.
+     *
+     * @param array<int, array<string, mixed>> $documents
+     */
+    private function summarize_tool_call(string $name, array $args, array $documents): string {
+        if ($name === 'get_document') {
+            $id = trim((string) ($args['id'] ?? ''));
+            if ($id !== '') {
+                foreach ($documents as $doc) {
+                    if ((string) ($doc['id'] ?? '') === $id) {
+                        $title = (string) ($doc['title'] ?? '');
+                        if ($title !== '') {
+                            /* translators: %s is the document title. */
+                            return sprintf(__('Reading "%s"', 'opentrust'), $title);
+                        }
+                    }
+                }
+                /* translators: %s is the document id. */
+                return sprintf(__('Reading %s', 'opentrust'), $id);
             }
+            return __('Reading a document', 'opentrust');
         }
-        if ($first_user_idx === null) {
-            // No user message — shouldn't happen, but handle gracefully.
-            return [];
+        if ($name === 'search_documents') {
+            $q = trim((string) ($args['query'] ?? ''));
+            if ($q !== '') {
+                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
+                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
+                } elseif (strlen($q) > 30) {
+                    $q = rtrim(substr($q, 0, 30)) . '…';
+                }
+                /* translators: %s is the search query. */
+                return sprintf(__('Searching for "%s"', 'opentrust'), $q);
+            }
+            return __('Searching documents', 'opentrust');
+        }
+        return $name;
+    }
+
+    /**
+     * Past-tense mirror of summarize_pending_turn — used as the
+     * `settled_summary` field on the tool_call SSE event so the JS can
+     * morph the pill's label from active ("Searching for X") to past
+     * ("Searched for X") when the conversation settles. Multi-turn flows
+     * are handled JS-side with a cross-turn count aggregate; this helper
+     * is what the JS uses when only one turn fired tool calls.
+     *
+     * @param array<int, array{id?:string, name?:string, input_json?:string}> $pending
+     * @param array<int, array<string, mixed>>                                 $documents
+     */
+    private function summarize_settled_turn(array $pending, array $documents): string {
+        $count = count($pending);
+        if ($count === 1) {
+            $only = $pending[0];
+            $input_raw = is_string($only['input_json'] ?? null) ? (string) $only['input_json'] : '';
+            $input     = $input_raw !== '' ? (json_decode($input_raw, true) ?: []) : [];
+            return $this->summarize_settled_tool_call(
+                (string) ($only['name'] ?? ''),
+                is_array($input) ? $input : [],
+                $documents
+            );
         }
 
-        $document_blocks = [];
-        foreach ($corpus as $idx => $doc) {
-            $document_blocks[] = [
-                'type'      => 'document',
-                'source'    => [
-                    'type'       => 'text',
-                    'media_type' => 'text/plain',
-                    'data'       => (string) $doc['content'],
-                ],
-                'title'     => (string) $doc['title'],
-                'context'   => sprintf('%s | %s | %s', $doc['id'], $doc['type'], $doc['url']),
-                'citations' => ['enabled' => true],
-            ];
+        $all_get    = true;
+        $all_search = true;
+        foreach ($pending as $p) {
+            $n = (string) ($p['name'] ?? '');
+            if ($n !== 'get_document')      { $all_get    = false; }
+            if ($n !== 'search_documents')  { $all_search = false; }
         }
-        // Attach cache_control to the LAST document block to make the whole
-        // system+docs prefix cacheable.
-        if (!empty($document_blocks)) {
-            $document_blocks[count($document_blocks) - 1]['cache_control'] = ['type' => 'ephemeral'];
+        if ($all_get) {
+            /* translators: %d is the number of documents that were read in parallel. */
+            return sprintf(__('Read %d documents', 'opentrust'), $count);
         }
+        if ($all_search) {
+            /* translators: %d is the number of search queries that were fired in parallel. */
+            return sprintf(__('Ran %d searches', 'opentrust'), $count);
+        }
+        /* translators: %d is the number of parallel retrieval calls (mixed types). */
+        return sprintf(__('Ran %d retrievals', 'opentrust'), $count);
+    }
 
+    /**
+     * Past-tense mirror of summarize_tool_call. Same arg shape, same
+     * fallback chain — just verb-tense flipped.
+     *
+     * @param array<int, array<string, mixed>> $documents
+     */
+    private function summarize_settled_tool_call(string $name, array $args, array $documents): string {
+        if ($name === 'get_document') {
+            $id = trim((string) ($args['id'] ?? ''));
+            if ($id !== '') {
+                foreach ($documents as $doc) {
+                    if ((string) ($doc['id'] ?? '') === $id) {
+                        $title = (string) ($doc['title'] ?? '');
+                        if ($title !== '') {
+                            /* translators: %s is the document title. */
+                            return sprintf(__('Read "%s"', 'opentrust'), $title);
+                        }
+                    }
+                }
+                /* translators: %s is the document id. */
+                return sprintf(__('Read %s', 'opentrust'), $id);
+            }
+            return __('Read a document', 'opentrust');
+        }
+        if ($name === 'search_documents') {
+            $q = trim((string) ($args['query'] ?? ''));
+            if ($q !== '') {
+                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
+                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
+                } elseif (strlen($q) > 30) {
+                    $q = rtrim(substr($q, 0, 30)) . '…';
+                }
+                /* translators: %s is the search query. */
+                return sprintf(__('Searched for "%s"', 'opentrust'), $q);
+            }
+            return __('Searched documents', 'opentrust');
+        }
+        return $name;
+    }
+
+    /**
+     * Pass the conversation history to Anthropic as plain role/content pairs.
+     * No corpus attachment — the agentic engine retrieves on demand via tools.
+     *
+     * @param array<int, array{role:string, content:string}> $messages
+     */
+    private function build_messages(array $messages): array {
         $out = [];
-        foreach ($messages as $i => $msg) {
-            $role    = (string) $msg['role'];
-            $content = (string) $msg['content'];
-
-            if ($i === $first_user_idx) {
-                $combined   = $document_blocks;
-                $combined[] = ['type' => 'text', 'text' => $content];
-                $out[] = ['role' => 'user', 'content' => $combined];
-            } else {
-                $out[] = ['role' => $role, 'content' => $content];
+        foreach ($messages as $msg) {
+            $role    = (string) ($msg['role']    ?? 'user');
+            $content = (string) ($msg['content'] ?? '');
+            if ($content === '') {
+                continue;
             }
+            $out[] = ['role' => $role, 'content' => $content];
         }
-
         return $out;
     }
 
@@ -395,6 +593,31 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
                     $state['content_blocks'][$idx]['id']         = (string) ($block['id']   ?? '');
                     $state['content_blocks'][$idx]['name']       = (string) ($block['name'] ?? '');
                     $state['content_blocks'][$idx]['input_json'] = '';
+
+                    // Early intent signal: emit a generic `tool_intent` SSE
+                    // event the moment Anthropic signals its first tool_use
+                    // block of this turn. Without this, the pill can only
+                    // appear after the entire turn is parsed (a single
+                    // aggregated `tool_call` event at the end), which on
+                    // parallel-tool turns means the visitor sits on three
+                    // pulsing dots for 6-8s. With this, the pill appears
+                    // in ~1-2s and the existing reuse path morphs its
+                    // label to the specific count when the aggregated
+                    // tool_call fires later in this turn.
+                    if (!$state['tool_intent_emitted']) {
+                        $state['tool_intent_emitted'] = true;
+                        $tool_name = (string) ($block['name'] ?? '');
+                        $intent_label = $tool_name === 'search_documents'
+                            ? __('Searching documents…', 'opentrust')
+                            : __('Reading documents…', 'opentrust');
+                        ($state['on_chunk'])([
+                            'type' => 'tool_intent',
+                            'data' => [
+                                'summary' => $intent_label,
+                                'name'    => $tool_name,
+                            ],
+                        ]);
+                    }
                 }
                 break;
 
@@ -456,23 +679,52 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
     }
 
     /**
-     * Transform a citation delta payload into a normalized citation event.
-     * Looks up the canonical URL from the corpus via `document_index`.
+     * Transform a citation delta into a normalized OpenTrust citation event.
+     *
+     * Anthropic emits `search_result_location` citations for content returned
+     * by tools that produced search_result blocks. The canonical URL lives on
+     * the citation object directly as `source` — no corpus lookup needed for
+     * the URL. We do still reverse-look-up the doc id from the URL so the
+     * front-end de-dup-by-id keeps subprocessors that share an anchor URL
+     * (`/trust-center/#ot-subprocessors`) as separate citations.
+     *
+     * Error blocks (source = `about:none`) drop silently.
      */
     private function emit_citation_from_delta(array $cite, array $state): void {
-        $doc_idx = isset($cite['document_index']) ? (int) $cite['document_index'] : -1;
-        $corpus  = $state['corpus'] ?? [];
-        if ($doc_idx < 0 || !isset($corpus[$doc_idx])) {
+        $type = (string) ($cite['type'] ?? '');
+
+        if ($type !== 'search_result_location') {
+            // Unknown citation type — ignore rather than emit a half-formed
+            // event. Future Anthropic shapes can be added here defensively.
             return;
         }
 
-        $doc = $corpus[$doc_idx];
+        $url = (string) ($cite['source'] ?? '');
+        if ($url === '' || $url === 'about:none') {
+            return;
+        }
+
+        $url_to_id = is_array($state['url_to_id'] ?? null) ? $state['url_to_id'] : [];
+        $id        = (string) ($url_to_id[$url] ?? '');
+
+        $title = (string) ($cite['title'] ?? '');
+        if ($title === '' && $id !== '') {
+            // Anthropic returns `title: null` for docs whose source URL was
+            // missing a title field; recover from the corpus when possible.
+            foreach (($state['corpus'] ?? []) as $doc) {
+                if ((string) ($doc['id'] ?? '') === $id) {
+                    $title = (string) ($doc['title'] ?? '');
+                    break;
+                }
+            }
+        }
+
         ($state['on_chunk'])([
             'type' => 'citation',
             'data' => [
-                'id'    => (string) ($doc['id']    ?? ''),
-                'url'   => (string) ($doc['url']   ?? ''),
-                'title' => (string) ($doc['title'] ?? ($cite['document_title'] ?? '')),
+                'id'    => $id,
+                'url'   => $url,
+                'title' => $title,
                 'quote' => (string) ($cite['cited_text'] ?? ''),
             ],
         ]);

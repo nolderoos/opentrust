@@ -221,7 +221,10 @@ abstract class OpenTrust_Chat_Provider {
             $curl_headers[] = $k . ': ' . $v;
         }
 
-        $buffer = '';
+        $buffer           = '';
+        $error_body       = '';
+        $response_headers = [];
+        $early_status     = 0;
 
         // phpcs:disable WordPress.WP.AlternativeFunctions.curl_curl_init, WordPress.WP.AlternativeFunctions.curl_curl_setopt, WordPress.WP.AlternativeFunctions.curl_curl_exec, WordPress.WP.AlternativeFunctions.curl_curl_getinfo, WordPress.WP.AlternativeFunctions.curl_curl_errno, WordPress.WP.AlternativeFunctions.curl_curl_error, WordPress.WP.AlternativeFunctions.curl_curl_close -- SSE streaming requires CURLOPT_WRITEFUNCTION; wp_remote_* does not support streaming callbacks.
         $ch = curl_init();
@@ -236,7 +239,38 @@ abstract class OpenTrust_Chat_Provider {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-        curl_setopt($ch, CURLOPT_WRITEFUNCTION,  function ($ch, string $chunk) use (&$buffer, $on_line): int {
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION,  function ($ch, string $line) use (&$early_status, &$response_headers): int {
+            $len     = strlen($line);
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                return $len;
+            }
+            if (preg_match('#^HTTP/[\d.]+\s+(\d{3})#', $trimmed, $m)) {
+                $early_status = (int) $m[1];
+                return $len;
+            }
+            $colon = strpos($trimmed, ':');
+            if ($colon !== false) {
+                $k = strtolower(trim(substr($trimmed, 0, $colon)));
+                $v = trim(substr($trimmed, $colon + 1));
+                $response_headers[$k] = $v;
+            }
+            return $len;
+        });
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION,  function ($ch, string $chunk) use (&$buffer, &$error_body, &$early_status, $on_line): int {
+            // Non-2xx response — accumulate the body as an error payload
+            // instead of feeding it to the SSE parser. Anthropic returns
+            // plain JSON like {"type":"error","error":{"type":"...","message":"..."}}
+            // on errors, which doesn't match the SSE line shape and would
+            // otherwise be silently dropped.
+            if ($early_status >= 300) {
+                $error_body .= $chunk;
+                if (function_exists('connection_aborted') && connection_aborted()) {
+                    return 0;
+                }
+                return strlen($chunk);
+            }
+
             $buffer .= $chunk;
 
             // Process complete lines. SSE line terminator is LF; events separated by blank line.
@@ -262,8 +296,10 @@ abstract class OpenTrust_Chat_Provider {
         curl_close($ch);
         // phpcs:enable
 
-        // Flush any trailing line not followed by newline.
-        if ($buffer !== '') {
+        // Flush any trailing line not followed by newline — but only on success;
+        // on an error response the buffer holds the JSON error body, which the
+        // SSE parser would mis-interpret.
+        if ($buffer !== '' && $http_code >= 200 && $http_code < 300) {
             $on_line(rtrim($buffer, "\r"));
         }
 
@@ -272,11 +308,64 @@ abstract class OpenTrust_Chat_Provider {
         }
 
         if ($http_code < 200 || $http_code >= 300) {
-            /* translators: %d: HTTP status code returned by the provider */
-            return ['ok' => false, 'code' => $http_code, 'error' => sprintf(__('Provider returned HTTP %d', 'opentrust'), $http_code)];
+            // Some hosts return the body via WRITEFUNCTION before
+            // HEADERFUNCTION has set $early_status; fall back to $buffer.
+            if ($error_body === '' && $buffer !== '') {
+                $error_body = $buffer;
+            }
+            $detail = $this->describe_streaming_error($error_body, $response_headers, $http_code);
+            // Log unconditionally so post-mortem doesn't depend on whether
+            // the message survived translation to the client.
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- diagnostic for upstream provider failures
+            error_log('[OpenTrust] ' . $detail);
+            return ['ok' => false, 'code' => $http_code, 'error' => $detail];
         }
 
         return ['ok' => true, 'code' => $http_code];
+    }
+
+    /**
+     * Build a human-readable error string from a streaming provider's non-2xx
+     * response body + headers. Falls through several common JSON shapes
+     * (Anthropic, OpenAI, OpenRouter) before giving up and showing a truncated
+     * raw body. Surfaces rate-limit hints (retry-after, anthropic-ratelimit-*)
+     * inline so the user / log immediately shows which limit was hit.
+     */
+    final protected function describe_streaming_error(string $body, array $headers, int $code): string {
+        /* translators: %d: HTTP status code returned by the provider */
+        $parts = [sprintf(__('Provider returned HTTP %d', 'opentrust'), $code)];
+
+        $body = trim($body);
+        if ($body !== '') {
+            $decoded = json_decode($body, true);
+            $detail  = '';
+            if (is_array($decoded)) {
+                if (isset($decoded['error']) && is_array($decoded['error'])) {
+                    $type = (string) ($decoded['error']['type']    ?? '');
+                    $msg  = (string) ($decoded['error']['message'] ?? '');
+                    $detail = trim(($type !== '' ? "{$type}: " : '') . $msg);
+                } elseif (isset($decoded['error']) && is_string($decoded['error'])) {
+                    $detail = (string) $decoded['error'];
+                } elseif (!empty($decoded['message']) && is_string($decoded['message'])) {
+                    $detail = (string) $decoded['message'];
+                }
+            }
+            if ($detail === '') {
+                $detail = strlen($body) > 500 ? substr($body, 0, 500) . '…' : $body;
+            }
+            $parts[] = $detail;
+        }
+
+        if (!empty($headers['retry-after'])) {
+            $parts[] = 'retry-after: ' . $headers['retry-after'];
+        }
+        foreach ($headers as $k => $v) {
+            if (str_starts_with($k, 'anthropic-ratelimit-') || str_starts_with($k, 'x-ratelimit-')) {
+                $parts[] = $k . ': ' . $v;
+            }
+        }
+
+        return implode(' | ', $parts);
     }
 
     /**

@@ -98,16 +98,16 @@ final class OpenTrust_Render {
             return ['error' => __('AI chat is not configured.', 'opentrust')];
         }
 
-        $corpus = OpenTrust_Chat_Corpus::get_or_build();
-        if (!empty($corpus['over_budget'])) {
-            return ['error' => __('AI chat is temporarily unavailable.', 'opentrust')];
-        }
+        $locale = (string) determine_locale();
+        $corpus = OpenTrust_Chat_Corpus::get_or_build($locale);
 
         // Build a chat request identical to the REST handler's blocking path.
-        $chat = OpenTrust_Chat::instance();
+        // The system prompt + index + tool surface come from the same shared
+        // builder so the noscript path is byte-equivalent to the streaming
+        // one — we just don't get to stream the response.
         $args = [
-            'system'   => $this->build_noscript_system_prompt($settings, $corpus),
-            'corpus'   => $corpus['documents'],
+            'system'   => OpenTrust_Chat::build_system_prompt($settings, $corpus),
+            'corpus'   => $corpus,
             'messages' => [['role' => 'user', 'content' => $question]],
             'tools'    => OpenTrust_Chat::tool_definitions(),
             'model'    => (string) $settings['ai_model'],
@@ -149,8 +149,10 @@ final class OpenTrust_Render {
                     break;
             }
         };
-        $tool_resolver = static function (string $name, array $args) use ($corpus): string {
-            return OpenTrust_Chat::resolve_tool($name, $args, $corpus);
+        // Per-request loop detection map — same contract as the REST path.
+        $seen_calls = [];
+        $tool_resolver = static function (string $name, array $args) use ($corpus, &$seen_calls): array {
+            return OpenTrust_Chat::resolve_tool($name, $args, $corpus, $seen_calls);
         };
 
         try {
@@ -174,20 +176,11 @@ final class OpenTrust_Render {
         ];
     }
 
-    private function build_noscript_system_prompt(array $settings, array $corpus): string {
-        // Mirror OpenTrust_Chat::build_system_prompt() but inline since it's private.
-        $company = (string) ($settings['company_name'] ?? get_bloginfo('name'));
-        $contact = (string) ($settings['ai_contact_url'] ?? '');
-        if ($contact === '') {
-            $contact = home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/');
-        }
-        return "You are {$company}'s trust center assistant. Answer visitor questions using ONLY the published trust center content provided. Cite your sources with real URLs. If you cannot confidently answer from the provided documents, say so and point the visitor to {$contact}.";
-    }
-
     /**
-     * Determine which state the chat page should render.
-     * Budget enforcement is added in story 04; for now we only detect
-     * configured vs unconfigured and corpus-over-budget.
+     * Determine which state the chat page should render. With agentic
+     * retrieval there's no global corpus-size cap to check — the engine
+     * works at any corpus size, only individual oversized documents get
+     * truncated at retrieval time.
      */
     private function compute_chat_state(array $settings): string {
         if (empty($settings['ai_enabled']) || empty($settings['ai_provider']) || empty($settings['ai_model'])) {
@@ -195,9 +188,6 @@ final class OpenTrust_Render {
         }
         if (OpenTrust_Chat_Secrets::get((string) $settings['ai_provider']) === null) {
             return 'unconfigured';
-        }
-        if (class_exists('OpenTrust_Chat_Corpus') && OpenTrust_Chat_Corpus::is_over_budget()) {
-            return 'unavailable';
         }
         return 'ready';
     }
