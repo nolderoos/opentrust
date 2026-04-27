@@ -19,8 +19,8 @@
  * inverted BM25 index used by `search_documents(query)` is built once at
  * cache-build time and persisted alongside the corpus.
  *
- * Reads only published posts. Reuses OpenTrust_Render::gather_data() so there
- * are zero new DB queries in the hot path.
+ * Reads only published posts via OpenTrust_Repository — the same read-side
+ * surface Render uses, so any cached fetch hit there is shared here.
  */
 
 declare(strict_types=1);
@@ -137,36 +137,43 @@ final class OpenTrust_Chat_Corpus {
     public static function build(?string $locale = null): array {
         $locale   = self::normalize_locale($locale);
         $settings = OpenTrust::get_settings();
-        $data     = OpenTrust_Render::instance()->gather_data($settings);
+        $repo     = OpenTrust_Repository::instance();
+        $visible  = $settings['sections_visible'] ?? [];
 
         $documents = [];
 
-        // Certifications.
-        foreach ($data['certifications'] ?? [] as $cert) {
-            $documents[] = self::format_certification($cert, $settings);
+        // Certifications, subprocessors, data_practices — indexed only when
+        // their section is visible on the public page. Mirrors the gating
+        // gather_data() applied before this rewire: a section hidden from
+        // visitors is also hidden from the AI.
+        if (!empty($visible['certifications'])) {
+            foreach ($repo->fetch_certifications() as $cert) {
+                $documents[] = self::format_certification($cert, $settings);
+            }
         }
 
-        // Policies — pulled with full post content. gather_data only carries
-        // excerpts and metadata.
-        $policy_posts = get_posts([
-            'post_type'      => 'ot_policy',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'orderby'        => 'title',
-            'order'          => 'ASC',
-        ]);
-        foreach ($policy_posts as $post) {
+        // Policies — always indexed, regardless of $visible['policies'].
+        // This mirrors pre-rewire behavior: build() previously fetched
+        // policy posts via its own get_posts() call (full post_content
+        // is needed for the AI tool, not just gather_data's excerpt
+        // projection), which sat outside the visibility gate. Documented
+        // here as a latent asymmetry — possibly a bug — but preserved
+        // bit-exactly. Repository::fetch_policy_posts() is the single
+        // owner of that fetch now.
+        foreach ($repo->fetch_policy_posts() as $post) {
             $documents[] = self::format_policy($post, $settings);
         }
 
-        // Subprocessors.
-        foreach ($data['subprocessors'] ?? [] as $sub) {
-            $documents[] = self::format_subprocessor($sub, $settings);
+        if (!empty($visible['subprocessors'])) {
+            foreach ($repo->fetch_subprocessors() as $sub) {
+                $documents[] = self::format_subprocessor($sub, $settings);
+            }
         }
 
-        // Data practices.
-        foreach ($data['data_practices'] ?? [] as $dp) {
-            $documents[] = self::format_data_practice($dp, $settings);
+        if (!empty($visible['data_practices'])) {
+            foreach ($repo->fetch_data_practices() as $dp) {
+                $documents[] = self::format_data_practice($dp, $settings);
+            }
         }
 
         // Contact (only present when the operator has populated at least one
