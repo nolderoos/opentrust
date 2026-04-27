@@ -42,6 +42,7 @@ require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-corpus.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-budget.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-log.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-summarizer.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-stream-collector.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat.php';
 
 add_action('plugins_loaded', static function (): void {

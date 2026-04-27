@@ -366,79 +366,27 @@ final class OpenTrust_Chat {
     }
 
     /**
-     * Run the provider in streaming mode. Emits SSE events directly to the client.
-     * Returns usage stats for budget commit + log row.
+     * Run the provider in streaming mode. Emits SSE events directly to the
+     * client. Returns usage stats for budget commit + log row. The collector
+     * owns the citation allowlist, doc-id de-dup, usage accounting, refusal
+     * detection, and tool-name capture — see OpenTrust_Chat_Stream_Collector.
      *
-     * @return array{actual_tokens:int, tokens_in:int, tokens_out:int, citation_count:int, refused:bool}
+     * @return array{
+     *     actual_tokens:int, tokens_in:int, tokens_out:int,
+     *     cache_creation:int, cache_read:int, citation_count:int,
+     *     refused:bool, tool_turns:int, tool_names:string
+     * }
      */
     private function drive_stream(OpenTrust_Chat_Provider $adapter, array $args, array $corpus): array {
-        $whitelist   = $corpus['urls'] ?? [];
-        $collected   = [
-            'answer'         => '', // accumulated token text for refusal detection
-            'tokens_in'      => 0,
-            'tokens_out'     => 0,
-            'citations'      => [],
-            'seen_urls'      => [], // de-dup set — one entry per unique document
-            'refused'        => false,
-            'cache_creation' => 0,
-            'cache_read'     => 0,
-            'tool_names'     => [], // names emitted via tool_call events, in order
-        ];
+        $collector = new OpenTrust_Chat_Stream_Collector($corpus['urls'] ?? []);
 
-        $on_chunk = function (array $event) use (&$collected, $whitelist): void {
-            $type = $event['type'] ?? '';
-            $data = $event['data'] ?? [];
-
-            // Track state for the final done event.
-            if ($type === 'citation') {
-                $url = isset($data['url']) ? (string) $data['url'] : '';
-                if (!self::url_allowed($url, $whitelist)) {
-                    return; // stripped by whitelist
-                }
-                // De-dupe by DOCUMENT ID (each corpus doc has a unique id like
-                // "sub-amazon-web-services"), NOT by URL — multiple docs of the
-                // same type share a single anchor URL (/trust-center/#subprocessors)
-                // so URL-based de-dupe would collapse all subprocessors into one.
-                // We fall back to URL only if no id is present.
-                $dedup_key = (string) ($data['id'] ?? '');
-                if ($dedup_key === '') {
-                    $dedup_key = $url;
-                }
-                if ($dedup_key === '' || isset($collected['seen_urls'][$dedup_key])) {
-                    return;
-                }
-                $collected['seen_urls'][$dedup_key] = true;
-                $collected['citations'][] = $data;
-                return; // don't forward unvalidated citations
+        $on_chunk = static function (array $event) use ($collector): void {
+            // ingest() returns true for events the client should also see live
+            // (token, tool_call, error) — citations and usage are kept inside
+            // the collector and emitted after the stream settles.
+            if ($collector->ingest($event)) {
+                self::send_sse((string) ($event['type'] ?? ''), $event['data'] ?? []);
             }
-            if ($type === 'usage') {
-                $collected['tokens_in']      += (int) ($data['tokens_in']      ?? 0);
-                $collected['tokens_out']     += (int) ($data['tokens_out']     ?? 0);
-                $collected['cache_creation'] += (int) ($data['cache_creation'] ?? 0);
-                $collected['cache_read']     += (int) ($data['cache_read']     ?? 0);
-                return; // don't forward internal usage events
-            }
-
-            // Accumulate token text so detect_refusal() can inspect the full answer.
-            if ($type === 'token') {
-                $collected['answer'] .= (string) ($data['text'] ?? '');
-            }
-
-            // Capture tool_call events for the log (while still forwarding
-            // to the client below). Per-turn aggregation: one event covers
-            // many tool calls, so unpack data.names[] when present.
-            if ($type === 'tool_call') {
-                if (!empty($data['names']) && is_array($data['names'])) {
-                    foreach ($data['names'] as $n) {
-                        $collected['tool_names'][] = (string) $n;
-                    }
-                } elseif (!empty($data['name'])) {
-                    $collected['tool_names'][] = (string) $data['name'];
-                }
-            }
-
-            // Forward user-visible events (token, tool_call, error).
-            self::send_sse($type, $data);
         };
 
         // Per-request loop detection: same name + canonical args → guidance
@@ -459,94 +407,36 @@ final class OpenTrust_Chat {
             ]);
         }
 
-        // Emit validated citation list inline as citation events now that
-        // they've been whitelist-checked.
-        foreach ($collected['citations'] as $cite) {
+        // Emit validated citation list inline now that they've been
+        // whitelist-checked. (The collector held them through the stream
+        // because each citation needed allowlist + de-dup before it could
+        // be trusted as a user-visible event.)
+        foreach ($collector->citations as $cite) {
             self::send_sse('citation', $cite);
         }
 
-        // Refusal detection: see detect_refusal() for the two-signal rule
-        // (canonical phrase + zero citations). Short conversational replies
-        // no longer trip the escalation UI.
-        $collected['refused'] = self::detect_refusal($collected['answer'], $collected['citations']);
+        $stats = $collector->stats();
 
         self::send_sse('done', [
-            'tokens_in'  => $collected['tokens_in'],
-            'tokens_out' => $collected['tokens_out'],
-            'refused'    => $collected['refused'],
-            'citations'  => $collected['citations'],
+            'tokens_in'  => $collector->tokens_in,
+            'tokens_out' => $collector->tokens_out,
+            'refused'    => $stats['refused'],
+            'citations'  => $collector->citations,
         ]);
 
-        return [
-            'actual_tokens'  => $collected['tokens_in'] + $collected['tokens_out'],
-            'tokens_in'      => $collected['tokens_in'],
-            'tokens_out'     => $collected['tokens_out'],
-            'citation_count' => count($collected['citations']),
-            'refused'        => (bool) $collected['refused'],
-            'tool_turns'     => count($collected['tool_names']),
-            'tool_names'     => self::format_tool_names_for_log($collected['tool_names']),
-        ];
+        return $stats;
     }
 
     /**
      * Run the provider and return a single JSON response (no streaming).
-     * Used when the client cannot accept SSE (JS disabled).
+     * Used when the client cannot accept SSE (JS disabled). Same collector
+     * as drive_stream — only the post-loop wrap-up differs.
      */
     private function drive_blocking(OpenTrust_Chat_Provider $adapter, array $args, array $corpus, ?array &$stats = null): WP_REST_Response|WP_Error {
-        $whitelist = $corpus['urls'] ?? [];
+        $collector = new OpenTrust_Chat_Stream_Collector($corpus['urls'] ?? []);
 
-        $buffer = [
-            'answer'         => '',
-            'citations'      => [],
-            'seen_urls'      => [],
-            'tokens_in'      => 0,
-            'tokens_out'     => 0,
-            'error'          => null,
-            'tool_names'     => [],
-        ];
-
-        $on_chunk = function (array $event) use (&$buffer, $whitelist): void {
-            $type = $event['type'] ?? '';
-            $data = $event['data'] ?? [];
-
-            switch ($type) {
-                case 'token':
-                    $buffer['answer'] .= (string) ($data['text'] ?? '');
-                    break;
-                case 'citation':
-                    $url = (string) ($data['url'] ?? '');
-                    if (!self::url_allowed($url, $whitelist)) {
-                        break;
-                    }
-                    // De-dupe by document id (unique per doc) not url.
-                    // Multiple docs share a single anchor url on the main page.
-                    $dedup_key = (string) ($data['id'] ?? '');
-                    if ($dedup_key === '') {
-                        $dedup_key = $url;
-                    }
-                    if ($dedup_key === '' || isset($buffer['seen_urls'][$dedup_key])) {
-                        break;
-                    }
-                    $buffer['seen_urls'][$dedup_key] = true;
-                    $buffer['citations'][] = $data;
-                    break;
-                case 'usage':
-                    $buffer['tokens_in']  += (int) ($data['tokens_in']  ?? 0);
-                    $buffer['tokens_out'] += (int) ($data['tokens_out'] ?? 0);
-                    break;
-                case 'tool_call':
-                    if (!empty($data['names']) && is_array($data['names'])) {
-                        foreach ($data['names'] as $n) {
-                            $buffer['tool_names'][] = (string) $n;
-                        }
-                    } elseif (!empty($data['name'])) {
-                        $buffer['tool_names'][] = (string) $data['name'];
-                    }
-                    break;
-                case 'error':
-                    $buffer['error'] = (string) ($data['message'] ?? 'error');
-                    break;
-            }
+        $on_chunk = static function (array $event) use ($collector): void {
+            $collector->ingest($event); // blocking path doesn't forward live
         };
 
         $seen_calls = [];
@@ -561,28 +451,18 @@ final class OpenTrust_Chat {
             return new WP_Error('ai_provider_failed', $e->getMessage(), ['status' => 502]);
         }
 
-        if ($buffer['error'] !== null) {
-            return new WP_Error('ai_provider_error', $buffer['error'], ['status' => 502]);
+        if ($collector->error !== null) {
+            return new WP_Error('ai_provider_error', $collector->error, ['status' => 502]);
         }
 
-        $refused = self::detect_refusal($buffer['answer'], $buffer['citations']);
-
-        $stats = [
-            'actual_tokens'  => $buffer['tokens_in'] + $buffer['tokens_out'],
-            'tokens_in'      => $buffer['tokens_in'],
-            'tokens_out'     => $buffer['tokens_out'],
-            'citation_count' => count($buffer['citations']),
-            'refused'        => $refused,
-            'tool_turns'     => count($buffer['tool_names']),
-            'tool_names'     => self::format_tool_names_for_log($buffer['tool_names']),
-        ];
+        $stats = $collector->stats();
 
         return new WP_REST_Response([
-            'answer'     => $buffer['answer'],
-            'citations'  => $buffer['citations'],
-            'refused'    => $refused,
-            'tokens_in'  => $buffer['tokens_in'],
-            'tokens_out' => $buffer['tokens_out'],
+            'answer'     => $collector->answer,
+            'citations'  => $collector->citations,
+            'refused'    => $stats['refused'],
+            'tokens_in'  => $collector->tokens_in,
+            'tokens_out' => $collector->tokens_out,
         ], 200);
     }
 
@@ -722,7 +602,7 @@ final class OpenTrust_Chat {
      *
      * @param array<int, string> $names
      */
-    private static function format_tool_names_for_log(array $names): string {
+    public static function format_tool_names_for_log(array $names): string {
         if (empty($names)) {
             return '';
         }

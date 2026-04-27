@@ -115,40 +115,12 @@ final class OpenTrust_Render {
             'settings' => $settings,
         ];
 
-        $buffer = [
-            'answer' => '', 'citations' => [], 'seen_urls' => [], 'error' => null,
-        ];
-        $whitelist = $corpus['urls'] ?? [];
+        $collector = new OpenTrust_Chat_Stream_Collector($corpus['urls'] ?? []);
 
-        $on_chunk = function (array $event) use (&$buffer, $whitelist): void {
-            $type = $event['type'] ?? '';
-            $data = $event['data'] ?? [];
-            switch ($type) {
-                case 'token':
-                    $buffer['answer'] .= (string) ($data['text'] ?? '');
-                    break;
-                case 'citation':
-                    $url = (string) ($data['url'] ?? '');
-                    if (!OpenTrust_Chat::url_allowed($url, $whitelist)) {
-                        break;
-                    }
-                    // De-dupe by document id, not url — multiple corpus docs
-                    // (e.g. each subprocessor) share a single anchor url.
-                    $dedup_key = (string) ($data['id'] ?? '');
-                    if ($dedup_key === '') {
-                        $dedup_key = $url;
-                    }
-                    if ($dedup_key === '' || isset($buffer['seen_urls'][$dedup_key])) {
-                        break;
-                    }
-                    $buffer['seen_urls'][$dedup_key] = true;
-                    $buffer['citations'][] = $data;
-                    break;
-                case 'error':
-                    $buffer['error'] = (string) ($data['message'] ?? 'error');
-                    break;
-            }
+        $on_chunk = static function (array $event) use ($collector): void {
+            $collector->ingest($event); // noscript path is blocking; never forwards
         };
+
         // Per-request loop detection map — same contract as the REST path.
         $seen_calls = [];
         $tool_resolver = static function (string $name, array $args) use ($corpus, &$seen_calls): array {
@@ -161,18 +133,18 @@ final class OpenTrust_Render {
             return ['error' => $e->getMessage()];
         }
 
-        if ($buffer['error'] !== null) {
-            return ['error' => $buffer['error']];
+        if ($collector->error !== null) {
+            return ['error' => $collector->error];
         }
 
         // Strip inline [[cite:...]] tags from the answer for clean display.
-        $answer = preg_replace('/\[\[cite:[a-z0-9_\-]+\]\]/i', '', (string) $buffer['answer']);
+        $answer = preg_replace('/\[\[cite:[a-z0-9_\-]+\]\]/i', '', $collector->answer);
 
         return [
             'question'  => $question,
             'answer'    => trim((string) $answer),
-            'citations' => $buffer['citations'],
-            'refused'   => empty($buffer['citations']),
+            'citations' => $collector->citations,
+            'refused'   => empty($collector->citations),
         ];
     }
 
