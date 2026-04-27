@@ -1,116 +1,210 @@
 === OpenTrust ===
 Contributors: ettic
-Tags: trust-center, security, compliance, privacy, subprocessors
+Tags: trust-center, compliance, gdpr, privacy, subprocessors
 Requires at least: 6.0
-Tested up to: 7.0
+Tested up to: 6.9
 Requires PHP: 8.1
 Stable tag: 0.9.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A self-hosted, open-source trust center for publishing security policies, subprocessors, certifications, and data practices.
+Self-hosted trust center: policies, subprocessors, certifications, data practices — with an optional AI assistant grounded in your own corpus.
 
 == Description ==
 
-OpenTrust provides a centralized, branded trust center page for your WordPress site. Similar to commercial solutions like Vanta Trust Center, Drata, or SafeBase, it gives companies a professional page to communicate their security posture.
+**OpenTrust is the open-source, self-hosted alternative to Vanta Trust Center, Drata, and SafeBase.** Publish your security policies, list your subprocessors, display your compliance certifications, and document your data practices on a single branded page that lives on your own WordPress site. No SaaS subscription. No vendor lock-in. No "phone home."
 
-**Features:**
+Procurement teams want a URL they can read. Buyers want receipts. Auditors want a version trail. OpenTrust gives you all three in a plugin, and lets you optionally bolt on an AI assistant that answers visitor questions from your real, published corpus — with citations.
 
-* Publish and version security policies with full revision history
-* List subprocessors with purpose, data processed, country, and DPA status
-* Display compliance certifications with status tracking (active, in progress, expired)
-* Document data practices grouped by category with collection/storage/sharing details
-* Standalone, theme-isolated rendering with customizable accent colors
-* Built-in search and sortable tables
-* Print-friendly policy views
+= What you publish =
+
+* **Security policies** with auto-incrementing version numbers, archived revisions, framework citation pills (SOC 2, ISO 27001, GDPR), category grouping, effective dates, and optional PDF attachments.
+* **Subprocessors** with purpose, data processed, country, website, and DPA-signed status. Sortable, searchable, and pre-fillable from a bundled catalog of 200+ vendors.
+* **Certifications** with status badges (active, in progress, expired), issuing body, issue/expiry dates, and uploadable badge images. Bundled catalog covers SOC 2, ISO 27001, ISO 27701, HIPAA, PCI-DSS, and others.
+* **Data practices** organised by category — what you collect, how you store it, who you share it with, your legal basis, your retention period. The full GDPR Article 30 surface, made public.
+* **FAQ** seeded with sensible defaults on first activation; edit, add, or remove freely.
+* **Contact & DPO block** with company description, DPO name and email, security contact, mailing address, PGP key URL, company registration, and VAT/Tax ID. Renders only fields you fill in.
+
+= Branded, theme-isolated, fast =
+
+* **Standalone rendering.** The trust center intercepts the request at `template_redirect`, outputs a complete standalone HTML document with inlined CSS, and exits. Your theme's stylesheet, header, footer, and JavaScript never load. Zero theme conflicts.
+* **CSS scoped via `@layer opentrust`** with every class prefixed `ot-`. Belt-and-braces isolation.
+* **WCAG-aware accent colour.** Pick any brand hex; the plugin clamps lightness in HSL space until it clears 4.5:1 contrast on white. Override available if you'd rather take the hit.
+* **Locale-aware transient cache** invalidates the moment any OpenTrust post is saved, trashed, restored, or transitions status. No "reindex" button to forget.
+* **Auto-incrementing policy versions.** Tick the "new version" box on publish; OpenTrust bumps the number and archives the prior text. Past versions stay reachable at stable URLs (`/trust-center/policy/{slug}/version/{n}/`), so auditors can cite "as of v4" without you digging through revisions.
+
+= Optional AI chat assistant =
+
+Bolt on a trust-center chatbot in five minutes. The AI answers visitor questions from your published corpus only, with inline citations back to the source policy or page.
+
+* **Three providers supported.** Anthropic (recommended; uses native Citations API for verifiable, source-anchored answers), OpenAI, and OpenRouter.
+* **Agentic retrieval.** The model reads a slim corpus index in its system prompt and fetches only the documents it needs per question, via two tools (`search_documents` + `get_document`). Pure-PHP BM25 keyword search — no vector store, no external service.
+* **SSE streaming** with a "Reading Privacy Policy…" status pill so visitors see what the model is looking at while it answers.
+* **Token budgets.** Daily and monthly caps (default 500K/day, 10M/month) with reserve/commit/release accounting. Hit the ceiling and the chat surfaces a graceful exhausted state — never a surprise invoice.
+* **Rate limits and bot defence.** Per-IP and per-session sliding windows; optional Cloudflare Turnstile gate with a 1-hour bypass transient.
+* **Encrypted secrets.** API keys and the Turnstile secret are encrypted at rest with libsodium `secretbox`, salted from `wp_salt('auth')`. Rotate `AUTH_KEY` and every stored secret invalidates atomically.
+* **Zero-PII logging.** Optional `wp_opentrust_chat_log` table stores only short hashed identifiers, the question text (capped at 1,000 chars), and aggregate token counts. A 90-day purge cron keeps it lean. The privacy posture is enforced by the schema itself, not by good intentions.
+* **No-JS fallback.** Visitors with JavaScript disabled get a plain HTML form that POSTs and renders the answer server-side.
+
+The chat is fully optional. The plugin works as a static trust center without ever adding an API key.
+
+= Pre-filled libraries =
+
+Type three letters of a vendor name; the rest auto-fills — country, purpose, default category. The bundled catalog covers 200+ subprocessors, common data practices, and the certifications you're likely to list. ~92 KB of metadata, zero network calls, two filters (`opentrust_subprocessor_catalog`, `opentrust_data_practice_catalog`) to extend or replace.
+
+= Translations =
+
+Ships with a `.pot` template and a starter Dutch (nl_NL) translation. WPML and Polylang compatible out of the box — all four content CPTs are registered public with a `wpml-config.xml` declaring translatable meta fields, so policies, certifications, subprocessors, and data practices can be translated per language. Contribute a translation at [translate.wordpress.org](https://translate.wordpress.org/).
+
+= Open source. No upsells. =
+
+GPL-2.0-or-later. Modern PHP 8.1+ codebase with strict types and match expressions. No Composer vendor tree, no build step, no Node dependency. No paid tier, no unlock screens, no feature gating, no "pro add-on." The only variable cost is your AI provider bill *if* you turn the chat on, and that's billed directly by the provider — not by us.
+
+= Privacy-respecting by design =
+
+* **No telemetry, no analytics, no licence checks.** The only outbound HTTP calls the plugin can make are the AI chat requests you configure, and those go through an SSRF host allowlist.
+* **No third-party services required.** All catalogs are bundled. All rendering is local.
+* **Capability-checked admin actions** with nonce verification on every save handler.
+* **Hashed identifiers** for any rate-limit or log state — never raw IPs, emails, sessions, user agents, or referers.
 
 == Installation ==
 
-1. Upload the `opentrust` directory to `/wp-content/plugins/`
-2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to OpenTrust > Settings to configure your company name, logo, and accent color
-4. Add content via the OpenTrust custom post types (Policies, Certifications, Subprocessors, Data Practices)
-5. Visit `/trust-center/` on your site to see the public trust center
+= Quick start (5 minutes, no AI) =
+
+1. Install from the WordPress plugin directory, or upload the `opentrust` folder to `/wp-content/plugins/` and activate.
+2. Go to **OpenTrust → Settings**. Set your company name, page title, tagline, accent colour, and upload a logo.
+3. Add content under each menu item:
+   * **OpenTrust → Policies** — write or paste your security policies.
+   * **OpenTrust → Certifications** — list your active and in-progress certifications.
+   * **OpenTrust → Subprocessors** — start typing a vendor name; the catalog auto-fills the rest.
+   * **OpenTrust → Data Practices** — document what you collect and how it's handled.
+4. Visit `/trust-center/` on your site. That's your live trust center.
+
+= Optional: AI chat (5 more minutes) =
+
+1. Go to **OpenTrust → Settings → AI Chat**.
+2. Pick a provider (Anthropic recommended for citation accuracy), paste your API key, and pick a model. The key is encrypted before it touches the database.
+3. Save. Set the daily/monthly token budgets you're comfortable with.
+4. Visit `/trust-center/ask/` to test, or link to it from your trust center hero.
+5. Optional: enable Cloudflare Turnstile in the same tab if you want bot defence on top of the rate limits.
+
+= Requirements =
+
+* WordPress 6.0 or higher
+* PHP 8.1 or higher
+* libsodium (bundled with PHP 7.2+) for secret encryption — already present on virtually every modern host
 
 == Frequently Asked Questions ==
 
-= Does this require any third-party services? =
+= Is OpenTrust really free? =
 
-No. OpenTrust is fully self-hosted. All data stays in your WordPress database.
+Yes. GPL-2.0-or-later with no paid tier, no unlock screens, no feature gating, no "pro add-on" upsell. Install it, host it, ship it, for as long as WordPress keeps running. The only variable cost is your AI provider bill *if* you enable the chat — billed directly by the provider, never by us.
 
-= Can I customize the appearance? =
+= Do I have to enable the AI chat? =
 
-Yes. You can set your company logo, accent color, and tagline in the settings. The trust center renders as a standalone page with its own design system, fully isolated from your theme.
+No. The plugin works as a fully static trust center without ever adding an API key — policies, certifications, subprocessors, data practices, FAQ, contact block. The AI assistant is an additive feature; flip it on when you're ready, flip it off any time.
 
-= How does policy versioning work? =
+= What does running the chat actually cost? =
 
-Each time you update and publish a policy, OpenTrust automatically increments the version number and preserves the previous version as a revision. Visitors can view older versions and see what changed.
+Pocket change for most sites. You only pay your AI provider directly for the tokens consumed, and the agentic retrieval engine fetches just the documents needed per question instead of dumping the whole corpus on every request. Ballpark, on Anthropic Claude Sonnet at current pricing:
 
-= Is OpenTrust translatable? =
+* **Quiet** (~50 conversations/month): under $3/month.
+* **Typical** (~200 conversations/month): $8–$15/month.
+* **Busy** (~1,000 conversations/month): $40–$60/month, near the default monthly cap.
 
-Yes. OpenTrust is fully internationalized and ships with a translation template at `languages/opentrust.pot`. The plugin automatically loads translations for the active site language (Settings > General > Site Language) — no configuration needed.
+Hard ceilings are 500K tokens/day and 10M tokens/month, enforced by a reserve/commit/release budget. Tune them to your appetite. Once a cap is hit, visitors see a graceful "come back later" state — never a surprise bill.
 
-A starter Dutch translation (`nl_NL`) is bundled for the public-facing trust center and chat flows. Other locales fall back to English until translations are provided via translate.wordpress.org or a bundled `.mo` in `languages/`.
+= What stops someone burning through my AI credits? =
 
-Translators can regenerate the template from source with WP-CLI:
+Three overlapping defences. Token budgets are hard ceilings, not soft hints. Per-IP (60s) and per-session (1h) sliding-window rate limits keep one visitor from flooding the queue. Optional Cloudflare Turnstile gates the first message of every session, with a 1-hour bypass transient so repeat readers aren't pestered.
+
+= Does the AI stay in sync when I update a policy? =
+
+Yes, automatically. The corpus the model sees is cached as a transient and invalidated the moment any OpenTrust post is saved, trashed, restored, or transitions status. Even if nothing changes, the cache expires after 12 hours. There is no "reindex" button to forget.
+
+= Does the plugin phone home? =
+
+No. Zero telemetry, zero analytics, zero licence checks. The only outbound HTTP calls the plugin can make are the AI chat requests you configure, and those go through an SSRF host allowlist. Everything else is local to your WordPress install.
+
+= What do chat logs store about visitors? =
+
+Structurally, never PII. The `wp_opentrust_chat_log` table has no columns capable of holding raw IPs, emails, session IDs, user agents, or referers — only short hashed identifiers, the question text (capped at 1,000 chars), and aggregate token counts. A 90-day purge runs on `wp_cron`. The privacy posture is enforced by the schema itself, not by good intentions. Logging can also be disabled entirely.
+
+= Will it clash with my theme? =
+
+It can't. The trust center intercepts the request at `template_redirect`, outputs a complete standalone HTML document with inlined CSS, and exits. Your theme's stylesheet, header, footer, and JavaScript never load. All styles are wrapped in `@layer opentrust` and prefixed with `ot-` for belt-and-braces isolation.
+
+= Is there an audit trail for policy changes? =
+
+Yes. Tick the "new version" box on publish; OpenTrust bumps the version number and archives the prior text as a WordPress revision. Each historical version is reachable at a stable URL (`/trust-center/policy/{slug}/version/{n}/`), so auditors can cite "as of v4" without you digging through revisions. Buyers see "last updated" on the current policy; auditors get the receipts.
+
+= How hard is it to brand? =
+
+Pick a hex accent colour, upload a logo, set a page title and tagline. That's the whole setup surface for look-and-feel. The plugin clamps your accent's lightness in HSL space until it clears WCAG AA contrast on white, or honours your override if you'd rather take the hit.
+
+= Is it translatable? =
+
+Yes. Ships with a `.pot` template and a starter Dutch (nl_NL) translation. WPML and Polylang compatible out of the box. All four content CPTs are registered public with a `wpml-config.xml` declaring translatable meta fields. Translators can regenerate the template with WP-CLI:
 
 `wp i18n make-pot . languages/opentrust.pot --domain=opentrust`
 
-The plugin is compatible with WPML and Polylang: UI strings translate via `.mo` files, and custom post type content (policies, certifications, subprocessors, data practices) can be translated per-language because all four post types are registered as public with a `wpml-config.xml` declaring translatable meta fields.
+= What's the minimum stack? =
+
+PHP 8.1+, WordPress 6.0+. No Composer vendor tree, no build step, no Node dependency. Libsodium (bundled with PHP 7.2+) is used for secret encryption. That's the whole stack.
+
+= Does it generate PDFs? =
+
+Not automatically — that's intentional. Auto-rendered PDFs from HTML almost always look worse than the source, and most legal teams prefer a hand-crafted master copy anyway. If you want a PDF download next to a policy, upload your authoritative version via the media library and OpenTrust shows the Download button. No PDF? No button.
+
+== Screenshots ==
+
+1. The public trust center — hero, policies grouped by category, certifications grid, all branded with your accent colour.
+2. The Subprocessors table — sortable, searchable, with country, purpose, data processed, and DPA status.
+3. Compliance certifications with status badges (active, in progress, expired).
+4. Data practices organised by category — collection, storage, sharing, legal basis, retention.
+5. AI chat assistant with inline citations, status pill, and source-anchored answers.
+6. Settings screen with logo upload, accent colour picker, and live WCAG contrast warning.
 
 == Changelog ==
 
+= 0.9.7 =
+* Default policy auto-summarize to ON for new installs (existing installs migrated). Improves AI chat routing on multi-policy sites; first publish triggers a debounced async summary via the configured provider. Off-switch lives on the AI Chat settings tab.
+* Added a scoped WP.org review-prompt admin notice on milestone events (≥3 published policies + 14 days active). Per-user dismiss; never repeats. Footer link only on OpenTrust admin screens.
+* Internal: split monolithic admin class into Settings, AI, Questions, and Review modules; added a read-side Repository data layer shared by Render and Chat Corpus. No behavior change.
+* Database schema bumped to v12. Additive only.
+
 = 0.9.6 =
-* Chat: pill label now switches verb tense when it settles ("Searching for X" → "Searched for X", "Reading X" → "Read X"). Previously only multi-turn flows morphed the label; single-turn searches stayed in active tense forever after the answer finished.
-* Chat: between-turn model preambles ("Let me search more specifically…") are now locked as their own segment in the conversation instead of being mashed into the final answer body. The pill stays as a single morphing entity; preambles flow above and below it in chronological order.
-* Chat: removed the blinking caret at the tail of streaming answers — the typewriter cadence already signals "still typing" without a separate cursor element.
-* No database schema change.
+* Chat: tool-use status pill morphs verb tense after settling ("Searching for X" → "Searched for X").
+* Chat: between-turn model preambles now lock as their own segment instead of mashing into the answer body.
+* Chat: removed blinking caret on streaming answers — the typewriter cadence already signals "still typing."
 
 = 0.9.5 =
-* Chat (Anthropic): added an early `tool_intent` SSE event so the status pill appears within ~1-2 seconds of submit instead of waiting 6-8 seconds for the model to finish generating all parallel tool inputs. The pill starts with a generic label ("Searching documents…" / "Reading documents…") and morphs to the specific count ("Reading 11 documents") as soon as the model finishes its planning. OpenAI / OpenRouter providers unchanged for now — their SSE format does not expose the same fine-grained signal.
-* No database schema change.
-
-= 0.9.4 =
-* Chat: fixed the tool-use pill appearing in its settled state with no animation. On cached prompts the entire SSE burst (tool_call → tokens → done) lands in one task tick, so the pill DOM was being created after `done` had already locked it. The pill now renders synchronously the moment `tool_call` arrives, with its dots pulsing for the full minimum-duration window before settling.
-* Chat: the answer body now stays paused on the pill for the full 1.2s minimum window even when `done` arrives within the same task tick. Previously the answer would race in alongside the pill on fast cached responses; now the visitor reads what the model is doing first, then sees the answer.
-* No database schema change.
-
-= 0.9.3 =
-* Chat: parallel tool calls now collapse into a single morphing status pill ("Reading 8 documents") instead of stacking N pills. The pill updates its label as the model fires more retrievals and settles with a count summary ("Searched 8 documents") when the answer completes.
-* Chat: fixed a render-loop bug where the pill's entry animation restarted on every typewriter tick, causing the dots to flicker at low opacity until the message finished. Prior message segments now render once and stay; only the live tail re-renders per frame.
-
-= 0.9.2 =
-* Chat: the model now writes one short intent sentence before each tool call ("Let me check our subprocessors list") to give the response a more conversational feel. Capped at 12 words, suppressed when the question itself makes the intent obvious.
-
-= 0.9.1 =
-* Chat: tool-use status pill is now rendered inline within the message at the position it happened, instead of below the response. Pills persist as a record of what the model retrieved (Claude / ChatGPT / Perplexity-style).
-* Chat: when the model is mid-retrieval, the answer text visibly pauses at the pill for at least 1.2 seconds so the visitor can read what's being looked up. Cached prompts no longer make the indicator flash too fast to read.
-* Chat: suppressed the model's pre-tool-call preambles ("Let me check…", "I'll look that up…"). The pill replaces that signal; cleaner output, slightly cheaper.
-* No database schema change.
+* Chat (Anthropic): added an early `tool_intent` SSE event so the status pill appears within ~1–2 seconds of submit instead of waiting 6–8 seconds for tool-input planning to finish.
 
 = 0.9.0 =
-* Replaced the chat engine with agentic retrieval. The AI now reads a compact index of your trust center and fetches only the documents it needs to answer each question — instead of receiving every document on every request. Per-question API spend drops by ~80% on Anthropic, and the chat now works on free-tier and Tier 1 accounts that previously hit rate limits.
+* Replaced the chat engine with agentic retrieval. The AI now reads a compact index of the trust center and fetches only the documents it needs to answer each question — instead of receiving every document on every request. Per-question API spend drops by ~80% on Anthropic.
 * Removed the 120K-token corpus size cap. Installs with hundreds of policies and subprocessors now work without manual configuration.
-* Added an optional AI-generated summary for each policy. Improves answer quality on multi-policy installs by helping the AI route synonym questions ("data deletion") to the right document ("Data Retention Policy"). Off by default; enable on the AI Chat settings tab. One-time cost approximately $0.05–$0.10 per 50 policies.
-* Added a "Looking up …" indicator while the AI fetches documents.
-* Database schema bumped to v10. Additive only — the chat-log table grows two columns (tool_turns, tool_names); no rollback step needed.
-* All three providers (Anthropic, OpenAI, OpenRouter) migrated to the agentic engine. Anthropic Sonnet 4.5 remains the recommended provider for best citation accuracy.
+* Added an optional AI-generated 2–3 sentence summary per policy; improves answer quality on multi-policy installs by helping the AI route synonym questions to the right document.
+* Added a "Looking up …" status indicator while the AI fetches documents.
+* All three providers (Anthropic, OpenAI, OpenRouter) migrated to the agentic engine. Anthropic remains the recommended provider for best citation accuracy.
 
 = 0.8.0 =
 * Added Policy ID reference field (e.g., POL-012) visible on the public listing and single-policy view.
 * Added framework citation repeater (SOC 2, ISO 27001, GDPR) rendered as pill badges.
-* Replaced the print-to-PDF stub with a real PDF attachment field. If the author uploads a PDF, visitors see a Download button; otherwise the download is hidden.
+* Replaced the print-to-PDF stub with a real PDF attachment field. Visitors see a Download button only when the author uploads a PDF.
 * Refactored the public policy list from a table into a category-grouped document list with filter chips.
-* Curated the policy block-editor palette to a focused set (paragraph, heading, list, table, quote, separator, image, code, details) with a starter template.
-* DB schema bumped to v8: the deprecated `_ot_policy_downloadable` meta is deleted on upgrade; `/policy/{slug}/pdf/` rewrite rule removed.
+* Curated the policy block-editor palette to a focused set with a starter template.
 
 = 0.7.0 =
-* Subscription and email-broadcast feature moved to the feature/subscriptions-broadcasts branch so we can ship a tighter launch surface.
-* Database schema bumped to v7: the `opentrust_subscribers` and `opentrust_notification_log` tables are dropped on upgrade.
+* Subscription and email-broadcast feature moved out to a separate branch so we can ship a tighter launch surface.
 
 = 0.1.0 =
-* Initial release
-* Core plugin architecture with 4 custom post types
-* Frontend trust center rendering with theme isolation
-* Admin settings page with branding options
-* Policy versioning and revision history
+* Initial release: 4 custom post types, frontend rendering with theme isolation, admin settings with branding, policy versioning, revision history.
+
+== Upgrade Notice ==
+
+= 0.9.7 =
+Auto-summarize defaults to ON for new installs (existing sites migrated). Adds a one-time WP.org review prompt admin notice. Database schema bumped to v12 (additive only).
+
+= 0.9.0 =
+Major rewrite of the AI chat engine: now uses agentic retrieval. Per-question API cost drops ~80%; the 120K-token corpus cap is removed. Database schema bumped to v10 (additive only).

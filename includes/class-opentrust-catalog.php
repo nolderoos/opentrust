@@ -76,6 +76,7 @@ final class OpenTrust_Catalog {
         $raw = is_array( $raw ) ? $raw : [];
 
         /** @var array $raw */
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- Filter name is supplied by internal callers only and always opentrust_-prefixed.
         $raw = apply_filters( $filter_name, $raw );
 
         $cache[ $file_basename ] = self::normalize( is_array( $raw ) ? $raw : [] );

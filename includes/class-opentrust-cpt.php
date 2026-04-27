@@ -176,21 +176,6 @@ final class OpenTrust_CPT {
             'rewrite'       => false,
             'menu_icon'     => 'dashicons-media-document',
             'menu_position' => 31,
-            // Starter scaffold so authors don't face a blank editor. Template
-            // is unlocked — editors can add, remove, or reorder sections.
-            'template'      => [
-                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Purpose', 'opentrust' ) ] ],
-                [ 'core/paragraph', [ 'placeholder' => __( 'Why this policy exists and what it aims to achieve.', 'opentrust' ) ] ],
-                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Scope', 'opentrust' ) ] ],
-                [ 'core/paragraph', [ 'placeholder' => __( 'Who and what this policy covers.', 'opentrust' ) ] ],
-                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Policy Statement', 'opentrust' ) ] ],
-                [ 'core/paragraph', [ 'placeholder' => __( 'The rules and requirements themselves.', 'opentrust' ) ] ],
-                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Responsibilities', 'opentrust' ) ] ],
-                [ 'core/paragraph', [ 'placeholder' => __( 'Who enforces and maintains this policy.', 'opentrust' ) ] ],
-                [ 'core/heading',   [ 'level' => 2, 'content' => __( 'Review Cycle', 'opentrust' ) ] ],
-                [ 'core/paragraph', [ 'placeholder' => __( 'How often this policy is reviewed and updated.', 'opentrust' ) ] ],
-            ],
-            'template_lock' => false,
         ]);
 
         // ── Certifications ──
@@ -458,7 +443,9 @@ final class OpenTrust_CPT {
         $category        = get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other';
         $effective_date  = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
         $review_date     = get_post_meta($post->ID, '_ot_policy_review_date', true) ?: '';
-        $sort_order      = (int) get_post_meta($post->ID, '_ot_policy_sort_order', true);
+        $sort_order      = metadata_exists('post', $post->ID, '_ot_policy_sort_order')
+            ? (int) get_post_meta($post->ID, '_ot_policy_sort_order', true)
+            : 10;
         $version         = (int) get_post_meta($post->ID, '_ot_version', true) ?: 1;
 
         $citations       = get_post_meta($post->ID, '_ot_policy_citations', true);
@@ -973,6 +960,7 @@ final class OpenTrust_CPT {
     }
 
     public function policy_column_content(string $column, int $post_id): void {
+        // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- Match arms emit either hard-coded HTML or values already passed through esc_html(); PHPCS misreads the IIFE/match-expression syntax.
         match ($column) {
             'ot_ref_id'   => (function () use ($post_id): void {
                 $ref = (string) get_post_meta($post_id, '_ot_policy_ref_id', true);
@@ -987,6 +975,7 @@ final class OpenTrust_CPT {
             'ot_pdf'      => print(((int) get_post_meta($post_id, '_ot_policy_attachment_id', true)) > 0 ? '<span title="PDF attached" style="color:#16a34a">&#10003;</span>' : '<span style="color:#d1d5db">—</span>'),
             default       => null,
         };
+        // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
     }
 
     // Subprocessors

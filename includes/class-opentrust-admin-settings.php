@@ -132,7 +132,7 @@ final class OpenTrust_Admin_Settings {
         ]);
 
         $this->add_field('company_registration', __('Company Registration Number', 'opentrust'), 'render_text_field', 'opentrust_contact', 'opentrust-settings-contact', [
-            'description' => __('Chamber of Commerce (KvK), Companies House, Handelsregister, EIN, or equivalent business registration.', 'opentrust'),
+            'description' => __('KvK (NL), Companies House (UK), Handelsregister (DE), EIN (US), or equivalent business registration.', 'opentrust'),
         ]);
 
         $this->add_field('vat_number', __('VAT / Tax ID', 'opentrust'), 'render_text_field', 'opentrust_contact', 'opentrust-settings-contact', [
