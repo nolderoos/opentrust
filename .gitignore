@@ -1,5 +1,28 @@
+# macOS noise
 .DS_Store
+
+# Claude Code workspace
 .claude/
-*.zip
+
+# Local dev archives — kept in /Users/nolderoos/Northwind Cloud/Ettic/Repo Plugins/Open Trust Files
 research/
 marketing/
+reference/
+dist/
+*.zip
+
+# Editor / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Build / dependency artifacts
+node_modules/
+vendor/
+composer.lock
+package-lock.json
+
+# Test runner output
+tests/
+phpunit.xml
+phpcs.xml

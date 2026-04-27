@@ -1,27 +1,39 @@
-# Development files
+# macOS noise
+.DS_Store
+
+# Claude Code workspace
 .claude/
-research/
 CLAUDE.md
+
+# Local dev archives (kept outside the repo, see .gitignore)
+research/
+marketing/
+reference/
+dist/
+*.zip
+
+# PCP audit artifacts
 PLUGIN-CHECK-FINDINGS.md
 PLUGIN-CHECK-BASELINE.md
+
+# Repo metadata
 .distignore
 .gitignore
 .git/
-
-# IDE and editor files
 .editorconfig
+
+# IDE / editor
 .vscode/
 .idea/
 *.code-workspace
 
-# Build and dependency files
+# Build / dependency artifacts
 node_modules/
 vendor/
 composer.lock
 package-lock.json
 
-# Testing
+# Tests
 tests/
 phpunit.xml
 phpcs.xml
-.DS_Store
