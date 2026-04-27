@@ -29,6 +29,7 @@ require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin-settings.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin-questions.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin-ai.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin-review.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-cpt.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-catalog.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-repository.php';
