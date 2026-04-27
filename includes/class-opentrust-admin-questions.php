@@ -280,7 +280,7 @@ final class OpenTrust_Admin_Questions {
 
         $settings = OpenTrust::get_settings();
         $settings['ai_logging_enabled'] = empty($settings['ai_logging_enabled']);
-        OpenTrust_Admin::instance()->save_settings_raw($settings);
+        OpenTrust_Admin_Settings::instance()->save_settings_raw($settings);
 
         set_transient(
             'opentrust_ai_notice_' . get_current_user_id(),

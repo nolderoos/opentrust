@@ -16,9 +16,7 @@
  *
  * Settings writes that bypass the sanitize_settings filter (key
  * validation flips ai_enabled / ai_provider / ai_model_list_cached_at)
- * route through OpenTrust_Admin::save_settings_raw(); the sanitize
- * filter is currently registered on Admin and moves to Admin_Settings
- * in a later phase.
+ * route through OpenTrust_Admin_Settings::save_settings_raw().
  */
 
 declare(strict_types=1);
@@ -563,7 +561,7 @@ final class OpenTrust_Admin_AI {
                 $settings['ai_model'] = $result['models'][0]['id'];
             }
         }
-        OpenTrust_Admin::instance()->save_settings_raw($settings);
+        OpenTrust_Admin_Settings::instance()->save_settings_raw($settings);
 
         /* translators: 1: provider label, 2: number of models */
         $count_msg = sprintf(__('%1$s key validated. Found %2$d model(s).', 'opentrust'), $adapter->label(), count($result['models']));
@@ -601,7 +599,7 @@ final class OpenTrust_Admin_AI {
             $settings['ai_provider'] = '';
             $settings['ai_model']    = '';
             $settings['ai_model_list_cached_at'] = 0;
-            OpenTrust_Admin::instance()->save_settings_raw($settings);
+            OpenTrust_Admin_Settings::instance()->save_settings_raw($settings);
         }
 
         $this->ai_notice('success', __('Key removed.', 'opentrust'));
@@ -644,7 +642,7 @@ final class OpenTrust_Admin_AI {
 
         $settings = OpenTrust::get_settings();
         $settings['ai_model_list_cached_at'] = time();
-        OpenTrust_Admin::instance()->save_settings_raw($settings);
+        OpenTrust_Admin_Settings::instance()->save_settings_raw($settings);
 
         /* translators: %d: number of models */
         $this->ai_notice('success', sprintf(__('Model list refreshed. Found %d model(s).', 'opentrust'), count($result['models'])));
