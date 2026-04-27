@@ -74,29 +74,12 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
         return 'structured';
     }
 
-    public function validate_and_list_models(string $key): array {
-        $key = trim($key);
-        if ($key === '') {
-            return ['ok' => false, 'error' => __('API key is empty.', 'opentrust')];
-        }
+    protected function models_endpoint(): string {
+        return static::MODELS_ENDPOINT;
+    }
 
-        $response = $this->http_get(
-            static::MODELS_ENDPOINT,
-            ['Authorization' => 'Bearer ' . $key],
-            15
-        );
-
-        if (!$response['ok']) {
-            return ['ok' => false, 'error' => $response['error'] ?? __('Request failed.', 'opentrust')];
-        }
-
-        $models = $this->curate_models($response['body']);
-
-        if (empty($models)) {
-            return ['ok' => false, 'error' => __('No chat models available for this key.', 'opentrust')];
-        }
-
-        return ['ok' => true, 'models' => $models];
+    protected function auth_headers(string $key): array {
+        return ['Authorization' => 'Bearer ' . $key];
     }
 
     public function curate_models(mixed $raw): array {
@@ -292,9 +275,9 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
                 }
                 $turn_count = count($turn_names);
                 if ($turn_count === 1) {
-                    $turn_summary = $this->summarize_tool_call($turn_names[0], $turn_inputs[0], $documents);
+                    $turn_summary = self::summarize_tool_call($turn_names[0], $turn_inputs[0], $documents);
                 } else {
-                    $turn_summary = $this->summarize_turn_batch($turn_names, $turn_count);
+                    $turn_summary = self::summarize_turn_batch($turn_names, $turn_count);
                 }
                 $on_chunk([
                     'type' => 'tool_call',
@@ -445,73 +428,6 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
         }
 
         return implode("\n", $parts);
-    }
-
-    /**
-     * Aggregate label for a turn carrying multiple parallel tool calls.
-     * Mirrors the Anthropic provider's summarize_pending_turn so the UI sees
-     * the same wording regardless of which provider is configured.
-     *
-     * @param array<int, string> $names Tool names emitted in this turn.
-     */
-    private function summarize_turn_batch(array $names, int $count): string {
-        $all_get    = true;
-        $all_search = true;
-        foreach ($names as $n) {
-            if ($n !== 'get_document')     { $all_get    = false; }
-            if ($n !== 'search_documents') { $all_search = false; }
-        }
-        if ($all_get) {
-            /* translators: %d is the number of documents being read in parallel. */
-            return sprintf(__('Reading %d documents', 'opentrust'), $count);
-        }
-        if ($all_search) {
-            /* translators: %d is the number of search queries fired in parallel. */
-            return sprintf(__('Running %d searches', 'opentrust'), $count);
-        }
-        /* translators: %d is the number of parallel retrieval calls (mixed types). */
-        return sprintf(__('Running %d retrievals', 'opentrust'), $count);
-    }
-
-    /**
-     * Build a short user-facing label for a `tool_call` SSE event so the UI
-     * can replace "Thinking…" with something specific. Mirrors the Anthropic
-     * provider's helper of the same name.
-     *
-     * @param array<int, array<string, mixed>> $documents
-     */
-    private function summarize_tool_call(string $name, array $args, array $documents): string {
-        if ($name === 'get_document') {
-            $id = trim((string) ($args['id'] ?? ''));
-            if ($id !== '') {
-                foreach ($documents as $doc) {
-                    if ((string) ($doc['id'] ?? '') === $id) {
-                        $title = (string) ($doc['title'] ?? '');
-                        if ($title !== '') {
-                            /* translators: %s is the document title. */
-                            return sprintf(__('Reading "%s"', 'opentrust'), $title);
-                        }
-                    }
-                }
-                /* translators: %s is the document id. */
-                return sprintf(__('Reading %s', 'opentrust'), $id);
-            }
-            return __('Reading a document', 'opentrust');
-        }
-        if ($name === 'search_documents') {
-            $q = trim((string) ($args['query'] ?? ''));
-            if ($q !== '') {
-                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
-                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
-                } elseif (strlen($q) > 30) {
-                    $q = rtrim(substr($q, 0, 30)) . '…';
-                }
-                /* translators: %s is the search query. */
-                return sprintf(__('Searching for "%s"', 'opentrust'), $q);
-            }
-            return __('Searching documents', 'opentrust');
-        }
-        return $name;
     }
 
     /**

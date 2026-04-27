@@ -388,78 +388,87 @@ final class OpenTrust_Render {
     }
 
     private function get_certifications(): array {
-        $cached = get_transient($this->cache_key('certifications'));
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $posts = get_posts([
-            'post_type'      => 'ot_certification',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'orderby'        => 'menu_order title',
-            'order'          => 'ASC',
-        ]);
-
-        $items = [];
-        foreach ($posts as $post) {
-            $badge_id    = (int) get_post_meta($post->ID, '_ot_cert_badge_id', true);
-            $artifact_id = (int) get_post_meta($post->ID, '_ot_cert_artifact_id', true);
-            $items[] = [
-                'id'           => $post->ID,
-                'title'        => $post->post_title,
-                'type'         => get_post_meta($post->ID, '_ot_cert_type', true) ?: 'compliant',
-                'issuing_body' => get_post_meta($post->ID, '_ot_cert_issuing_body', true) ?: '',
-                'status'       => get_post_meta($post->ID, '_ot_cert_status', true) ?: 'active',
-                'issue_date'   => get_post_meta($post->ID, '_ot_cert_issue_date', true) ?: '',
-                'expiry_date'  => get_post_meta($post->ID, '_ot_cert_expiry_date', true) ?: '',
-                'badge_url'    => $badge_id ? (wp_get_attachment_image_url($badge_id, 'thumbnail') ?: '') : '',
-                'description'  => get_post_meta($post->ID, '_ot_cert_description', true) ?: '',
-                'artifact_url' => $artifact_id ? (wp_get_attachment_url($artifact_id) ?: '') : '',
-            ];
-        }
-
-        set_transient($this->cache_key('certifications'), $items, HOUR_IN_SECONDS);
-        return $items;
+        return $this->cached_query(
+            'certifications',
+            [
+                'post_type'      => 'ot_certification',
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => 'menu_order title',
+                'order'          => 'ASC',
+            ],
+            static function (WP_Post $post): array {
+                $badge_id    = (int) get_post_meta($post->ID, '_ot_cert_badge_id', true);
+                $artifact_id = (int) get_post_meta($post->ID, '_ot_cert_artifact_id', true);
+                return [
+                    'id'           => $post->ID,
+                    'title'        => $post->post_title,
+                    'type'         => get_post_meta($post->ID, '_ot_cert_type', true) ?: 'compliant',
+                    'issuing_body' => get_post_meta($post->ID, '_ot_cert_issuing_body', true) ?: '',
+                    'status'       => get_post_meta($post->ID, '_ot_cert_status', true) ?: 'active',
+                    'issue_date'   => get_post_meta($post->ID, '_ot_cert_issue_date', true) ?: '',
+                    'expiry_date'  => get_post_meta($post->ID, '_ot_cert_expiry_date', true) ?: '',
+                    'badge_url'    => $badge_id ? (wp_get_attachment_image_url($badge_id, 'thumbnail') ?: '') : '',
+                    'description'  => get_post_meta($post->ID, '_ot_cert_description', true) ?: '',
+                    'artifact_url' => $artifact_id ? (wp_get_attachment_url($artifact_id) ?: '') : '',
+                ];
+            }
+        );
     }
 
     private function get_policies(): array {
-        $cached = get_transient($this->cache_key('policies'));
+        return $this->cached_query(
+            'policies',
+            [
+                'post_type'      => 'ot_policy',
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => 'meta_value_num title',
+                'meta_key'       => '_ot_policy_sort_order', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Transient-cached; <100 posts
+                'order'          => 'ASC',
+            ],
+            function (WP_Post $post): array {
+                $eff        = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
+                $attachment = $this->resolve_policy_attachment($post->ID);
+                return [
+                    'id'             => $post->ID,
+                    'title'          => $post->post_title,
+                    'slug'           => $post->post_name,
+                    'excerpt'        => $post->post_excerpt ?: wp_trim_words($post->post_content, 30),
+                    'version'        => (int) get_post_meta($post->ID, '_ot_version', true) ?: 1,
+                    'ref_id'         => (string) (get_post_meta($post->ID, '_ot_policy_ref_id', true) ?: ''),
+                    'category'       => get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other',
+                    'citations'      => $this->normalize_citations(get_post_meta($post->ID, '_ot_policy_citations', true)),
+                    'effective_date' => $eff,
+                    'review_date'    => get_post_meta($post->ID, '_ot_policy_review_date', true) ?: '',
+                    'attachment'     => $attachment,
+                    'last_modified'  => $post->post_modified,
+                    'is_pending'     => $eff && strtotime($eff) > time(),
+                ];
+            }
+        );
+    }
+
+    /**
+     * Shared transient + WP_Query plumbing for the per-CPT projection methods.
+     * Each caller supplies a $bucket name (used in cache_key), a $query_args
+     * array, and a $mapper callable (WP_Post → array). The result is memoized
+     * for HOUR_IN_SECONDS and invalidated globally via opentrust_cache_version
+     * (see OpenTrust::invalidate_cache).
+     *
+     * @param array<string,mixed> $query_args
+     * @param callable(WP_Post):array<string,mixed> $mapper
+     * @return array<int, array<string,mixed>>
+     */
+    private function cached_query(string $bucket, array $query_args, callable $mapper): array {
+        $cached = get_transient($this->cache_key($bucket));
         if (is_array($cached)) {
             return $cached;
         }
 
-        $posts = get_posts([
-            'post_type'      => 'ot_policy',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'orderby'        => 'meta_value_num title',
-            'meta_key'       => '_ot_policy_sort_order', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Transient-cached; <100 posts
-            'order'          => 'ASC',
-        ]);
+        $items = array_map($mapper, get_posts($query_args));
 
-        $items = [];
-        foreach ($posts as $post) {
-            $eff        = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
-            $attachment = $this->resolve_policy_attachment($post->ID);
-            $items[] = [
-                'id'             => $post->ID,
-                'title'          => $post->post_title,
-                'slug'           => $post->post_name,
-                'excerpt'        => $post->post_excerpt ?: wp_trim_words($post->post_content, 30),
-                'version'        => (int) get_post_meta($post->ID, '_ot_version', true) ?: 1,
-                'ref_id'         => (string) (get_post_meta($post->ID, '_ot_policy_ref_id', true) ?: ''),
-                'category'       => get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other',
-                'citations'      => $this->normalize_citations(get_post_meta($post->ID, '_ot_policy_citations', true)),
-                'effective_date' => $eff,
-                'review_date'    => get_post_meta($post->ID, '_ot_policy_review_date', true) ?: '',
-                'attachment'     => $attachment,
-                'last_modified'  => $post->post_modified,
-                'is_pending'     => $eff && strtotime($eff) > time(),
-            ];
-        }
-
-        set_transient($this->cache_key('policies'), $items, HOUR_IN_SECONDS);
+        set_transient($this->cache_key($bucket), $items, HOUR_IN_SECONDS);
         return $items;
     }
 
@@ -511,22 +520,16 @@ final class OpenTrust_Render {
     }
 
     private function get_subprocessors(): array {
-        $cached = get_transient($this->cache_key('subprocessors'));
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $posts = get_posts([
-            'post_type'      => 'ot_subprocessor',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'orderby'        => 'title',
-            'order'          => 'ASC',
-        ]);
-
-        $items = [];
-        foreach ($posts as $post) {
-            $items[] = [
+        return $this->cached_query(
+            'subprocessors',
+            [
+                'post_type'      => 'ot_subprocessor',
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => 'title',
+                'order'          => 'ASC',
+            ],
+            static fn(WP_Post $post): array => [
                 'id'             => $post->ID,
                 'name'           => $post->post_title,
                 'purpose'        => get_post_meta($post->ID, '_ot_sub_purpose', true) ?: '',
@@ -534,95 +537,75 @@ final class OpenTrust_Render {
                 'country'        => get_post_meta($post->ID, '_ot_sub_country', true) ?: '',
                 'website'        => get_post_meta($post->ID, '_ot_sub_website', true) ?: '',
                 'dpa_signed'     => (bool) get_post_meta($post->ID, '_ot_sub_dpa_signed', true),
-            ];
-        }
-
-        set_transient($this->cache_key('subprocessors'), $items, HOUR_IN_SECONDS);
-        return $items;
+            ]
+        );
     }
 
     private function get_data_practices(): array {
-        $cached = get_transient($this->cache_key('data_practices'));
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $posts = get_posts([
-            'post_type'      => 'ot_data_practice',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'orderby'        => 'meta_value_num title',
-            'meta_key'       => '_ot_dp_sort_order', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Transient-cached; <100 posts
-            'order'          => 'ASC',
-        ]);
-
-        $items = [];
-        foreach ($posts as $post) {
-            $data_items = get_post_meta($post->ID, '_ot_dp_data_items', true);
-            $shared     = get_post_meta($post->ID, '_ot_dp_shared_with', true);
-
-            $items[] = [
-                'id'               => $post->ID,
-                'title'            => $post->post_title,
-                'data_items'       => is_array($data_items) ? $data_items : [],
-                'purpose'          => get_post_meta($post->ID, '_ot_dp_purpose', true) ?: '',
-                'legal_basis'      => get_post_meta($post->ID, '_ot_dp_legal_basis', true) ?: '',
-                'retention_period' => get_post_meta($post->ID, '_ot_dp_retention_period', true) ?: '',
-                'shared_with'      => is_array($shared) ? $shared : [],
-                'prop_collected'   => (bool) get_post_meta($post->ID, '_ot_dp_collected', true),
-                'prop_stored'      => (bool) get_post_meta($post->ID, '_ot_dp_stored', true),
-                'prop_shared'      => (bool) get_post_meta($post->ID, '_ot_dp_shared', true),
-                'prop_sold'        => (bool) get_post_meta($post->ID, '_ot_dp_sold', true),
-                'prop_encrypted'   => (bool) get_post_meta($post->ID, '_ot_dp_encrypted', true),
-            ];
-        }
-
-        set_transient($this->cache_key('data_practices'), $items, HOUR_IN_SECONDS);
-        return $items;
+        return $this->cached_query(
+            'data_practices',
+            [
+                'post_type'      => 'ot_data_practice',
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => 'meta_value_num title',
+                'meta_key'       => '_ot_dp_sort_order', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Transient-cached; <100 posts
+                'order'          => 'ASC',
+            ],
+            static function (WP_Post $post): array {
+                $data_items = get_post_meta($post->ID, '_ot_dp_data_items', true);
+                $shared     = get_post_meta($post->ID, '_ot_dp_shared_with', true);
+                return [
+                    'id'               => $post->ID,
+                    'title'            => $post->post_title,
+                    'data_items'       => is_array($data_items) ? $data_items : [],
+                    'purpose'          => get_post_meta($post->ID, '_ot_dp_purpose', true) ?: '',
+                    'legal_basis'      => get_post_meta($post->ID, '_ot_dp_legal_basis', true) ?: '',
+                    'retention_period' => get_post_meta($post->ID, '_ot_dp_retention_period', true) ?: '',
+                    'shared_with'      => is_array($shared) ? $shared : [],
+                    'prop_collected'   => (bool) get_post_meta($post->ID, '_ot_dp_collected', true),
+                    'prop_stored'      => (bool) get_post_meta($post->ID, '_ot_dp_stored', true),
+                    'prop_shared'      => (bool) get_post_meta($post->ID, '_ot_dp_shared', true),
+                    'prop_sold'        => (bool) get_post_meta($post->ID, '_ot_dp_sold', true),
+                    'prop_encrypted'   => (bool) get_post_meta($post->ID, '_ot_dp_encrypted', true),
+                ];
+            }
+        );
     }
 
     private function get_faqs(): array {
-        $cached = get_transient($this->cache_key('faqs'));
-        if (is_array($cached)) {
-            return $cached;
-        }
+        $endpoint = OpenTrust::get_settings()['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
 
-        $posts = get_posts([
-            'post_type'      => 'ot_faq',
-            'posts_per_page' => -1,
-            'post_status'    => 'publish',
-            'orderby'        => ['menu_order' => 'ASC', 'title' => 'ASC'],
-        ]);
-
-        $settings = OpenTrust::get_settings();
-        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
-
-        $items = [];
-        foreach ($posts as $post) {
-            $related_id  = (int) get_post_meta($post->ID, '_ot_faq_related_policy', true);
-            $related_url = '';
-            $related_title = '';
-            if ($related_id && get_post_status($related_id) === 'publish') {
-                $related_post  = get_post($related_id);
-                $related_url   = home_url('/' . $endpoint . '/policy/' . $related_post->post_name . '/');
-                $related_title = $related_post->post_title;
+        return $this->cached_query(
+            'faqs',
+            [
+                'post_type'      => 'ot_faq',
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => ['menu_order' => 'ASC', 'title' => 'ASC'],
+            ],
+            static function (WP_Post $post) use ($endpoint): array {
+                $related_id    = (int) get_post_meta($post->ID, '_ot_faq_related_policy', true);
+                $related_url   = '';
+                $related_title = '';
+                if ($related_id && get_post_status($related_id) === 'publish') {
+                    $related_post  = get_post($related_id);
+                    $related_url   = home_url('/' . $endpoint . '/policy/' . $related_post->post_name . '/');
+                    $related_title = $related_post->post_title;
+                }
+                return [
+                    'id'            => $post->ID,
+                    'title'         => $post->post_title,
+                    'slug'          => $post->post_name,
+                    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress filter.
+                    'answer_html'   => apply_filters('the_content', $post->post_content),
+                    'answer_text'   => wp_strip_all_tags($post->post_content),
+                    'menu_order'    => (int) $post->menu_order,
+                    'related_url'   => $related_url,
+                    'related_title' => $related_title,
+                ];
             }
-
-            $items[] = [
-                'id'            => $post->ID,
-                'title'         => $post->post_title,
-                'slug'          => $post->post_name,
-                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress filter.
-                'answer_html'   => apply_filters('the_content', $post->post_content),
-                'answer_text'   => wp_strip_all_tags($post->post_content),
-                'menu_order'    => (int) $post->menu_order,
-                'related_url'   => $related_url,
-                'related_title' => $related_title,
-            ];
-        }
-
-        set_transient($this->cache_key('faqs'), $items, HOUR_IN_SECONDS);
-        return $items;
+        );
     }
 
     /**

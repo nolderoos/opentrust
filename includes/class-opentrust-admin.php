@@ -225,56 +225,57 @@ final class OpenTrust_Admin {
     // ──────────────────────────────────────────────
 
     public function render_text_field(array $args): void {
-        $settings = OpenTrust::get_settings();
-        $key      = $args['key'];
-        $value    = $settings[$key] ?? '';
-        printf(
-            '<input type="text" id="opentrust_%1$s" name="opentrust_settings[%1$s]" value="%2$s" class="regular-text">',
-            esc_attr($key),
-            esc_attr($value)
-        );
-        if (!empty($args['description'])) {
-            printf('<p class="description">%s</p>', esc_html($args['description']));
-        }
+        $this->render_input_field('text', $args);
     }
 
     public function render_email_field(array $args): void {
-        $settings = OpenTrust::get_settings();
-        $key      = $args['key'];
-        $value    = $settings[$key] ?? '';
-        printf(
-            '<input type="email" id="opentrust_%1$s" name="opentrust_settings[%1$s]" value="%2$s" class="regular-text" autocomplete="off">',
-            esc_attr($key),
-            esc_attr($value)
-        );
-        if (!empty($args['description'])) {
-            printf('<p class="description">%s</p>', esc_html($args['description']));
-        }
+        $this->render_input_field('email', $args, ['autocomplete' => 'off']);
     }
 
     public function render_url_field(array $args): void {
-        $settings = OpenTrust::get_settings();
-        $key      = $args['key'];
-        $value    = $settings[$key] ?? '';
-        printf(
-            '<input type="url" id="opentrust_%1$s" name="opentrust_settings[%1$s]" value="%2$s" class="regular-text" placeholder="https://" autocomplete="off">',
-            esc_attr($key),
-            esc_attr($value)
-        );
-        if (!empty($args['description'])) {
-            printf('<p class="description">%s</p>', esc_html($args['description']));
-        }
+        $this->render_input_field('url', $args, ['placeholder' => 'https://', 'autocomplete' => 'off']);
     }
 
     public function render_textarea_field(array $args): void {
+        $this->render_input_field('textarea', $args);
+    }
+
+    /**
+     * Shared renderer for the Settings API string-input field family.
+     * One unified path so escaping rules and id/name conventions can't drift
+     * between text/email/url/textarea variants.
+     *
+     * @param 'text'|'email'|'url'|'textarea' $type
+     * @param array{key:string, description?:string} $args
+     * @param array<string,string> $extra_attrs
+     */
+    private function render_input_field(string $type, array $args, array $extra_attrs = []): void {
         $settings = OpenTrust::get_settings();
         $key      = $args['key'];
         $value    = $settings[$key] ?? '';
-        printf(
-            '<textarea id="opentrust_%1$s" name="opentrust_settings[%1$s]" rows="3" class="large-text">%2$s</textarea>',
-            esc_attr($key),
-            esc_textarea($value)
-        );
+
+        $attr_html = '';
+        foreach ($extra_attrs as $name => $val) {
+            $attr_html .= ' ' . $name . '="' . esc_attr($val) . '"';
+        }
+
+        if ($type === 'textarea') {
+            printf(
+                '<textarea id="opentrust_%1$s" name="opentrust_settings[%1$s]" rows="3" class="large-text"%3$s>%2$s</textarea>',
+                esc_attr($key),
+                esc_textarea($value),
+                $attr_html  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attribute values escaped above; names are hardcoded
+            );
+        } else {
+            printf(
+                '<input type="%4$s" id="opentrust_%1$s" name="opentrust_settings[%1$s]" value="%2$s" class="regular-text"%3$s>',
+                esc_attr($key),
+                esc_attr($value),
+                $attr_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attribute values escaped above; names are hardcoded
+                esc_attr($type)
+            );
+        }
+
         if (!empty($args['description'])) {
             printf('<p class="description">%s</p>', esc_html($args['description']));
         }

@@ -45,32 +45,19 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
         return 'native';
     }
 
-    public function validate_and_list_models(string $key): array {
-        $key = trim($key);
-        if ($key === '') {
-            return ['ok' => false, 'error' => __('API key is empty.', 'opentrust')];
-        }
+    protected function models_endpoint(): string {
+        return self::MODELS_ENDPOINT;
+    }
 
-        $response = $this->http_get(
-            self::MODELS_ENDPOINT,
-            [
-                'x-api-key'         => $key,
-                'anthropic-version' => self::API_VERSION,
-            ],
-            15
-        );
+    protected function auth_headers(string $key): array {
+        return [
+            'x-api-key'         => $key,
+            'anthropic-version' => self::API_VERSION,
+        ];
+    }
 
-        if (!$response['ok']) {
-            return ['ok' => false, 'error' => $response['error'] ?? __('Request failed.', 'opentrust')];
-        }
-
-        $models = $this->curate_models($response['body']);
-
-        if (empty($models)) {
-            return ['ok' => false, 'error' => __('No models available — your account may not be authorized.', 'opentrust')];
-        }
-
-        return ['ok' => true, 'models' => $models];
+    protected function no_models_message(): string {
+        return __('No models available — your account may not be authorized.', 'opentrust');
     }
 
     public function curate_models(mixed $raw): array {
@@ -366,76 +353,7 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
      * @param array<int, array<string, mixed>>                                 $documents
      */
     private function summarize_pending_turn(array $pending, array $documents): string {
-        $count = count($pending);
-        if ($count === 1) {
-            $only = $pending[0];
-            $input_raw = is_string($only['input_json'] ?? null) ? (string) $only['input_json'] : '';
-            $input     = $input_raw !== '' ? (json_decode($input_raw, true) ?: []) : [];
-            return $this->summarize_tool_call(
-                (string) ($only['name'] ?? ''),
-                is_array($input) ? $input : [],
-                $documents
-            );
-        }
-
-        $all_get    = true;
-        $all_search = true;
-        foreach ($pending as $p) {
-            $n = (string) ($p['name'] ?? '');
-            if ($n !== 'get_document')      { $all_get    = false; }
-            if ($n !== 'search_documents')  { $all_search = false; }
-        }
-        if ($all_get) {
-            /* translators: %d is the number of documents being read in parallel. */
-            return sprintf(__('Reading %d documents', 'opentrust'), $count);
-        }
-        if ($all_search) {
-            /* translators: %d is the number of search queries fired in parallel. */
-            return sprintf(__('Running %d searches', 'opentrust'), $count);
-        }
-        /* translators: %d is the number of parallel retrieval calls (mixed types). */
-        return sprintf(__('Running %d retrievals', 'opentrust'), $count);
-    }
-
-    /**
-     * Build a short user-facing label for a `tool_call` SSE event so the UI
-     * can replace "Thinking…" with something specific. Pure formatting; never
-     * fails — falls back to the tool name if anything is missing.
-     *
-     * @param array<int, array<string, mixed>> $documents
-     */
-    private function summarize_tool_call(string $name, array $args, array $documents): string {
-        if ($name === 'get_document') {
-            $id = trim((string) ($args['id'] ?? ''));
-            if ($id !== '') {
-                foreach ($documents as $doc) {
-                    if ((string) ($doc['id'] ?? '') === $id) {
-                        $title = (string) ($doc['title'] ?? '');
-                        if ($title !== '') {
-                            /* translators: %s is the document title. */
-                            return sprintf(__('Reading "%s"', 'opentrust'), $title);
-                        }
-                    }
-                }
-                /* translators: %s is the document id. */
-                return sprintf(__('Reading %s', 'opentrust'), $id);
-            }
-            return __('Reading a document', 'opentrust');
-        }
-        if ($name === 'search_documents') {
-            $q = trim((string) ($args['query'] ?? ''));
-            if ($q !== '') {
-                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
-                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
-                } elseif (strlen($q) > 30) {
-                    $q = rtrim(substr($q, 0, 30)) . '…';
-                }
-                /* translators: %s is the search query. */
-                return sprintf(__('Searching for "%s"', 'opentrust'), $q);
-            }
-            return __('Searching documents', 'opentrust');
-        }
-        return $name;
+        return $this->summarize_turn(/* tense */ 'pending', $pending, $documents);
     }
 
     /**
@@ -450,75 +368,34 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
      * @param array<int, array<string, mixed>>                                 $documents
      */
     private function summarize_settled_turn(array $pending, array $documents): string {
-        $count = count($pending);
-        if ($count === 1) {
-            $only = $pending[0];
-            $input_raw = is_string($only['input_json'] ?? null) ? (string) $only['input_json'] : '';
-            $input     = $input_raw !== '' ? (json_decode($input_raw, true) ?: []) : [];
-            return $this->summarize_settled_tool_call(
-                (string) ($only['name'] ?? ''),
-                is_array($input) ? $input : [],
-                $documents
-            );
-        }
-
-        $all_get    = true;
-        $all_search = true;
-        foreach ($pending as $p) {
-            $n = (string) ($p['name'] ?? '');
-            if ($n !== 'get_document')      { $all_get    = false; }
-            if ($n !== 'search_documents')  { $all_search = false; }
-        }
-        if ($all_get) {
-            /* translators: %d is the number of documents that were read in parallel. */
-            return sprintf(__('Read %d documents', 'opentrust'), $count);
-        }
-        if ($all_search) {
-            /* translators: %d is the number of search queries that were fired in parallel. */
-            return sprintf(__('Ran %d searches', 'opentrust'), $count);
-        }
-        /* translators: %d is the number of parallel retrieval calls (mixed types). */
-        return sprintf(__('Ran %d retrievals', 'opentrust'), $count);
+        return $this->summarize_turn(/* tense */ 'settled', $pending, $documents);
     }
 
     /**
-     * Past-tense mirror of summarize_tool_call. Same arg shape, same
-     * fallback chain — just verb-tense flipped.
+     * Shared body for summarize_pending_turn / summarize_settled_turn. Single-
+     * tool turns get a specific label via the base summarize_tool_call helper;
+     * multi-tool turns collapse to a count via summarize_turn_batch.
      *
-     * @param array<int, array<string, mixed>> $documents
+     * @param 'pending'|'settled' $tense
+     * @param array<int, array{id?:string, name?:string, input_json?:string}> $pending
+     * @param array<int, array<string, mixed>>                                 $documents
      */
-    private function summarize_settled_tool_call(string $name, array $args, array $documents): string {
-        if ($name === 'get_document') {
-            $id = trim((string) ($args['id'] ?? ''));
-            if ($id !== '') {
-                foreach ($documents as $doc) {
-                    if ((string) ($doc['id'] ?? '') === $id) {
-                        $title = (string) ($doc['title'] ?? '');
-                        if ($title !== '') {
-                            /* translators: %s is the document title. */
-                            return sprintf(__('Read "%s"', 'opentrust'), $title);
-                        }
-                    }
-                }
-                /* translators: %s is the document id. */
-                return sprintf(__('Read %s', 'opentrust'), $id);
-            }
-            return __('Read a document', 'opentrust');
+    private function summarize_turn(string $tense, array $pending, array $documents): string {
+        $count = count($pending);
+        if ($count === 1) {
+            $only      = $pending[0];
+            $input_raw = is_string($only['input_json'] ?? null) ? (string) $only['input_json'] : '';
+            $input     = $input_raw !== '' ? (json_decode($input_raw, true) ?: []) : [];
+            return self::summarize_tool_call(
+                (string) ($only['name'] ?? ''),
+                is_array($input) ? $input : [],
+                $documents,
+                $tense
+            );
         }
-        if ($name === 'search_documents') {
-            $q = trim((string) ($args['query'] ?? ''));
-            if ($q !== '') {
-                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
-                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
-                } elseif (strlen($q) > 30) {
-                    $q = rtrim(substr($q, 0, 30)) . '…';
-                }
-                /* translators: %s is the search query. */
-                return sprintf(__('Searched for "%s"', 'opentrust'), $q);
-            }
-            return __('Searched documents', 'opentrust');
-        }
-        return $name;
+
+        $names = array_map(static fn(array $p): string => (string) ($p['name'] ?? ''), $pending);
+        return self::summarize_turn_batch($names, $count, $tense);
     }
 
     /**

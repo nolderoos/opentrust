@@ -81,11 +81,56 @@ abstract class OpenTrust_Chat_Provider {
     abstract public function allowed_hosts(): array;
 
     /**
-     * Validate a key by calling the provider's /models endpoint.
+     * Auth headers to attach to provider API calls signed with $key.
+     * Anthropic uses x-api-key + anthropic-version; OpenAI / OpenRouter use
+     * a Bearer token. Subclasses return whatever shape their /models call needs.
+     *
+     * @return array<string, string>
+     */
+    abstract protected function auth_headers(string $key): array;
+
+    /**
+     * URL of the provider's /models endpoint. Pulled out of the validation
+     * method so the shared validate_and_list_models() loop can reach it.
+     */
+    abstract protected function models_endpoint(): string;
+
+    /**
+     * User-facing message when the key validates but the curated model list
+     * comes back empty (account not authorized, no chat-capable models, …).
+     * Subclasses override when they want a more specific phrasing.
+     */
+    protected function no_models_message(): string {
+        return __('No chat models available for this key.', 'opentrust');
+    }
+
+    /**
+     * Validate a key by calling the provider's /models endpoint and normalize
+     * the response shape. Identical across providers — only auth_headers,
+     * models_endpoint, and no_models_message() differ.
      *
      * @return array{ok: bool, models?: array<int, array{id: string, display_name: string, recommended: bool}>, error?: string}
      */
-    abstract public function validate_and_list_models(string $key): array;
+    public function validate_and_list_models(string $key): array {
+        $key = trim($key);
+        if ($key === '') {
+            return ['ok' => false, 'error' => __('API key is empty.', 'opentrust')];
+        }
+
+        $response = $this->http_get($this->models_endpoint(), $this->auth_headers($key), 15);
+
+        if (!$response['ok']) {
+            return ['ok' => false, 'error' => $response['error'] ?? __('Request failed.', 'opentrust')];
+        }
+
+        $models = $this->curate_models($response['body']);
+
+        if (empty($models)) {
+            return ['ok' => false, 'error' => $this->no_models_message()];
+        }
+
+        return ['ok' => true, 'models' => $models];
+    }
 
     /**
      * Stream a chat completion through the provider, driving the multi-turn
@@ -113,6 +158,106 @@ abstract class OpenTrust_Chat_Provider {
      * @return array<int, array{id: string, display_name: string, recommended: bool}>
      */
     abstract public function curate_models(mixed $raw): array;
+
+    // ──────────────────────────────────────────────
+    // Tool-call summarizers (shared across providers)
+    // ──────────────────────────────────────────────
+
+    /**
+     * Build a short user-facing label for a `tool_call` SSE event so the UI
+     * can replace "Thinking…" with something specific. Pure formatting; never
+     * fails — falls back to the tool name if anything is missing.
+     *
+     * @param 'pending'|'settled' $tense Verb tense for the rendered phrase.
+     * @param array<int, array<string, mixed>> $documents Corpus document list,
+     *        used to look up a friendly title for `get_document` calls.
+     */
+    protected static function summarize_tool_call(string $name, array $args, array $documents, string $tense = 'pending'): string {
+        $is_settled = $tense === 'settled';
+
+        if ($name === 'get_document') {
+            $id = trim((string) ($args['id'] ?? ''));
+            if ($id !== '') {
+                foreach ($documents as $doc) {
+                    if ((string) ($doc['id'] ?? '') === $id) {
+                        $title = (string) ($doc['title'] ?? '');
+                        if ($title !== '') {
+                            return $is_settled
+                                /* translators: %s is the document title. */
+                                ? sprintf(__('Read "%s"', 'opentrust'), $title)
+                                /* translators: %s is the document title. */
+                                : sprintf(__('Reading "%s"', 'opentrust'), $title);
+                        }
+                    }
+                }
+                return $is_settled
+                    /* translators: %s is the document id. */
+                    ? sprintf(__('Read %s', 'opentrust'), $id)
+                    /* translators: %s is the document id. */
+                    : sprintf(__('Reading %s', 'opentrust'), $id);
+            }
+            return $is_settled ? __('Read a document', 'opentrust') : __('Reading a document', 'opentrust');
+        }
+
+        if ($name === 'search_documents') {
+            $q = trim((string) ($args['query'] ?? ''));
+            if ($q !== '') {
+                if (function_exists('mb_strlen') && mb_strlen($q) > 30) {
+                    $q = rtrim(mb_substr($q, 0, 30)) . '…';
+                } elseif (strlen($q) > 30) {
+                    $q = rtrim(substr($q, 0, 30)) . '…';
+                }
+                return $is_settled
+                    /* translators: %s is the search query. */
+                    ? sprintf(__('Searched for "%s"', 'opentrust'), $q)
+                    /* translators: %s is the search query. */
+                    : sprintf(__('Searching for "%s"', 'opentrust'), $q);
+            }
+            return $is_settled ? __('Searched documents', 'opentrust') : __('Searching documents', 'opentrust');
+        }
+
+        return $name;
+    }
+
+    /**
+     * Aggregate label for a turn carrying multiple parallel tool calls.
+     * Single-tool turns keep the specific label ("Reading Privacy Policy");
+     * multi-tool turns collapse to a count ("Reading 8 documents") so the UI
+     * can show one morphing pill instead of a wall of per-tool pills.
+     *
+     * @param array<int, string> $names Tool names emitted in this turn.
+     * @param 'pending'|'settled' $tense
+     */
+    protected static function summarize_turn_batch(array $names, int $count, string $tense = 'pending'): string {
+        $is_settled = $tense === 'settled';
+
+        $all_get    = true;
+        $all_search = true;
+        foreach ($names as $n) {
+            if ($n !== 'get_document')     { $all_get    = false; }
+            if ($n !== 'search_documents') { $all_search = false; }
+        }
+
+        if ($all_get) {
+            return $is_settled
+                /* translators: %d is the number of documents that were read in parallel. */
+                ? sprintf(__('Read %d documents', 'opentrust'), $count)
+                /* translators: %d is the number of documents being read in parallel. */
+                : sprintf(__('Reading %d documents', 'opentrust'), $count);
+        }
+        if ($all_search) {
+            return $is_settled
+                /* translators: %d is the number of search queries that were fired in parallel. */
+                ? sprintf(__('Ran %d searches', 'opentrust'), $count)
+                /* translators: %d is the number of search queries fired in parallel. */
+                : sprintf(__('Running %d searches', 'opentrust'), $count);
+        }
+        return $is_settled
+            /* translators: %d is the number of parallel retrieval calls (mixed types). */
+            ? sprintf(__('Ran %d retrievals', 'opentrust'), $count)
+            /* translators: %d is the number of parallel retrieval calls (mixed types). */
+            : sprintf(__('Running %d retrievals', 'opentrust'), $count);
+    }
 
     // ──────────────────────────────────────────────
     // Shared helpers

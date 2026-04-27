@@ -36,23 +36,7 @@ final class OpenTrust_Catalog {
      * @return array<string, array{name:string, aliases:array<int,string>, fields:array<string,mixed>, fields_review:array<string,mixed>}>
      */
     public static function subprocessors(): array {
-        static $cache = null;
-        if ( $cache !== null ) {
-            return $cache;
-        }
-
-        $raw = require OPENTRUST_PLUGIN_DIR . 'includes/data/subprocessor-catalog.php';
-        $raw = is_array( $raw ) ? $raw : [];
-
-        /**
-         * Filter the subprocessor catalog.
-         *
-         * @param array $raw Catalog entries keyed by slug.
-         */
-        $raw = apply_filters( 'opentrust_subprocessor_catalog', $raw );
-
-        $cache = self::normalize( is_array( $raw ) ? $raw : [] );
-        return $cache;
+        return self::load_catalog( 'subprocessor-catalog.php', 'opentrust_subprocessor_catalog' );
     }
 
     /**
@@ -61,23 +45,7 @@ final class OpenTrust_Catalog {
      * @return array<string, array{name:string, aliases:array<int,string>, fields:array<string,mixed>, fields_review:array<string,mixed>}>
      */
     public static function data_practices(): array {
-        static $cache = null;
-        if ( $cache !== null ) {
-            return $cache;
-        }
-
-        $raw = require OPENTRUST_PLUGIN_DIR . 'includes/data/data-practice-catalog.php';
-        $raw = is_array( $raw ) ? $raw : [];
-
-        /**
-         * Filter the data-practice catalog.
-         *
-         * @param array $raw Catalog entries keyed by slug.
-         */
-        $raw = apply_filters( 'opentrust_data_practice_catalog', $raw );
-
-        $cache = self::normalize( is_array( $raw ) ? $raw : [] );
-        return $cache;
+        return self::load_catalog( 'data-practice-catalog.php', 'opentrust_data_practice_catalog' );
     }
 
     /**
@@ -86,23 +54,32 @@ final class OpenTrust_Catalog {
      * @return array<string, array{name:string, aliases:array<int,string>, fields:array<string,mixed>, fields_review:array<string,mixed>}>
      */
     public static function certifications(): array {
-        static $cache = null;
-        if ( $cache !== null ) {
-            return $cache;
+        return self::load_catalog( 'certification-catalog.php', 'opentrust_certification_catalog' );
+    }
+
+    /**
+     * Shared loader for the three normalized catalogs (subprocessors, data
+     * practices, certifications). Reads the bundled PHP file, runs it through
+     * the per-catalog filter, normalizes the entry shape, and memoizes the
+     * result for the rest of the request. The FAQ catalog uses a different
+     * schema and seeding flow, so it has its own loader at faqs() below.
+     *
+     * @return array<string, array{name:string, aliases:array<int,string>, fields:array<string,mixed>, fields_review:array<string,mixed>}>
+     */
+    private static function load_catalog( string $file_basename, string $filter_name ): array {
+        static $cache = [];
+        if ( isset( $cache[ $file_basename ] ) ) {
+            return $cache[ $file_basename ];
         }
 
-        $raw = require OPENTRUST_PLUGIN_DIR . 'includes/data/certification-catalog.php';
+        $raw = require OPENTRUST_PLUGIN_DIR . 'includes/data/' . $file_basename;
         $raw = is_array( $raw ) ? $raw : [];
 
-        /**
-         * Filter the certification catalog.
-         *
-         * @param array $raw Catalog entries keyed by slug.
-         */
-        $raw = apply_filters( 'opentrust_certification_catalog', $raw );
+        /** @var array $raw */
+        $raw = apply_filters( $filter_name, $raw );
 
-        $cache = self::normalize( is_array( $raw ) ? $raw : [] );
-        return $cache;
+        $cache[ $file_basename ] = self::normalize( is_array( $raw ) ? $raw : [] );
+        return $cache[ $file_basename ];
     }
 
     /**
