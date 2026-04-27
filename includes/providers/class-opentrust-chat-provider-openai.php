@@ -154,27 +154,27 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
         return ucwords($pretty);
     }
 
-    public function stream_chat(array $args, callable $on_chunk, callable $tool_resolver): void {
-        $api_key  = (string) ($args['api_key']  ?? '');
-        $model    = (string) ($args['model']    ?? '');
-        $system   = (string) ($args['system']   ?? '');
-        // Full corpus struct (documents + url_to_id + bm25 + …). The OpenAI
-        // path only needs `documents` for [[cite:id]] resolution.
-        $corpus    = is_array($args['corpus']   ?? null) ? $args['corpus']   : [];
+    protected function initialize_turn_loop(array $args, callable $on_chunk): ?array {
+        $api_key   = (string) ($args['api_key']  ?? '');
+        $model     = (string) ($args['model']    ?? '');
+        $system    = (string) ($args['system']   ?? '');
+        // Full corpus struct (documents + url_to_id + bm25 + …). OpenAI uses
+        // documents for [[cite:id]] resolution and the corpus struct for the
+        // search_results_to_xml id reverse-lookup.
+        $corpus    = is_array($args['corpus']    ?? null) ? $args['corpus']   : [];
         $documents = is_array($corpus['documents'] ?? null) ? $corpus['documents'] : [];
-        $messages  = is_array($args['messages'] ?? null) ? $args['messages'] : [];
-        $tools     = is_array($args['tools']    ?? null) ? $args['tools']    : [];
+        $messages  = is_array($args['messages']  ?? null) ? $args['messages'] : [];
+        $tools     = is_array($args['tools']     ?? null) ? $args['tools']    : [];
 
         if ($api_key === '' || $model === '' || empty($messages)) {
             $on_chunk(['type' => 'error', 'data' => ['message' => __('OpenAI adapter missing required args.', 'opentrust')]]);
-            return;
+            return null;
         }
 
         // The system prompt arrives pre-built with the corpus index already
-        // appended (see OpenTrust_Chat::build_system_prompt). We tack on a
-        // tail that sets up the inline-citation contract specific to OpenAI/
-        // OpenRouter — Anthropic uses native search_result_location citations
-        // and doesn't need this block.
+        // appended (see OpenTrust_Chat::build_system_prompt). Tack on a tail
+        // that sets up the inline-citation contract — Anthropic uses native
+        // search_result_location citations and doesn't need this block.
         $system_full = $this->append_citation_instructions($system);
 
         // OpenAI tool definitions wrap each tool in { type: 'function', function: {...} }.
@@ -190,7 +190,6 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
             ];
         }
 
-        // Build the running message list.
         $api_messages = [['role' => 'system', 'content' => $system_full]];
         foreach ($messages as $msg) {
             $api_messages[] = [
@@ -199,144 +198,158 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
             ];
         }
 
-        $full_answer_buffer = '';
+        return [
+            'api_key'            => $api_key,
+            'model'              => $model,
+            'openai_tools'       => $openai_tools,
+            'api_messages'       => $api_messages,
+            'corpus'             => $corpus,
+            'documents'          => $documents,
+            // Accumulated across turns — OpenAI's [[cite:id]] post-parse
+            // (in finalize_after_loop) needs the full assistant text from
+            // every turn, since the model may emit citations during a
+            // pre-tool-call preamble as well as in the final answer.
+            'full_answer_buffer' => '',
+        ];
+    }
 
-        // Force a tool call on turn 1 so the model can never bypass retrieval
-        // and answer from training data. After any tool call we relax to auto.
-        $has_called_tool = false;
-
-        $turn = 0;
-        while ($turn < OpenTrust_Chat::MAX_TOOL_TURNS) {
-            $turn++;
-
-            $payload = [
-                'model'          => $model,
-                'stream'         => true,
-                'stream_options' => ['include_usage' => true],
-                'messages'       => $api_messages,
-            ];
-            if (!empty($openai_tools)) {
-                $payload['tools']       = $openai_tools;
-                $payload['tool_choice'] = $has_called_tool ? 'auto' : 'required';
-            }
-
-            $state = [
-                'answer_buffer'   => '',
-                'tool_calls'      => [], // index => { id, name, arguments_json }
-                'finish_reason'   => '',
-                'usage'           => ['in' => 0, 'out' => 0],
-                'on_chunk'        => $on_chunk,
-            ];
-
-            $extra_headers = $this->extra_stream_headers();
-            $headers = array_merge(
-                ['Authorization' => 'Bearer ' . $api_key],
-                $extra_headers
-            );
-
-            $response = $this->stream_post(
-                static::CHAT_COMPLETIONS_URL,
-                $payload,
-                $headers,
-                function (string $line) use (&$state): void {
-                    $this->handle_openai_sse_line($line, $state);
-                },
-                90
-            );
-
-            if (empty($response['ok'])) {
-                $on_chunk([
-                    'type' => 'error',
-                    'data' => ['message' => $response['error'] ?? __('OpenAI request failed.', 'opentrust')],
-                ]);
-                return;
-            }
-
-            $full_answer_buffer .= $state['answer_buffer'];
-
-            $on_chunk(['type' => 'usage', 'data' => [
-                'tokens_in'  => $state['usage']['in'],
-                'tokens_out' => $state['usage']['out'],
-            ]]);
-
-            // Tool calls? Resolve and continue.
-            if ($state['finish_reason'] === 'tool_calls' && !empty($state['tool_calls'])) {
-                $has_called_tool = true;
-
-                // Emit ONE aggregated tool_call SSE event per turn so the UI
-                // can show a single morphing status pill rather than a wall
-                // of N separate pills when the model fires parallel tools.
-                $turn_names  = [];
-                $turn_inputs = [];
-                foreach ($state['tool_calls'] as $tc) {
-                    $turn_names[] = (string) $tc['name'];
-                    $input = json_decode((string) $tc['arguments_json'], true);
-                    $turn_inputs[] = is_array($input) ? $input : [];
-                }
-                $turn_count = count($turn_names);
-                if ($turn_count === 1) {
-                    $turn_summary = self::summarize_tool_call($turn_names[0], $turn_inputs[0], $documents);
-                } else {
-                    $turn_summary = self::summarize_turn_batch($turn_names, $turn_count);
-                }
-                $on_chunk([
-                    'type' => 'tool_call',
-                    'data' => [
-                        'name'    => $turn_names[0] ?? 'tool_call',
-                        'summary' => $turn_summary,
-                        'count'   => $turn_count,
-                        'names'   => $turn_names,
-                    ],
-                ]);
-
-                // Append the assistant message with the tool_calls it made.
-                $assistant_tool_calls = [];
-                foreach ($state['tool_calls'] as $tc) {
-                    $assistant_tool_calls[] = [
-                        'id'       => (string) $tc['id'],
-                        'type'     => 'function',
-                        'function' => [
-                            'name'      => (string) $tc['name'],
-                            'arguments' => (string) $tc['arguments_json'],
-                        ],
-                    ];
-                }
-                $api_messages[] = [
-                    'role'       => 'assistant',
-                    'content'    => $state['answer_buffer'] !== '' ? $state['answer_buffer'] : null,
-                    'tool_calls' => $assistant_tool_calls,
-                ];
-
-                // Append tool results. The resolver returns an array of
-                // search_result blocks; OpenAI's `tool` message takes a
-                // string, so we serialize to <document>-tagged XML that the
-                // model recognizes from the system prompt's CITATION FORMAT
-                // instructions.
-                foreach ($state['tool_calls'] as $tc) {
-                    $input = json_decode((string) $tc['arguments_json'], true);
-                    if (!is_array($input)) {
-                        $input = [];
-                    }
-                    $result      = $tool_resolver((string) $tc['name'], $input);
-                    $result_blocks = is_array($result)
-                        ? $result
-                        : [['type' => 'text', 'text' => (string) $result]];
-                    $api_messages[] = [
-                        'role'         => 'tool',
-                        'tool_call_id' => (string) $tc['id'],
-                        'content'      => $this->search_results_to_xml($result_blocks, $corpus),
-                    ];
-                }
-
-                continue;
-            }
-
-            // Stream ended without tool call — parse citations from the full answer.
-            $this->extract_and_emit_citations($full_answer_buffer, $documents, $on_chunk);
-            return;
+    protected function stream_one_turn(array &$turn_loop_state, bool $has_called_tool, callable $on_chunk): ?array {
+        $payload = [
+            'model'          => $turn_loop_state['model'],
+            'stream'         => true,
+            'stream_options' => ['include_usage' => true],
+            'messages'       => $turn_loop_state['api_messages'],
+        ];
+        if (!empty($turn_loop_state['openai_tools'])) {
+            $payload['tools']       = $turn_loop_state['openai_tools'];
+            // Force a tool call on turn 1 so the model can never bypass
+            // retrieval; relax to auto after any tool call.
+            $payload['tool_choice'] = $has_called_tool ? 'auto' : 'required';
         }
 
-        $this->emit_cap_refusal($on_chunk);
+        $turn_state = [
+            'answer_buffer' => '',
+            'tool_calls'    => [], // index => { id, name, arguments_json }
+            'finish_reason' => '',
+            'usage'         => ['in' => 0, 'out' => 0],
+            'on_chunk'      => $on_chunk,
+        ];
+
+        $headers = array_merge(
+            ['Authorization' => 'Bearer ' . $turn_loop_state['api_key']],
+            $this->extra_stream_headers() // OpenRouter overrides; OpenAI returns []
+        );
+
+        $response = $this->stream_post(
+            // Late-bound — OpenRouter inherits this hook and gets its own URL.
+            static::CHAT_COMPLETIONS_URL,
+            $payload,
+            $headers,
+            function (string $line) use (&$turn_state): void {
+                $this->handle_openai_sse_line($line, $turn_state);
+            },
+            90
+        );
+
+        if (empty($response['ok'])) {
+            $on_chunk([
+                'type' => 'error',
+                'data' => ['message' => $response['error'] ?? __('OpenAI request failed.', 'opentrust')],
+            ]);
+            return null;
+        }
+
+        // Persist this turn's answer text so finalize_after_loop can scan
+        // every turn's text for [[cite:id]] markers, not just the final one.
+        $turn_loop_state['full_answer_buffer'] .= $turn_state['answer_buffer'];
+
+        return $turn_state;
+    }
+
+    protected function extract_usage(array $stream_state): array {
+        $u = is_array($stream_state['usage'] ?? null) ? $stream_state['usage'] : [];
+        return [
+            'tokens_in'  => (int) ($u['in']  ?? 0),
+            'tokens_out' => (int) ($u['out'] ?? 0),
+        ];
+    }
+
+    protected function extract_pending_tool_calls(array $stream_state): array {
+        if (($stream_state['finish_reason'] ?? '') !== 'tool_calls') {
+            return [];
+        }
+        $calls = is_array($stream_state['tool_calls'] ?? null) ? $stream_state['tool_calls'] : [];
+        if (empty($calls)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($calls as $tc) {
+            $args_raw = (string) ($tc['arguments_json'] ?? '');
+            $args     = $args_raw !== '' ? json_decode($args_raw, true) : [];
+            $normalized[] = [
+                'name'           => (string) ($tc['name'] ?? ''),
+                'args'           => is_array($args) ? $args : [],
+                // OpenAI-only fields the message-append hooks reach for.
+                'id'             => (string) ($tc['id'] ?? ''),
+                'arguments_json' => $args_raw,
+            ];
+        }
+        return $normalized;
+    }
+
+    protected function append_assistant_message(array &$turn_loop_state, array $stream_state): void {
+        $assistant_tool_calls = [];
+        foreach (($stream_state['tool_calls'] ?? []) as $tc) {
+            if (!is_array($tc)) {
+                continue;
+            }
+            $assistant_tool_calls[] = [
+                'id'       => (string) ($tc['id'] ?? ''),
+                'type'     => 'function',
+                'function' => [
+                    'name'      => (string) ($tc['name'] ?? ''),
+                    'arguments' => (string) ($tc['arguments_json'] ?? ''),
+                ],
+            ];
+        }
+        $answer_text = (string) ($stream_state['answer_buffer'] ?? '');
+        $turn_loop_state['api_messages'][] = [
+            'role'       => 'assistant',
+            'content'    => $answer_text !== '' ? $answer_text : null,
+            'tool_calls' => $assistant_tool_calls,
+        ];
+    }
+
+    protected function resolve_and_append_tool_results(array &$turn_loop_state, array $pending, callable $tool_resolver): void {
+        $corpus = is_array($turn_loop_state['corpus'] ?? null) ? $turn_loop_state['corpus'] : [];
+        // Resolver returns an array of search_result blocks; OpenAI's `tool`
+        // message takes a string, so we serialize to <document>-tagged XML
+        // that the model recognizes from the system prompt's CITATION FORMAT
+        // instructions.
+        foreach ($pending as $p) {
+            $name      = (string) ($p['name'] ?? '');
+            $args      = is_array($p['args'] ?? null) ? $p['args'] : [];
+            $id        = (string) ($p['id'] ?? '');
+            $result    = $tool_resolver($name, $args);
+            $blocks    = is_array($result)
+                ? $result
+                : [['type' => 'text', 'text' => (string) $result]];
+            $turn_loop_state['api_messages'][] = [
+                'role'         => 'tool',
+                'tool_call_id' => $id,
+                'content'      => $this->search_results_to_xml($blocks, $corpus),
+            ];
+        }
+    }
+
+    protected function finalize_after_loop(array $turn_loop_state, array $stream_state, array $documents, callable $on_chunk): void {
+        // Stream ended without another tool call — scan the accumulated
+        // assistant text from EVERY turn for [[cite:id]] markers and emit
+        // citation events. (Anthropic emits citations live during the stream
+        // via emit_citation_from_delta, so it inherits the no-op default.)
+        $answer = (string) ($turn_loop_state['full_answer_buffer'] ?? '');
+        $this->extract_and_emit_citations($answer, $documents, $on_chunk);
     }
 
     /**

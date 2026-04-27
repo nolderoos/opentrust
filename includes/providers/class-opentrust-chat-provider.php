@@ -142,15 +142,11 @@ abstract class OpenTrust_Chat_Provider {
      * specific work (envelope grammars, payload shape, message accumulation)
      * lives in the protected hooks below.
      *
-     * Subclasses may override stream_chat() entirely while a phased migration
-     * is in flight; once every subclass implements the hooks, the base body
-     * becomes the single source of truth.
-     *
      * @param array    $args         [ 'system' => string, 'corpus' => array, 'messages' => array, 'tools' => array, 'model' => string ]
      * @param callable $on_chunk     Called with a normalized event: [ 'type' => 'token'|'citation'|'tool_call'|'done'|'error', 'data' => mixed ]
      * @param callable $tool_resolver Called with (string $name, array $args) — returns search_result blocks.
      */
-    public function stream_chat(array $args, callable $on_chunk, callable $tool_resolver): void {
+    final public function stream_chat(array $args, callable $on_chunk, callable $tool_resolver): void {
         $turn_loop_state = $this->initialize_turn_loop($args, $on_chunk);
         if ($turn_loop_state === null) {
             return; // initialize_turn_loop already emitted an error event
@@ -204,9 +200,7 @@ abstract class OpenTrust_Chat_Provider {
      * tools payload, system_full, model, …). Return null after emitting an
      * 'error' event when the args are invalid.
      */
-    protected function initialize_turn_loop(array $args, callable $on_chunk): ?array {
-        return null;
-    }
+    abstract protected function initialize_turn_loop(array $args, callable $on_chunk): ?array;
 
     /**
      * Stream one turn through the provider. Build the payload from
@@ -215,17 +209,13 @@ abstract class OpenTrust_Chat_Provider {
      * $on_chunk during this call). Return null after emitting an 'error' event
      * on hard failure.
      */
-    protected function stream_one_turn(array &$turn_loop_state, bool $has_called_tool, callable $on_chunk): ?array {
-        return null;
-    }
+    abstract protected function stream_one_turn(array &$turn_loop_state, bool $has_called_tool, callable $on_chunk): ?array;
 
     /**
      * Convert provider-shaped usage from one turn into the canonical shape the
      * Stream_Collector expects: {tokens_in, tokens_out, cache_creation, cache_read}.
      */
-    protected function extract_usage(array $stream_state): array {
-        return ['tokens_in' => 0, 'tokens_out' => 0];
-    }
+    abstract protected function extract_usage(array $stream_state): array;
 
     /**
      * Extract the tool calls the model wants to make this turn, normalized
@@ -235,9 +225,7 @@ abstract class OpenTrust_Chat_Provider {
      *
      * @return array<int, array{name:string, args:array}>
      */
-    protected function extract_pending_tool_calls(array $stream_state): array {
-        return [];
-    }
+    abstract protected function extract_pending_tool_calls(array $stream_state): array;
 
     /**
      * Append the assistant message produced by this turn to the running
@@ -245,8 +233,7 @@ abstract class OpenTrust_Chat_Provider {
      * content_blocks state into assistant.content[]; OpenAI emits a single
      * assistant message with tool_calls + content.
      */
-    protected function append_assistant_message(array &$turn_loop_state, array $stream_state): void {
-    }
+    abstract protected function append_assistant_message(array &$turn_loop_state, array $stream_state): void;
 
     /**
      * Resolve each pending tool via $tool_resolver and append the results to
@@ -256,8 +243,7 @@ abstract class OpenTrust_Chat_Provider {
      *
      * @param array<int, array{name:string, args:array}> $pending
      */
-    protected function resolve_and_append_tool_results(array &$turn_loop_state, array $pending, callable $tool_resolver): void {
-    }
+    abstract protected function resolve_and_append_tool_results(array &$turn_loop_state, array $pending, callable $tool_resolver): void;
 
     /**
      * Run when the loop ended without another tool call — i.e. the model
