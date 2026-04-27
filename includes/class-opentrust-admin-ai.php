@@ -62,6 +62,8 @@ final class OpenTrust_Admin_AI {
             );
         }
 
+        $this->render_summary_backfill_banner($settings, $has_active_key);
+
         ?>
         <?php if ($is_non_anthropic_active): ?>
             <div class="ot-ai-active-warning">
@@ -117,6 +119,54 @@ final class OpenTrust_Admin_AI {
         <?php if ($has_active_key): ?>
             <?php $this->render_ai_settings_form($settings); ?>
         <?php endif; ?>
+        <?php
+    }
+
+    /**
+     * Top-of-page CTA prompting the operator to backfill missing AI policy
+     * summaries. Lives outside render_ai_settings_form()'s settings <form>
+     * so its own POST to admin-post.php isn't swallowed by the outer
+     * options.php form (HTML disallows nested forms).
+     *
+     * Visible only when summary generation can actually run: AI configured,
+     * the auto-summarize feature on, and at least one policy missing an
+     * up-to-date summary.
+     */
+    private function render_summary_backfill_banner(array $settings, bool $has_active_key): void {
+        if (!$has_active_key || empty($settings['ai_auto_summarize']) || !class_exists('OpenTrust_Chat_Summarizer')) {
+            return;
+        }
+        $missing = OpenTrust_Chat_Summarizer::missing_summary_count();
+        if ($missing < 1) {
+            return;
+        }
+        ?>
+        <div class="notice notice-warning" style="margin:14px 0;padding:14px 16px">
+            <p style="margin:0 0 10px;font-size:14px">
+                <strong>
+                    <?php
+                    printf(
+                        esc_html(
+                            /* translators: %d is the number of policies missing AI summaries. */
+                            _n(
+                                '%d policy is missing an AI summary.',
+                                '%d policies are missing AI summaries.',
+                                $missing,
+                                'opentrust'
+                            )
+                        ),
+                        (int) $missing
+                    );
+                    ?>
+                </strong>
+                <?php esc_html_e('Generate them now so the assistant can route questions accurately.', 'opentrust'); ?>
+            </p>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0">
+                <?php wp_nonce_field('opentrust_ai_summarize_sweep'); ?>
+                <input type="hidden" name="action" value="opentrust_ai_summarize_sweep">
+                <button type="submit" class="button button-primary"><?php esc_html_e('Generate now', 'opentrust'); ?></button>
+            </form>
+        </div>
         <?php
     }
 
@@ -383,34 +433,6 @@ final class OpenTrust_Admin_AI {
                         <p class="description" style="max-width:680px">
                             <?php esc_html_e('When on, the AI generates a 2–3 sentence summary of each published policy and stores it for routing decisions. Improves answers on questions like "What\'s your data deletion policy?" that don\'t match a title literally. Cost is roughly $0.05–$0.10 per 50 policies, lifetime — pennies per edit afterward. Uses your configured AI key.', 'opentrust'); ?>
                         </p>
-                        <?php if (!empty($settings['ai_auto_summarize']) && class_exists('OpenTrust_Chat_Summarizer')): ?>
-                            <?php $ot_missing = OpenTrust_Chat_Summarizer::missing_summary_count(); ?>
-                            <?php if ($ot_missing > 0): ?>
-                                <div style="margin-top:10px;padding:10px 14px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;max-width:680px">
-                                    <p style="margin:0 0 8px">
-                                        <?php
-                                        printf(
-                                            esc_html(
-                                                /* translators: %d is the number of policies missing AI summaries. */
-                                                _n(
-                                                    '%d policy is missing an AI summary.',
-                                                    '%d policies are missing AI summaries.',
-                                                    $ot_missing,
-                                                    'opentrust'
-                                                )
-                                            ),
-                                            (int) $ot_missing
-                                        );
-                                        ?>
-                                    </p>
-                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline">
-                                        <?php wp_nonce_field('opentrust_ai_summarize_sweep'); ?>
-                                        <input type="hidden" name="action" value="opentrust_ai_summarize_sweep">
-                                        <button type="submit" class="button button-secondary"><?php esc_html_e('Generate now', 'opentrust'); ?></button>
-                                    </form>
-                                </div>
-                            <?php endif; ?>
-                        <?php endif; ?>
                     </td>
                 </tr>
 

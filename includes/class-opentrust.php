@@ -108,11 +108,11 @@ final class OpenTrust {
             'ai_show_model_attribution' => true,
             'ai_logging_enabled'        => true,
             'ai_turnstile_enabled'      => false,
-            // Opt-IN. When true, the configured chat provider generates a
-            // 2–3 sentence summary for each policy on save_post. Off by
-            // default so installs on free-tier accounts don't burn API
-            // credits without an explicit opt-in.
-            'ai_auto_summarize'         => false,
+            // When true, the configured chat provider generates a 2–3
+            // sentence summary for each policy on save_post. Default ON
+            // because the agentic router answers materially worse without
+            // them; cost is ~$0.05–$0.10 per 50 policies, lifetime.
+            'ai_auto_summarize'         => true,
 
             // Cloudflare Turnstile — used by the AI chat when ai_turnstile_enabled is on.
             'turnstile_site_key'        => '',
@@ -239,6 +239,19 @@ final class OpenTrust {
                 self::set_option_autoload_off('opentrust_db_version');
                 self::set_option_autoload_off('opentrust_cache_version');
                 self::set_option_autoload_off('opentrust_faqs_seeded');
+            }
+
+            // v12: ai_auto_summarize flipped to default-on. Installs that
+            // inherited the v10 false-default get flipped here; installs
+            // where the operator explicitly chose false will be flipped too
+            // (intentional — the feature is materially load-bearing for
+            // routing quality, and the operator can always toggle it back).
+            if ($current < 12) {
+                $settings = get_option('opentrust_settings');
+                if (is_array($settings) && empty($settings['ai_auto_summarize'])) {
+                    $settings['ai_auto_summarize'] = true;
+                    update_option('opentrust_settings', $settings, false);
+                }
             }
 
             // Chat (OTC) schema migration. dbDelta is idempotent on real

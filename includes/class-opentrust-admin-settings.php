@@ -486,7 +486,7 @@ final class OpenTrust_Admin_Settings {
             'ai_show_model_attribution' => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
             'ai_logging_enabled'        => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
             'ai_turnstile_enabled'      => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
-            'ai_auto_summarize'         => ['tab' => 'ai', 'default' => false, 'sanitize' => $bool],
+            'ai_auto_summarize'         => ['tab' => 'ai', 'default' => true,  'sanitize' => $bool],
             'turnstile_site_key'        => ['tab' => 'ai', 'default' => '',    'sanitize' => $string],
             'turnstile_secret_key'      => [
                 'tab' => 'ai',
