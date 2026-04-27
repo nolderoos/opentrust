@@ -70,10 +70,6 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
         return ['api.openai.com'];
     }
 
-    public function citation_strategy(): string {
-        return 'structured';
-    }
-
     protected function models_endpoint(): string {
         return static::MODELS_ENDPOINT;
     }

@@ -10,8 +10,8 @@
  * The base class provides the factory, shared HTTP helpers, and a
  * host allowlist for SSRF prevention. Subclasses implement the
  * provider-specific methods: slug(), label(), allowed_hosts(),
- * validate_and_list_models(), stream_chat(), curate_models(), and
- * citation_strategy().
+ * validate_and_list_models(), curate_models(), and the seven turn-loop
+ * hooks listed below stream_chat().
  */
 
 declare(strict_types=1);
@@ -303,13 +303,6 @@ abstract class OpenTrust_Chat_Provider {
             'names'           => $names,
         ];
     }
-
-    /**
-     * Which citation strategy this provider uses:
-     *  - 'native'       → Anthropic Citations API
-     *  - 'structured'   → Structured output { answer, citations[] }
-     */
-    abstract public function citation_strategy(): string;
 
     /**
      * Transform a raw /models response into the admin-facing picker list.

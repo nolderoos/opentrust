@@ -41,10 +41,6 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
         return ['api.anthropic.com'];
     }
 
-    public function citation_strategy(): string {
-        return 'native';
-    }
-
     protected function models_endpoint(): string {
         return self::MODELS_ENDPOINT;
     }
