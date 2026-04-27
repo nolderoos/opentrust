@@ -59,14 +59,14 @@ final class OpenTrust_Chat {
     private function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
 
-        // Corpus cache invalidation.
-        foreach (['ot_policy', 'ot_certification', 'ot_subprocessor', 'ot_data_practice'] as $cpt) {
-            add_action("save_post_{$cpt}", [OpenTrust_Chat_Corpus::class, 'invalidate']);
-        }
-        add_action('deleted_post',  [OpenTrust_Chat_Corpus::class, 'invalidate']);
-        add_action('trashed_post',  [OpenTrust_Chat_Corpus::class, 'invalidate']);
-        add_action('untrashed_post',[OpenTrust_Chat_Corpus::class, 'invalidate']);
-        add_action('transition_post_status', [$this, 'maybe_invalidate_corpus_on_transition'], 10, 3);
+        // Corpus invalidation. Reuse the centralized CPT-event registrar so
+        // saves, deletes, trash/untrash, and publish transitions all flush
+        // through a single canonical CPT list (CORPUS = the four indexed CPTs;
+        // FAQs are deliberately not in the chat corpus).
+        OpenTrust_CPT::register_invalidator(
+            OpenTrust_CPT::CORPUS,
+            [OpenTrust_Chat_Corpus::class, 'invalidate']
+        );
         add_action('update_option_opentrust_settings', [OpenTrust_Chat_Corpus::class, 'invalidate']);
 
         // Auto-summarize hooks. Independent of corpus invalidation — the
@@ -74,18 +74,6 @@ final class OpenTrust_Chat {
         // inline on save_post, so it doesn't block the editor.
         if (class_exists('OpenTrust_Chat_Summarizer')) {
             OpenTrust_Chat_Summarizer::bootstrap();
-        }
-    }
-
-    /**
-     * Flush the corpus only when an OpenTrust CPT transitions into or out of publish.
-     */
-    public function maybe_invalidate_corpus_on_transition(string $new, string $old, \WP_Post $post): void {
-        if (!str_starts_with($post->post_type, 'ot_')) {
-            return;
-        }
-        if ($new === 'publish' || $old === 'publish') {
-            OpenTrust_Chat_Corpus::invalidate();
         }
     }
 

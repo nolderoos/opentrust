@@ -11,6 +11,39 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class OpenTrust_CPT {
 
+    /**
+     * CPT slug constants. Use these everywhere instead of bare strings so a
+     * rename is one edit and a typo can't sneak through a `match` default arm.
+     */
+    public const POLICY        = 'ot_policy';
+    public const CERTIFICATION = 'ot_certification';
+    public const SUBPROCESSOR  = 'ot_subprocessor';
+    public const DATA_PRACTICE = 'ot_data_practice';
+    public const FAQ           = 'ot_faq';
+
+    /**
+     * Every OpenTrust CPT slug, in the order they appear in the trust center
+     * page. Drives the render cache invalidator and the admin submenu fixer.
+     */
+    public const ALL = [
+        self::POLICY,
+        self::CERTIFICATION,
+        self::SUBPROCESSOR,
+        self::DATA_PRACTICE,
+        self::FAQ,
+    ];
+
+    /**
+     * The four CPTs whose content is indexed in the AI chat corpus. FAQs are
+     * intentionally excluded — they're not part of the retrieval surface.
+     */
+    public const CORPUS = [
+        self::POLICY,
+        self::CERTIFICATION,
+        self::SUBPROCESSOR,
+        self::DATA_PRACTICE,
+    ];
+
     private static ?self $instance = null;
 
     public static function instance(): self {
@@ -40,6 +73,53 @@ final class OpenTrust_CPT {
         // Policies get a curated block palette — focused writing surface,
         // no marketing blocks, no layout chaos.
         add_filter('allowed_block_types_all', [self::class, 'filter_policy_allowed_blocks'], 10, 2);
+    }
+
+    /**
+     * Wire a flush callback to every event that can change the rendered or
+     * indexed output of one of the listed CPTs. Single registration point so
+     * the render cache and the chat corpus stay aligned on what counts as a
+     * cache-busting event:
+     *
+     *   - save_post_{cpt}                  for inserts and updates
+     *   - deleted_post / trashed_post /    for content removal
+     *     untrashed_post                   (filtered by post_type)
+     *   - transition_post_status           for publish ↔ draft / private
+     *                                      transitions (filtered by CPT)
+     *
+     * The $callback may take any arity — extra args are silently ignored, so
+     * the same callable can be registered with both single-arg hooks (delete)
+     * and three-arg hooks (transition_post_status).
+     *
+     * @param array<int, string> $cpts CPT slugs (e.g. self::ALL or self::CORPUS).
+     */
+    public static function register_invalidator(array $cpts, callable $callback): void {
+        foreach ($cpts as $cpt) {
+            add_action("save_post_{$cpt}", $callback);
+        }
+
+        $on_post_event = static function ($post_id) use ($cpts, $callback): void {
+            if (in_array(get_post_type((int) $post_id), $cpts, true)) {
+                $callback($post_id);
+            }
+        };
+        add_action('deleted_post',   $on_post_event);
+        add_action('trashed_post',   $on_post_event);
+        add_action('untrashed_post', $on_post_event);
+
+        add_action(
+            'transition_post_status',
+            static function (string $new, string $old, \WP_Post $post) use ($cpts, $callback): void {
+                if (!in_array($post->post_type, $cpts, true)) {
+                    return;
+                }
+                if ($new === 'publish' || $old === 'publish') {
+                    $callback($post->ID);
+                }
+            },
+            10,
+            3
+        );
     }
 
     /**

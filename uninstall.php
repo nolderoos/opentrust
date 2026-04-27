@@ -15,6 +15,11 @@ defined('WP_UNINSTALL_PLUGIN') || exit;
 global $wpdb;
 
 // Delete all OpenTrust post types and their meta.
+//
+// uninstall.php is intentionally self-contained — WordPress invokes it without
+// loading the rest of the plugin, so we cannot reference OpenTrust_CPT::ALL
+// here. The list below MUST stay in sync with that constant; if a CPT is
+// added or renamed there, mirror the change here.
 $ot_post_types = ['ot_policy', 'ot_subprocessor', 'ot_certification', 'ot_data_practice', 'ot_faq'];
 
 foreach ($ot_post_types as $ot_post_type) {

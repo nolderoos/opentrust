@@ -36,10 +36,9 @@ final class OpenTrust {
         // Check for DB schema upgrades.
         add_action('init', [$this, 'maybe_upgrade'], 5);
 
-        // Invalidate frontend cache when any CPT is saved.
-        foreach (['ot_policy', 'ot_subprocessor', 'ot_certification', 'ot_data_practice', 'ot_faq'] as $cpt) {
-            add_action("save_post_{$cpt}", [$this, 'invalidate_cache']);
-        }
+        // Bump the render-cache version on any OpenTrust CPT change. Catches
+        // saves, deletes, trash/untrash, and publish transitions in one wire-up.
+        OpenTrust_CPT::register_invalidator(OpenTrust_CPT::ALL, [$this, 'invalidate_cache']);
 
         // Boot sub-systems.
         OpenTrust_CPT::instance();

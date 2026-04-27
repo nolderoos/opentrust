@@ -98,8 +98,7 @@ final class OpenTrust_Admin {
             return $submenu_file;
         }
 
-        $ot_types = ['ot_policy', 'ot_certification', 'ot_subprocessor', 'ot_data_practice', 'ot_faq'];
-        if (in_array($post_type, $ot_types, true)) {
+        if (in_array($post_type, OpenTrust_CPT::ALL, true)) {
             return "edit.php?post_type={$post_type}";
         }
 
@@ -1576,7 +1575,7 @@ final class OpenTrust_Admin {
 
         $is_ot_screen = str_starts_with($screen->id, 'toplevel_page_opentrust')
             || str_starts_with($screen->id, 'opentrust_page_')
-            || in_array($screen->post_type, ['ot_policy', 'ot_subprocessor', 'ot_certification', 'ot_data_practice'], true);
+            || in_array($screen->post_type, OpenTrust_CPT::CORPUS, true);
 
         if (!$is_ot_screen) {
             return;
@@ -1663,7 +1662,7 @@ final class OpenTrust_Admin {
         // subpages, and the four content CPTs. Bail on every other admin screen.
         $is_opentrust_screen =
             str_contains((string) $screen->id, 'opentrust') ||
-            in_array($screen->post_type ?? '', ['ot_policy', 'ot_certification', 'ot_subprocessor', 'ot_data_practice'], true);
+            in_array($screen->post_type ?? '', OpenTrust_CPT::CORPUS, true);
 
         if (!$is_opentrust_screen) {
             return;
