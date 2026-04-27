@@ -11,6 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class OpenTrust {
 
+    /**
+     * Default URL path the trust center mounts at when the operator hasn't
+     * picked their own. Centralized here so render, admin, version control,
+     * and the chat corpus all share one fallback.
+     */
+    public const DEFAULT_ENDPOINT_SLUG = 'trust-center';
+
     private static ?self $instance = null;
 
     public static function instance(): self {
@@ -50,7 +57,7 @@ final class OpenTrust {
 
     public static function defaults(): array {
         return [
-            'endpoint_slug'    => 'trust-center',
+            'endpoint_slug'    => self::DEFAULT_ENDPOINT_SLUG,
             // Leave page_title and tagline empty by default so render-time
             // __() fallbacks follow the active site locale. Admins can still
             // override either value to brand the page in any language.
@@ -87,11 +94,11 @@ final class OpenTrust {
             'ai_provider'               => '',
             'ai_model'                  => '',
             'ai_model_list_cached_at'   => 0,
-            'ai_daily_token_budget'     => 500000,
-            'ai_monthly_token_budget'   => 10000000,
-            'ai_rate_limit_per_ip'      => 10,
-            'ai_rate_limit_per_session' => 50,
-            'ai_max_message_length'     => 1000,
+            'ai_daily_token_budget'     => OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET,
+            'ai_monthly_token_budget'   => OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET,
+            'ai_rate_limit_per_ip'      => OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP,
+            'ai_rate_limit_per_session' => OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION,
+            'ai_max_message_length'     => OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH,
             'ai_contact_url'            => '',
             'ai_show_model_attribution' => true,
             'ai_logging_enabled'        => true,
@@ -119,7 +126,7 @@ final class OpenTrust {
 
     public static function add_rewrite_rules(): void {
         $slug = self::get_settings()['endpoint_slug'];
-        $slug = sanitize_title($slug) ?: 'trust-center';
+        $slug = sanitize_title($slug) ?: self::DEFAULT_ENDPOINT_SLUG;
 
         add_rewrite_rule(
             '^' . preg_quote($slug, '/') . '/?$',

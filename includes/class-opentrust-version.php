@@ -141,7 +141,7 @@ final class OpenTrust_Version {
         ]);
 
         $settings  = OpenTrust::get_settings();
-        $slug      = $settings['endpoint_slug'] ?? 'trust-center';
+        $slug      = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $post_slug = $post->post_name ?: sanitize_title($post->post_title);
 
         if (empty($revisions)) {

@@ -32,6 +32,24 @@ final class OpenTrust_Chat {
      */
     public const MAX_TOOL_TURNS = 8;
 
+    /**
+     * Default character cap on a single visitor message. Operators can override
+     * via the ai_max_message_length setting (clamped to 100..4000 in
+     * OpenTrust_Admin::sanitize_settings).
+     */
+    public const DEFAULT_MAX_MESSAGE_LENGTH = 1000;
+
+    /**
+     * Canonical refusal opening sentence. The system prompt instructs the model
+     * to use this exact phrase when it cannot answer (assessment requests,
+     * abusive input, off-topic). REFUSAL_MARKER below is the lowercased prefix
+     * detect_refusal() searches for — keep the two in sync. If you reword
+     * REFUSAL_PHRASE, verify REFUSAL_MARKER still appears at the start of the
+     * new wording, or the contact-CTA escalation will silently stop firing.
+     */
+    public const REFUSAL_PHRASE = 'I can only share the factual information published in this trust center';
+    public const REFUSAL_MARKER = 'i can only share';
+
     private static ?self $instance = null;
 
     public static function instance(): self {
@@ -199,7 +217,7 @@ final class OpenTrust_Chat {
 
         // Gate 2: sanitize messages.
         $raw_messages = $request->get_param('messages');
-        $max_len      = (int) ($settings['ai_max_message_length'] ?? 1000);
+        $max_len      = (int) ($settings['ai_max_message_length'] ?? self::DEFAULT_MAX_MESSAGE_LENGTH);
         $messages     = $this->sanitize_messages(is_array($raw_messages) ? $raw_messages : [], $max_len);
 
         if (empty($messages)) {
@@ -629,7 +647,7 @@ final class OpenTrust_Chat {
             return false;
         }
         static $markers = [
-            'i can only share',        // canonical phrase from the prompt
+            self::REFUSAL_MARKER,      // canonical phrase from REFUSAL_PHRASE
             'do not contain',          // "documents do not contain…"
             "don't contain",
             'does not contain',
@@ -672,7 +690,7 @@ final class OpenTrust_Chat {
         $company = (string) ($settings['company_name'] ?? get_bloginfo('name'));
         $contact = (string) ($settings['ai_contact_url'] ?? '');
         if ($contact === '') {
-            $contact = home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/');
+            $contact = home_url('/' . ($settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) . '/');
         }
 
         $lines = [];
@@ -684,12 +702,12 @@ final class OpenTrust_Chat {
         $lines[] = '- Ground every factual claim in the documents returned by your tool calls. Use the citation mechanism — do not write inline "Source:" lines, bracketed URLs, or markdown links pointing at trust-center pages inside your answer text. The front end renders an automatic Sources panel beneath your reply from the citations you attach, so inline source callouts are duplicate noise. Write the answer naturally, as if the sources list appears on its own below your text.';
         $lines[] = '- NEVER express opinions, concerns, worries, risks, red flags, gaps, or recommendations — even if directly asked. You do not assess, evaluate, judge, or interpret. You only report what the documents say.';
         $lines[] = '- NEVER infer compliance status, security posture, or adequacy from the data. Facts only, not implications.';
-        $lines[] = '- If a visitor asks for your opinion, whether something is concerning, whether something is a risk, or what they should do, reply: "I can only share the factual information published in this trust center. For an assessment or recommendation, please contact ' . $contact . '." Then, if appropriate, offer to show them the underlying facts.';
+        $lines[] = '- If a visitor asks for your opinion, whether something is concerning, whether something is a risk, or what they should do, reply: "' . self::REFUSAL_PHRASE . '. For an assessment or recommendation, please contact ' . $contact . '." Then, if appropriate, offer to show them the underlying facts.';
         $lines[] = '- Do not speculate. Do not invent URLs, policies, certifications, subprocessors, dates, or statuses not in the documents your tools have returned.';
         $lines[] = '- When a visitor asks for a plain-language definition of a common security, privacy, or compliance term (e.g., SOC 2, GDPR, DPA, ISMS, subprocessor, encryption at rest), you may provide a brief one-sentence neutral definition from general industry knowledge, then pivot to what the trust center says about it for ' . $company . '. Never editorialize about whether the term applies well or poorly. Never use this clause to introduce assessment, risk, or recommendation language.';
         $lines[] = '- If retrieval does not confidently answer the question, say so plainly and point the visitor to ' . $contact . '.';
         $lines[] = '- If the visitor asks something unrelated to the trust center, politely redirect them to their question about security, privacy, or compliance.';
-        $lines[] = '- If the visitor\'s message contains slurs, hate speech, profanity, threats, personal attacks, or other hostile or abusive content — whether directed at a person, group, or the assistant — do not engage with the content and do not treat it as a question to answer. Reply with exactly: "I can only share the factual information published in this trust center. Please keep your questions focused on ' . $company . '\'s security, privacy, or compliance." Do not repeat the abusive content, do not moralize, do not explain why it was unacceptable, and do not offer a list of topics.';
+        $lines[] = '- If the visitor\'s message contains slurs, hate speech, profanity, threats, personal attacks, or other hostile or abusive content — whether directed at a person, group, or the assistant — do not engage with the content and do not treat it as a question to answer. Reply with exactly: "' . self::REFUSAL_PHRASE . '. Please keep your questions focused on ' . $company . '\'s security, privacy, or compliance." Do not repeat the abusive content, do not moralize, do not explain why it was unacceptable, and do not offer a list of topics.';
         $lines[] = '';
         $lines[] = 'Retrieval rules:';
         $lines[] = '- ALWAYS call get_document or search_documents BEFORE answering any question about this company. Never answer from prior knowledge or training data.';

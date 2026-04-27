@@ -408,7 +408,7 @@ final class OpenTrust_Admin {
 
         // ── General tab (General + Branding + Visible Sections) ──
         if (!empty($input['__general_tab_save'])) {
-            $sanitized['endpoint_slug']      = sanitize_title($input['endpoint_slug'] ?? 'trust-center') ?: 'trust-center';
+            $sanitized['endpoint_slug']      = sanitize_title($input['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) ?: OpenTrust::DEFAULT_ENDPOINT_SLUG;
             $sanitized['page_title']         = sanitize_text_field($input['page_title'] ?? '');
             $sanitized['company_name']       = sanitize_text_field($input['company_name'] ?? '');
             $sanitized['tagline']            = sanitize_textarea_field($input['tagline'] ?? '');
@@ -425,7 +425,7 @@ final class OpenTrust_Admin {
                 'contact'        => !empty($input['sections_visible']['contact']),
             ];
         } else {
-            $sanitized['endpoint_slug']      = (string) ($old_settings['endpoint_slug'] ?? 'trust-center');
+            $sanitized['endpoint_slug']      = (string) ($old_settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG);
             $sanitized['page_title']         = (string) ($old_settings['page_title'] ?? '');
             $sanitized['company_name']       = (string) ($old_settings['company_name'] ?? '');
             $sanitized['tagline']            = (string) ($old_settings['tagline'] ?? '');
@@ -489,11 +489,11 @@ final class OpenTrust_Admin {
         // AI fields are absent from $input and must be preserved from old settings.
         if (!empty($input['__ai_tab_save'])) {
             $sanitized['ai_model']                  = sanitize_text_field($input['ai_model'] ?? ($old_settings['ai_model'] ?? ''));
-            $sanitized['ai_daily_token_budget']     = max(0, absint($input['ai_daily_token_budget']   ?? 500000));
-            $sanitized['ai_monthly_token_budget']   = max(0, absint($input['ai_monthly_token_budget'] ?? 10000000));
-            $sanitized['ai_rate_limit_per_ip']      = max(0, min(1000,  absint($input['ai_rate_limit_per_ip']      ?? 10)));
-            $sanitized['ai_rate_limit_per_session'] = max(0, min(10000, absint($input['ai_rate_limit_per_session'] ?? 50)));
-            $sanitized['ai_max_message_length']     = max(100, min(4000, absint($input['ai_max_message_length'] ?? 1000)));
+            $sanitized['ai_daily_token_budget']     = max(0, absint($input['ai_daily_token_budget']   ?? OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET));
+            $sanitized['ai_monthly_token_budget']   = max(0, absint($input['ai_monthly_token_budget'] ?? OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET));
+            $sanitized['ai_rate_limit_per_ip']      = max(0, min(1000,  absint($input['ai_rate_limit_per_ip']      ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP)));
+            $sanitized['ai_rate_limit_per_session'] = max(0, min(10000, absint($input['ai_rate_limit_per_session'] ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION)));
+            $sanitized['ai_max_message_length']     = max(100, min(4000, absint($input['ai_max_message_length'] ?? OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH)));
             $sanitized['ai_contact_url']            = esc_url_raw($input['ai_contact_url'] ?? '');
             $sanitized['ai_show_model_attribution'] = !empty($input['ai_show_model_attribution']);
             $sanitized['ai_logging_enabled']        = !empty($input['ai_logging_enabled']);
@@ -506,11 +506,11 @@ final class OpenTrust_Admin {
             );
         } else {
             $sanitized['ai_model']                  = sanitize_text_field($old_settings['ai_model'] ?? '');
-            $sanitized['ai_daily_token_budget']     = (int) ($old_settings['ai_daily_token_budget']     ?? 500000);
-            $sanitized['ai_monthly_token_budget']   = (int) ($old_settings['ai_monthly_token_budget']   ?? 10000000);
-            $sanitized['ai_rate_limit_per_ip']      = (int) ($old_settings['ai_rate_limit_per_ip']      ?? 10);
-            $sanitized['ai_rate_limit_per_session'] = (int) ($old_settings['ai_rate_limit_per_session'] ?? 50);
-            $sanitized['ai_max_message_length']     = (int) ($old_settings['ai_max_message_length']     ?? 1000);
+            $sanitized['ai_daily_token_budget']     = (int) ($old_settings['ai_daily_token_budget']     ?? OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET);
+            $sanitized['ai_monthly_token_budget']   = (int) ($old_settings['ai_monthly_token_budget']   ?? OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET);
+            $sanitized['ai_rate_limit_per_ip']      = (int) ($old_settings['ai_rate_limit_per_ip']      ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_IP);
+            $sanitized['ai_rate_limit_per_session'] = (int) ($old_settings['ai_rate_limit_per_session'] ?? OpenTrust_Chat_Budget::DEFAULT_RATE_LIMIT_PER_SESSION);
+            $sanitized['ai_max_message_length']     = (int) ($old_settings['ai_max_message_length']     ?? OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH);
             $sanitized['ai_contact_url']            = (string) ($old_settings['ai_contact_url']         ?? '');
             $sanitized['ai_show_model_attribution'] = !empty($old_settings['ai_show_model_attribution']);
             $sanitized['ai_logging_enabled']        = !empty($old_settings['ai_logging_enabled']);
@@ -559,7 +559,7 @@ final class OpenTrust_Admin {
         }
 
         $settings = OpenTrust::get_settings();
-        $tc_url   = home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/');
+        $tc_url   = home_url('/' . ($settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) . '/');
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab switch on admin settings page.
         $tab      = isset($_GET['tab']) ? sanitize_key((string) wp_unslash($_GET['tab'])) : 'general';
         if (!in_array($tab, ['general', 'contact', 'ai'], true)) {
@@ -901,14 +901,14 @@ final class OpenTrust_Admin {
                 <tr>
                     <th scope="row"><label for="opentrust_ai_daily_token_budget"><?php esc_html_e('Daily token budget', 'opentrust'); ?></label></th>
                     <td>
-                        <input type="number" id="opentrust_ai_daily_token_budget" name="opentrust_settings[ai_daily_token_budget]" value="<?php echo esc_attr((string) ($settings['ai_daily_token_budget'] ?? 500000)); ?>" min="0" step="10000" class="regular-text">
+                        <input type="number" id="opentrust_ai_daily_token_budget" name="opentrust_settings[ai_daily_token_budget]" value="<?php echo esc_attr((string) ($settings['ai_daily_token_budget'] ?? OpenTrust_Chat_Budget::DEFAULT_DAILY_TOKEN_BUDGET)); ?>" min="0" step="10000" class="regular-text">
                         <p class="description"><?php esc_html_e('Hard cap per site per day. Default 500,000 tokens (~$12/day at Sonnet 4.5 rates).', 'opentrust'); ?></p>
                     </td>
                 </tr>
                 <tr>
                     <th scope="row"><label for="opentrust_ai_monthly_token_budget"><?php esc_html_e('Monthly token budget', 'opentrust'); ?></label></th>
                     <td>
-                        <input type="number" id="opentrust_ai_monthly_token_budget" name="opentrust_settings[ai_monthly_token_budget]" value="<?php echo esc_attr((string) ($settings['ai_monthly_token_budget'] ?? 10000000)); ?>" min="0" step="100000" class="regular-text">
+                        <input type="number" id="opentrust_ai_monthly_token_budget" name="opentrust_settings[ai_monthly_token_budget]" value="<?php echo esc_attr((string) ($settings['ai_monthly_token_budget'] ?? OpenTrust_Chat_Budget::DEFAULT_MONTHLY_TOKEN_BUDGET)); ?>" min="0" step="100000" class="regular-text">
                         <p class="description"><?php esc_html_e('Hard cap per site per month. Default 10,000,000 tokens.', 'opentrust'); ?></p>
                     </td>
                 </tr>
@@ -927,7 +927,7 @@ final class OpenTrust_Admin {
                 <tr>
                     <th scope="row"><label for="opentrust_ai_max_message_length"><?php esc_html_e('Max message length', 'opentrust'); ?></label></th>
                     <td>
-                        <input type="number" id="opentrust_ai_max_message_length" name="opentrust_settings[ai_max_message_length]" value="<?php echo esc_attr((string) ($settings['ai_max_message_length'] ?? 1000)); ?>" min="100" max="4000" step="100" class="small-text"> <span class="description"><?php esc_html_e('characters', 'opentrust'); ?></span>
+                        <input type="number" id="opentrust_ai_max_message_length" name="opentrust_settings[ai_max_message_length]" value="<?php echo esc_attr((string) ($settings['ai_max_message_length'] ?? OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH)); ?>" min="100" max="4000" step="100" class="small-text"> <span class="description"><?php esc_html_e('characters', 'opentrust'); ?></span>
                     </td>
                 </tr>
 

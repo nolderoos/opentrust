@@ -84,7 +84,7 @@ final class OpenTrust_Render {
         }
 
         $question = isset($_POST['question']) ? sanitize_textarea_field((string) wp_unslash($_POST['question'])) : '';
-        $max_len  = (int) ($settings['ai_max_message_length'] ?? 1000);
+        $max_len  = (int) ($settings['ai_max_message_length'] ?? OpenTrust_Chat::DEFAULT_MAX_MESSAGE_LENGTH);
         if ($question === '') {
             return ['error' => __('Please enter a question.', 'opentrust')];
         }
@@ -299,7 +299,7 @@ final class OpenTrust_Render {
         echo '<body style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Inter,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8f9fa;color:#374151">';
         echo '<div style="text-align:center"><h1 style="font-size:4rem;margin:0;color:#d1d5db">404</h1>';
         echo '<p style="font-size:1.125rem;margin:1rem 0">' . esc_html__('Page not found.', 'opentrust') . '</p>';
-        echo '<a href="' . esc_url(home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/')) . '" style="color:hsl(' . (int) $hsl['h'] . ',' . (int) $hsl['s'] . '%,' . (int) $hsl['l'] . '%);text-decoration:none">' . esc_html__('Back to Trust Center', 'opentrust') . '</a>';
+        echo '<a href="' . esc_url(home_url('/' . ($settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) . '/')) . '" style="color:hsl(' . (int) $hsl['h'] . ',' . (int) $hsl['s'] . '%,' . (int) $hsl['l'] . '%);text-decoration:none">' . esc_html__('Back to Trust Center', 'opentrust') . '</a>';
         echo '</div></body></html>';
     }
 
@@ -315,7 +315,7 @@ final class OpenTrust_Render {
             'hsl'             => $hsl,
             'logo_url'        => '',
             'avatar_url'      => '',
-            'base_url'        => home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/'),
+            'base_url'        => home_url('/' . ($settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) . '/'),
             'view'            => 'main',
             'certifications'  => [],
             'policies'        => [],
@@ -595,7 +595,7 @@ final class OpenTrust_Render {
         ]);
 
         $settings = OpenTrust::get_settings();
-        $endpoint = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
 
         $items = [];
         foreach ($posts as $post) {
@@ -647,7 +647,7 @@ final class OpenTrust_Render {
      */
     private function get_policy_versions(\WP_Post $policy): array {
         $settings        = OpenTrust::get_settings();
-        $endpoint        = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint        = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $current_version = (int) get_post_meta($policy->ID, '_ot_version', true) ?: 1;
         $current_url     = home_url('/' . $endpoint . '/policy/' . $policy->post_name . '/');
 

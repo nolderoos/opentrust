@@ -184,7 +184,7 @@ final class OpenTrust_Chat_Corpus {
                 $urls[] = $doc['url'];
             }
         }
-        $base = home_url('/' . ($settings['endpoint_slug'] ?? 'trust-center') . '/');
+        $base = home_url('/' . ($settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) . '/');
         $urls[] = $base;
         foreach (['ot-certifications', 'ot-policies', 'ot-subprocessors', 'ot-data-practices', 'ot-contact'] as $anchor) {
             $urls[] = $base . '#' . $anchor;
@@ -492,7 +492,7 @@ final class OpenTrust_Chat_Corpus {
     // ──────────────────────────────────────────────
 
     private static function format_policy(\WP_Post $post, array $settings): array {
-        $endpoint = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $url      = home_url('/' . $endpoint . '/policy/' . $post->post_name . '/');
 
         $category_labels = OpenTrust_Render::policy_category_labels();
@@ -539,7 +539,7 @@ final class OpenTrust_Chat_Corpus {
     }
 
     private static function format_certification(array $cert, array $settings): array {
-        $endpoint = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $url      = home_url('/' . $endpoint . '/#ot-certifications');
 
         $status_labels = ($cert['type'] ?? 'certified') === 'compliant'
@@ -590,7 +590,7 @@ final class OpenTrust_Chat_Corpus {
     }
 
     private static function format_subprocessor(array $sub, array $settings): array {
-        $endpoint = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $url      = home_url('/' . $endpoint . '/#ot-subprocessors');
 
         $lines = ['Name: ' . ($sub['name'] ?? '')];
@@ -626,7 +626,7 @@ final class OpenTrust_Chat_Corpus {
     }
 
     private static function format_data_practice(array $dp, array $settings): array {
-        $endpoint = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $url      = home_url('/' . $endpoint . '/#ot-data-practices');
 
         $legal_labels = OpenTrust_Render::legal_basis_labels();
@@ -752,7 +752,7 @@ final class OpenTrust_Chat_Corpus {
             return null;
         }
 
-        $endpoint = $settings['endpoint_slug'] ?? 'trust-center';
+        $endpoint = $settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
         $url      = home_url('/' . $endpoint . '/#ot-contact');
 
         return [

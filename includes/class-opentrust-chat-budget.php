@@ -28,6 +28,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class OpenTrust_Chat_Budget {
 
+    /**
+     * Default per-day token cap when the operator hasn't set one.
+     * Sized to keep a free-tier Anthropic key under daily-spend warnings.
+     */
+    public const DEFAULT_DAILY_TOKEN_BUDGET = 500_000;
+
+    /**
+     * Default per-month token cap when the operator hasn't set one.
+     */
+    public const DEFAULT_MONTHLY_TOKEN_BUDGET = 10_000_000;
+
+    /**
+     * Default per-IP and per-session request limits.
+     */
+    public const DEFAULT_RATE_LIMIT_PER_IP      = 10;
+    public const DEFAULT_RATE_LIMIT_PER_SESSION = 50;
+
+    /**
+     * Sliding-window lengths for the per-IP and per-session rate limiters.
+     * Transient TTLs are intentionally double the window length so a request
+     * burst at the very end of a window cannot escape accounting if the
+     * timestamp list is replayed inside the next window.
+     */
+    public const IP_WINDOW_SECONDS      = 60;
+    public const SESSION_WINDOW_SECONDS = 3600;
+
     // ──────────────────────────────────────────────
     // Token budget
     // ──────────────────────────────────────────────
@@ -44,8 +70,8 @@ final class OpenTrust_Chat_Budget {
         }
 
         $settings = OpenTrust::get_settings();
-        $daily_cap   = (int) ($settings['ai_daily_token_budget']   ?? 500000);
-        $monthly_cap = (int) ($settings['ai_monthly_token_budget'] ?? 10000000);
+        $daily_cap   = (int) ($settings['ai_daily_token_budget']   ?? self::DEFAULT_DAILY_TOKEN_BUDGET);
+        $monthly_cap = (int) ($settings['ai_monthly_token_budget'] ?? self::DEFAULT_MONTHLY_TOKEN_BUDGET);
 
         // Both caps equal to 0 = unlimited (admin opt-out). Treated as unlimited.
         if ($daily_cap === 0 && $monthly_cap === 0) {
@@ -134,30 +160,12 @@ final class OpenTrust_Chat_Budget {
      */
     public static function check_ip_rate_limit(string $ip_hash): array {
         $settings = OpenTrust::get_settings();
-        $limit    = (int) ($settings['ai_rate_limit_per_ip'] ?? 10);
-        if ($limit <= 0) {
-            return ['ok' => true];
-        }
-
-        $key  = 'opentrust_chat_rl_ip_' . $ip_hash;
-        $now  = time();
-        $list = get_transient($key);
-        if (!is_array($list)) {
-            $list = [];
-        }
-
-        // Drop timestamps older than 60s.
-        $window_start = $now - 60;
-        $list = array_values(array_filter($list, static fn($t) => (int) $t >= $window_start));
-
-        if (count($list) >= $limit) {
-            $oldest = (int) $list[0];
-            return ['ok' => false, 'retry_after' => max(1, $oldest + 60 - $now)];
-        }
-
-        $list[] = $now;
-        set_transient($key, $list, 2 * MINUTE_IN_SECONDS);
-        return ['ok' => true];
+        $limit    = (int) ($settings['ai_rate_limit_per_ip'] ?? self::DEFAULT_RATE_LIMIT_PER_IP);
+        return self::check_sliding_window(
+            'opentrust_chat_rl_ip_' . $ip_hash,
+            $limit,
+            self::IP_WINDOW_SECONDS
+        );
     }
 
     /**
@@ -165,28 +173,47 @@ final class OpenTrust_Chat_Budget {
      */
     public static function check_session_rate_limit(string $session_hash): array {
         $settings = OpenTrust::get_settings();
-        $limit    = (int) ($settings['ai_rate_limit_per_session'] ?? 50);
+        $limit    = (int) ($settings['ai_rate_limit_per_session'] ?? self::DEFAULT_RATE_LIMIT_PER_SESSION);
+        return self::check_sliding_window(
+            'opentrust_chat_rl_session_' . $session_hash,
+            $limit,
+            self::SESSION_WINDOW_SECONDS
+        );
+    }
+
+    /**
+     * Sliding-window rate limiter shared by the per-IP and per-session checks.
+     * Stores a list of recent hit timestamps in a transient keyed by $key.
+     *
+     * The transient TTL is set to 2 × $window_seconds so a quiet client whose
+     * window expires while the transient is still warm doesn't accidentally
+     * resurrect stale timestamps. Returns ['ok' => true] when under the limit
+     * (and records the hit), or ['ok' => false, 'retry_after' => seconds]
+     * when the oldest in-window timestamp says the next slot is still future.
+     *
+     * @return array{ok: true}|array{ok: false, retry_after: int}
+     */
+    private static function check_sliding_window(string $key, int $limit, int $window_seconds): array {
         if ($limit <= 0) {
             return ['ok' => true];
         }
 
-        $key  = 'opentrust_chat_rl_session_' . $session_hash;
         $now  = time();
         $list = get_transient($key);
         if (!is_array($list)) {
             $list = [];
         }
 
-        $window_start = $now - 3600;
+        $window_start = $now - $window_seconds;
         $list = array_values(array_filter($list, static fn($t) => (int) $t >= $window_start));
 
         if (count($list) >= $limit) {
             $oldest = (int) $list[0];
-            return ['ok' => false, 'retry_after' => max(1, $oldest + 3600 - $now)];
+            return ['ok' => false, 'retry_after' => max(1, $oldest + $window_seconds - $now)];
         }
 
         $list[] = $now;
-        set_transient($key, $list, 2 * HOUR_IN_SECONDS);
+        set_transient($key, $list, 2 * $window_seconds);
         return ['ok' => true];
     }
 
