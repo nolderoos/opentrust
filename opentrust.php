@@ -28,6 +28,7 @@ require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-cpt.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-catalog.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-repository.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-render.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-version.php';
 
