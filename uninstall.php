@@ -46,6 +46,11 @@ if ($ot_timestamp) {
     wp_unschedule_event($ot_timestamp, 'opentrust_chat_log_purge');
 }
 
+// Clear any pending policy-summary single-events. Pending events would otherwise
+// fire post-uninstall and fatal because the OpenTrust_Chat_Summarizer class is
+// gone — wp_clear_scheduled_hook() removes every scheduled occurrence.
+wp_clear_scheduled_hook('opentrust_generate_policy_summary');
+
 // Delete plugin options.
 delete_option('opentrust_settings');
 delete_option('opentrust_provider_keys');

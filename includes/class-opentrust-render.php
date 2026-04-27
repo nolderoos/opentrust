@@ -848,23 +848,4 @@ final class OpenTrust_Render {
         ];
     }
 
-    public static function dp_category_labels(): array {
-        return [
-            'account'       => __('Account Information', 'opentrust'),
-            'contact'       => __('Contact Information', 'opentrust'),
-            'personal'      => __('Personal Data', 'opentrust'),
-            'financial'     => __('Financial Data', 'opentrust'),
-            'usage'         => __('Usage & Analytics', 'opentrust'),
-            'technical'     => __('Device & Technical', 'opentrust'),
-            'behavioral'    => __('Behavioral Data', 'opentrust'),
-            'content'       => __('User Content', 'opentrust'),
-            'communications'=> __('Communications', 'opentrust'),
-            'location'      => __('Location Data', 'opentrust'),
-            'identity'      => __('Identity & Verification', 'opentrust'),
-            'marketing'     => __('Marketing & Preferences', 'opentrust'),
-            'sensitive'     => __('Sensitive Data', 'opentrust'),
-            'health'        => __('Health Data', 'opentrust'),
-        ];
-    }
-
 }

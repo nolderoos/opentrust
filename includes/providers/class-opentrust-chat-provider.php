@@ -8,9 +8,10 @@
  *  - OpenTrust_Chat_Provider_OpenRouter
  *
  * The base class provides the factory, shared HTTP helpers, and a
- * host allowlist for SSRF prevention. Subclasses implement the three
- * provider-specific methods: validate_and_list_models(), stream_chat(),
- * curate_models(), and citation_strategy().
+ * host allowlist for SSRF prevention. Subclasses implement the
+ * provider-specific methods: slug(), label(), allowed_hosts(),
+ * validate_and_list_models(), stream_chat(), curate_models(), and
+ * citation_strategy().
  */
 
 declare(strict_types=1);
@@ -87,7 +88,8 @@ abstract class OpenTrust_Chat_Provider {
     abstract public function validate_and_list_models(string $key): array;
 
     /**
-     * Stream a chat completion. Wired in story 02.
+     * Stream a chat completion through the provider, driving the multi-turn
+     * tool loop and emitting normalized events to the caller.
      *
      * @param array    $args         [ 'system' => string, 'corpus' => array, 'messages' => array, 'tools' => array, 'model' => string ]
      * @param callable $on_chunk     Called with a normalized event: [ 'type' => 'token'|'citation'|'tool_call'|'done'|'error', 'data' => mixed ]

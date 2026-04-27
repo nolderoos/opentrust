@@ -7,8 +7,10 @@
  * and implements the handler that dispatches to the configured provider
  * adapter via either a streaming (SSE) or a blocking (JSON fallback) transport.
  *
- * Budget enforcement, rate limiting, and Turnstile verification hook into
- * `permission_callback` in story 04. This story only verifies the REST nonce.
+ * The permission_callback runs four gates in order: REST nonce → Turnstile
+ * verification (when enabled) → per-IP sliding-window rate limit → per-session
+ * sliding-window rate limit. Token-budget reservation happens inside
+ * handle_chat() so failed pre-flight checks never consume the operator's quota.
  */
 
 declare(strict_types=1);

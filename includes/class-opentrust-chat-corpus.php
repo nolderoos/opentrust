@@ -261,15 +261,6 @@ final class OpenTrust_Chat_Corpus {
     // ──────────────────────────────────────────────
 
     /**
-     * Build the slim TOC array directly from the cached corpus.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public static function build_index(?string $locale = null): array {
-        return self::get_or_build($locale)['index'] ?? [];
-    }
-
-    /**
      * Project the document array into its index (TOC) representation.
      *
      * @param array<int, array<string, mixed>> $documents
@@ -408,17 +399,6 @@ final class OpenTrust_Chat_Corpus {
             }
         }
         return $map;
-    }
-
-    /**
-     * Public wrapper over the URL-to-id reverse map. Providers consult this
-     * during citation streaming.
-     *
-     * @param array<int, array<string, mixed>> $documents
-     * @return array<string, string>
-     */
-    public static function url_to_id_map(array $documents): array {
-        return self::build_url_to_id_map($documents);
     }
 
     // ──────────────────────────────────────────────

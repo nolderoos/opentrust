@@ -365,25 +365,6 @@ final class OpenTrust_Admin {
         <?php
     }
 
-    public function render_password_field(array $args): void {
-        $settings = OpenTrust::get_settings();
-        $key      = $args['key'];
-        $value    = $settings[$key] ?? '';
-        $masked   = $value ? str_repeat('•', 20) : '';
-        printf(
-            '<input type="password" id="opentrust_%1$s" name="opentrust_settings[%1$s]" value="%2$s" class="regular-text" autocomplete="off" placeholder="%3$s">',
-            esc_attr($key),
-            esc_attr($value ? '••••••••••••••••••••' : ''),
-            esc_attr__('Enter secret key…', 'opentrust')
-        );
-        if ($value) {
-            echo ' <span class="description" style="color:#16a34a">&#10003; ' . esc_html__('Key saved', 'opentrust') . '</span>';
-        }
-        if (!empty($args['description'])) {
-            printf('<p class="description">%s</p>', esc_html($args['description']));
-        }
-    }
-
     public function render_sections_field(array $args): void {
         $settings = OpenTrust::get_settings();
         $visible  = $settings['sections_visible'] ?? [];
@@ -873,20 +854,11 @@ final class OpenTrust_Admin {
         <form method="post" action="options.php">
             <?php settings_fields('opentrust_settings_group'); ?>
 
-            <?php // Sentinel so sanitize_settings knows the AI tab is submitting. ?>
+            <?php // Sentinel so sanitize_settings knows the AI tab is submitting. The
+                  // sanitize callback's else-branches (admin.php:446-465, 478-488) carry
+                  // every non-AI key forward from $old_settings byte-for-byte, so we do
+                  // NOT need to re-POST those values via hidden inputs. ?>
             <input type="hidden" name="opentrust_settings[__ai_tab_save]" value="1">
-
-            <?php // Carry forward every non-AI setting so the options.php save doesn't wipe General tab. ?>
-            <?php foreach ($settings as $k => $v): ?>
-                <?php if (str_starts_with((string) $k, 'ai_')) { continue; } ?>
-                <?php if (is_array($v)): ?>
-                    <?php foreach ($v as $sub_k => $sub_v): ?>
-                        <input type="hidden" name="opentrust_settings[<?php echo esc_attr($k); ?>][<?php echo esc_attr((string) $sub_k); ?>]" value="<?php echo esc_attr((string) $sub_v); ?>">
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <input type="hidden" name="opentrust_settings[<?php echo esc_attr($k); ?>]" value="<?php echo esc_attr((string) $v); ?>">
-                <?php endif; ?>
-            <?php endforeach; ?>
 
             <table class="form-table" role="presentation">
                 <tr>
@@ -1590,7 +1562,7 @@ final class OpenTrust_Admin {
             ],
             MINUTE_IN_SECONDS
         );
-        wp_safe_redirect(admin_url('admin.php?page=opentrust-settings#tab-ai'));
+        wp_safe_redirect(admin_url('admin.php?page=opentrust&tab=ai'));
         exit;
     }
 

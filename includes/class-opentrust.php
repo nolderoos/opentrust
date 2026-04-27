@@ -149,7 +149,6 @@ final class OpenTrust {
         $vars[] = 'opentrust';
         $vars[] = 'ot_policy_slug';
         $vars[] = 'ot_version';
-        $vars[] = 'ot_token';
         return $vars;
     }
 
