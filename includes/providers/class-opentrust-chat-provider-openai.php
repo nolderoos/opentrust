@@ -336,15 +336,7 @@ class OpenTrust_Chat_Provider_OpenAI extends OpenTrust_Chat_Provider {
             return;
         }
 
-        // Tool-turn cap hit. Synthesize a soft refusal as token text — the
-        // existing detect_refusal() picks up "I couldn't find" so the UI
-        // routes through the contact CTA instead of an error banner.
-        $on_chunk([
-            'type' => 'token',
-            'data' => [
-                'text' => __("I couldn't find a confident answer in the published trust center documents. Please contact the team for help.", 'opentrust'),
-            ],
-        ]);
+        $this->emit_cap_refusal($on_chunk);
     }
 
     /**

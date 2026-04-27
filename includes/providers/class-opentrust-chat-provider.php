@@ -136,11 +136,187 @@ abstract class OpenTrust_Chat_Provider {
      * Stream a chat completion through the provider, driving the multi-turn
      * tool loop and emitting normalized events to the caller.
      *
+     * The loop body is generic: build a per-turn payload, stream it, decide
+     * whether the model wants another tool round, append the assistant +
+     * tool-result messages, repeat until end_turn or the cap is hit. Provider-
+     * specific work (envelope grammars, payload shape, message accumulation)
+     * lives in the protected hooks below.
+     *
+     * Subclasses may override stream_chat() entirely while a phased migration
+     * is in flight; once every subclass implements the hooks, the base body
+     * becomes the single source of truth.
+     *
      * @param array    $args         [ 'system' => string, 'corpus' => array, 'messages' => array, 'tools' => array, 'model' => string ]
      * @param callable $on_chunk     Called with a normalized event: [ 'type' => 'token'|'citation'|'tool_call'|'done'|'error', 'data' => mixed ]
-     * @param callable $tool_resolver Called with (string $name, array $args) — returns a string result for the model.
+     * @param callable $tool_resolver Called with (string $name, array $args) — returns search_result blocks.
      */
-    abstract public function stream_chat(array $args, callable $on_chunk, callable $tool_resolver): void;
+    public function stream_chat(array $args, callable $on_chunk, callable $tool_resolver): void {
+        $turn_loop_state = $this->initialize_turn_loop($args, $on_chunk);
+        if ($turn_loop_state === null) {
+            return; // initialize_turn_loop already emitted an error event
+        }
+
+        $documents = is_array($args['corpus']['documents'] ?? null)
+            ? $args['corpus']['documents']
+            : [];
+
+        // Force a tool call on turn 1 so the model can never bypass retrieval
+        // and answer from training data. After any tool call we relax to auto.
+        $has_called_tool = false;
+
+        for ($turn = 1; $turn <= OpenTrust_Chat::MAX_TOOL_TURNS; $turn++) {
+            $stream_state = $this->stream_one_turn($turn_loop_state, $has_called_tool, $on_chunk);
+            if ($stream_state === null) {
+                return; // stream_one_turn already emitted an error event
+            }
+
+            $on_chunk(['type' => 'usage', 'data' => $this->extract_usage($stream_state)]);
+
+            $pending = $this->extract_pending_tool_calls($stream_state);
+            if (empty($pending)) {
+                $this->finalize_after_loop($turn_loop_state, $stream_state, $documents, $on_chunk);
+                return;
+            }
+
+            $has_called_tool = true;
+
+            // ONE aggregated tool_call event per turn so the UI can render a
+            // single morphing pill rather than N pills on parallel-tool turns.
+            $on_chunk([
+                'type' => 'tool_call',
+                'data' => $this->build_tool_call_event_data($pending, $documents),
+            ]);
+
+            $this->append_assistant_message($turn_loop_state, $stream_state);
+            $this->resolve_and_append_tool_results($turn_loop_state, $pending, $tool_resolver);
+        }
+
+        $this->emit_cap_refusal($on_chunk);
+    }
+
+    // ──────────────────────────────────────────────
+    // Turn-loop hooks (provider-implementable)
+    // ──────────────────────────────────────────────
+
+    /**
+     * Build provider-specific turn-loop state from the request args. The
+     * returned array is mutated by reference across hooks (api_messages,
+     * tools payload, system_full, model, …). Return null after emitting an
+     * 'error' event when the args are invalid.
+     */
+    protected function initialize_turn_loop(array $args, callable $on_chunk): ?array {
+        return null;
+    }
+
+    /**
+     * Stream one turn through the provider. Build the payload from
+     * $turn_loop_state, POST it via stream_post, and let the provider-specific
+     * SSE parser fill a state array (token deltas may be emitted live to
+     * $on_chunk during this call). Return null after emitting an 'error' event
+     * on hard failure.
+     */
+    protected function stream_one_turn(array &$turn_loop_state, bool $has_called_tool, callable $on_chunk): ?array {
+        return null;
+    }
+
+    /**
+     * Convert provider-shaped usage from one turn into the canonical shape the
+     * Stream_Collector expects: {tokens_in, tokens_out, cache_creation, cache_read}.
+     */
+    protected function extract_usage(array $stream_state): array {
+        return ['tokens_in' => 0, 'tokens_out' => 0];
+    }
+
+    /**
+     * Extract the tool calls the model wants to make this turn, normalized
+     * for the base loop. Each entry must include 'name' and 'args' (decoded
+     * argument array). Subclasses may stash provider-specific fields under
+     * other keys (e.g. 'id', 'raw') for the message-append hooks to read.
+     *
+     * @return array<int, array{name:string, args:array}>
+     */
+    protected function extract_pending_tool_calls(array $stream_state): array {
+        return [];
+    }
+
+    /**
+     * Append the assistant message produced by this turn to the running
+     * message list inside $turn_loop_state. Anthropic serializes from its
+     * content_blocks state into assistant.content[]; OpenAI emits a single
+     * assistant message with tool_calls + content.
+     */
+    protected function append_assistant_message(array &$turn_loop_state, array $stream_state): void {
+    }
+
+    /**
+     * Resolve each pending tool via $tool_resolver and append the results to
+     * $turn_loop_state in the provider's message shape (Anthropic: user-role
+     * with tool_result content blocks; OpenAI: one 'tool'-role message per
+     * call with XML-serialized text).
+     *
+     * @param array<int, array{name:string, args:array}> $pending
+     */
+    protected function resolve_and_append_tool_results(array &$turn_loop_state, array $pending, callable $tool_resolver): void {
+    }
+
+    /**
+     * Run when the loop ended without another tool call — i.e. the model
+     * produced a final answer. Anthropic emits citations live during the
+     * stream so this is a no-op for it; OpenAI scans the accumulated answer
+     * for [[cite:id]] markers and emits citation events here.
+     */
+    protected function finalize_after_loop(array $turn_loop_state, array $stream_state, array $documents, callable $on_chunk): void {
+    }
+
+    /**
+     * Soft refusal token emitted when the per-request tool-turn cap is hit.
+     * The wording starts with "I couldn't find" so detect_refusal() trips and
+     * the UI shows the contact-team CTA instead of an error banner. Final on
+     * the base so a misbehaving subclass cannot drift the wording away from
+     * the detect_refusal() marker list.
+     */
+    final protected function emit_cap_refusal(callable $on_chunk): void {
+        $on_chunk([
+            'type' => 'token',
+            'data' => [
+                'text' => __("I couldn't find a confident answer in the published trust center documents. Please contact the team for help.", 'opentrust'),
+            ],
+        ]);
+    }
+
+    /**
+     * Build the data block for a 'tool_call' SSE event. Always emits both
+     * `summary` (active tense) and `settled_summary` (past tense) so the JS
+     * pill can morph from "Searching for X" to "Searched for X" uniformly
+     * across providers. Subclasses may override if they need a different
+     * shape, but the default works for both Anthropic and OpenAI.
+     *
+     * @param array<int, array{name:string, args:array}> $pending  Normalized.
+     * @param array<int, array<string, mixed>>           $documents Corpus docs.
+     */
+    protected function build_tool_call_event_data(array $pending, array $documents): array {
+        $count = count($pending);
+        $names = array_map(static fn(array $p): string => (string) ($p['name'] ?? ''), $pending);
+
+        if ($count === 1) {
+            $only            = $pending[0];
+            $only_args       = is_array($only['args'] ?? null) ? $only['args'] : [];
+            $only_name       = (string) ($only['name'] ?? '');
+            $summary         = self::summarize_tool_call($only_name, $only_args, $documents, 'pending');
+            $settled_summary = self::summarize_tool_call($only_name, $only_args, $documents, 'settled');
+        } else {
+            $summary         = self::summarize_turn_batch($names, $count, 'pending');
+            $settled_summary = self::summarize_turn_batch($names, $count, 'settled');
+        }
+
+        return [
+            'name'            => $names[0] ?? 'tool_call',
+            'summary'         => $summary,
+            'settled_summary' => $settled_summary,
+            'count'           => $count,
+            'names'           => $names,
+        ];
+    }
 
     /**
      * Which citation strategy this provider uses:
