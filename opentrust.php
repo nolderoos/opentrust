@@ -22,7 +22,7 @@ define('OPENTRUST_VERSION', '0.9.6');
 define('OPENTRUST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('OPENTRUST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('OPENTRUST_PLUGIN_FILE', __FILE__);
-define('OPENTRUST_DB_VERSION', 10);
+define('OPENTRUST_DB_VERSION', 11);
 
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin.php';
@@ -52,29 +52,31 @@ register_activation_hook(__FILE__, static function (): void {
     // Register CPTs before flushing so rewrite rules include them.
     OpenTrust_CPT::register_post_types();
 
-    // Set default settings if not present.
+    // First-install defaults. Pass autoload=no on the first write — the option
+    // is a sizeable array carrying encrypted Turnstile secret + per-site salt,
+    // and we'd rather not load it on every front-end request that never touches
+    // OpenTrust. Reactivations on existing rows take the migrate-flip path in
+    // OpenTrust::maybe_upgrade() instead.
     if (false === get_option('opentrust_settings')) {
-        update_option('opentrust_settings', OpenTrust::defaults());
+        add_option('opentrust_settings', OpenTrust::defaults(), '', false);
     }
 
-    // Defensive cleanup: remove any legacy weekly-digest and notification state
-    // from earlier plugin versions (subscriptions feature lives on the
-    // feature/subscriptions-broadcasts branch and is not shipped in this build).
+    // Defensive cleanup: remove any legacy weekly-digest state from earlier
+    // plugin versions. Schedule + queue option are cheap to clear unconditionally.
     wp_clear_scheduled_hook('opentrust_weekly_digest');
     delete_option('opentrust_notification_queue');
 
-    global $wpdb;
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
-    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_subscribers");
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
-    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_notification_log");
+    // Subscriber/notification-log table DROPs are gated behind the v7 upgrade
+    // path in maybe_upgrade(); a fresh install has nothing to drop and a
+    // post-v7 reactivation already cleared them. No reason to run DDL here on
+    // every activation.
 
     // Create chat log table.
     OpenTrust_Chat_Log::create_table();
 
     // Run data migration.
     OpenTrust_CPT::migrate_data_practices_v2();
-    update_option('opentrust_db_version', OPENTRUST_DB_VERSION);
+    update_option('opentrust_db_version', OPENTRUST_DB_VERSION, false);
 
     // Seed default FAQs on first activation. Gated internally so deletions
     // stick and re-activation will not recreate them.

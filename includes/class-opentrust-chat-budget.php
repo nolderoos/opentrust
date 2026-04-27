@@ -281,7 +281,7 @@ final class OpenTrust_Chat_Budget {
         if ($salt === '') {
             $salt = wp_generate_password(64, true, true);
             $settings['opentrust_site_salt'] = $salt;
-            update_option('opentrust_settings', $settings);
+            update_option('opentrust_settings', $settings, false);
         }
         return $salt;
     }
@@ -335,13 +335,22 @@ final class OpenTrust_Chat_Budget {
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Setting a generated token, not reading user input
         $_COOKIE['opentrust_chat_session'] = $token;
 
-        setcookie('opentrust_chat_session', $token, [
-            'expires'  => time() + DAY_IN_SECONDS,
-            'path'     => '/',
-            'secure'   => is_ssl(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
+        // setcookie() warns and fails if any output (including stray whitespace
+        // before <?php) has already been emitted. The chat templates are the
+        // only documented callers and they invoke us before include'ing the
+        // template — but a misbehaving theme or debug bar could still emit on
+        // init. Skip silently in that case; the populated $_COOKIE above lets
+        // the rate-limit hash work for this request, the visitor just won't
+        // get a persistent cookie until the next clean request.
+        if (!headers_sent()) {
+            setcookie('opentrust_chat_session', $token, [
+                'expires'  => time() + DAY_IN_SECONDS,
+                'path'     => '/',
+                'secure'   => is_ssl(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
 
         return $token;
     }

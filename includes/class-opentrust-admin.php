@@ -1083,7 +1083,7 @@ final class OpenTrust_Admin {
      */
     private function save_settings_raw(array $settings): void {
         remove_filter('sanitize_option_opentrust_settings', [$this, 'sanitize_settings']);
-        update_option('opentrust_settings', $settings);
+        update_option('opentrust_settings', $settings, false);
         add_filter('sanitize_option_opentrust_settings', [$this, 'sanitize_settings']);
     }
 

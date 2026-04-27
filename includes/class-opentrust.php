@@ -195,7 +195,7 @@ final class OpenTrust {
                     $secret = (string) ($settings['turnstile_secret_key'] ?? '');
                     if ($secret !== '' && !str_starts_with($secret, 'ot_enc_v1:')) {
                         $settings['turnstile_secret_key'] = OpenTrust_Chat_Secrets::encrypt($secret);
-                        update_option('opentrust_settings', $settings);
+                        update_option('opentrust_settings', $settings, false);
                     }
                 }
             }
@@ -214,11 +214,26 @@ final class OpenTrust {
                 $settings = get_option('opentrust_settings');
                 if (is_array($settings) && !array_key_exists('ai_auto_summarize', $settings)) {
                     $settings['ai_auto_summarize'] = false;
-                    update_option('opentrust_settings', $settings);
+                    update_option('opentrust_settings', $settings, false);
                 }
                 if (class_exists('OpenTrust_Chat_Corpus')) {
                     OpenTrust_Chat_Corpus::invalidate();
                 }
+            }
+
+            // v11: flip autoload=no on opentrust_settings + opentrust_db_version.
+            // Both options were created with the WP default (autoload=yes), which
+            // means they're loaded into memory on every WP request even on
+            // front-end pages that never touch OpenTrust. update_option() does
+            // not flip an existing row's autoload flag unless the value is also
+            // changing, so we either reach for wp_set_option_autoload() (added
+            // in WP 6.4) or fall back to a direct $wpdb->update on the options
+            // table. Both paths are safe and idempotent.
+            if ($current < 11) {
+                self::set_option_autoload_off('opentrust_settings');
+                self::set_option_autoload_off('opentrust_db_version');
+                self::set_option_autoload_off('opentrust_cache_version');
+                self::set_option_autoload_off('opentrust_faqs_seeded');
             }
 
             // Chat (OTC) schema migration. dbDelta is idempotent on real
@@ -234,9 +249,29 @@ final class OpenTrust {
             // Trigger a rewrite flush so new endpoints register.
             set_transient('opentrust_flush_rewrite', true);
 
-            update_option('opentrust_db_version', OPENTRUST_DB_VERSION);
+            update_option('opentrust_db_version', OPENTRUST_DB_VERSION, false);
             $this->invalidate_cache();
         }
+    }
+
+    /**
+     * Flip an option's autoload flag to 'no' without rewriting its value.
+     * Prefers WP 6.4+'s wp_set_option_autoload(); falls back to a direct
+     * $wpdb->update on the options table on older cores. Idempotent.
+     */
+    private static function set_option_autoload_off(string $option_name): void {
+        if (function_exists('wp_set_option_autoload')) {
+            wp_set_option_autoload($option_name, false);
+            return;
+        }
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- One-shot upgrade flip; bypasses the alloptions cache by design
+        $wpdb->update(
+            $wpdb->options,
+            ['autoload' => 'no'],
+            ['option_name' => $option_name]
+        );
+        wp_cache_delete('alloptions', 'options');
     }
 
     public function maybe_flush_rewrites(): void {
@@ -270,6 +305,9 @@ final class OpenTrust {
         // this version in every key, so every cached locale variant is
         // instantly stale after the bump. Stale transients expire naturally
         // on their existing TTL and are garbage-collected by WordPress.
+        // Note: passing autoload=false on update_option only matters for the
+        // FIRST write — pre-existing autoload flags are preserved unless the
+        // v11 migration ran. (See set_option_autoload_off above.)
         $version = (int) get_option('opentrust_cache_version', 1);
         update_option('opentrust_cache_version', $version + 1, false);
     }
