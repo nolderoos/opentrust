@@ -10,15 +10,15 @@
  * gap at ~1¢ per policy, lifetime.
  *
  * Lifecycle:
- *   - Operator opts in via the `ai_auto_summarize` setting (off by default).
+ *   - Gated by the `ai_auto_summarize` setting.
  *   - On every meaningful save_post for an ot_policy, a wp_schedule_single_event
  *     fires ~5 seconds later (debounce; doesn't block the editor save).
  *   - The cron handler calls whichever AI provider the operator configured
  *     for chat, using the same key. Result is persisted to postmeta and the
  *     corpus transient is invalidated so the next chat request rebuilds the
  *     index with the fresh summary.
- *   - One-time sweep is exposed as a button on the AI Chat settings tab so
- *     existing installs can backfill summaries without saving every policy.
+ *   - A sweep button on the AI Chat settings tab can backfill summaries
+ *     without saving every policy.
  *
  * Failure modes degrade gracefully: if the API call fails, the previous
  * summary stays in postmeta (or the corpus falls back to the post excerpt).

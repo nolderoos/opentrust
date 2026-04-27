@@ -35,12 +35,6 @@ foreach ($ot_post_types as $ot_post_type) {
     }
 }
 
-// Drop notification tables.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- DDL with dynamic table prefix cannot use prepare()
-$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_notification_log");
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- DDL with dynamic table prefix cannot use prepare()
-$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_subscribers");
-
 // Drop chat log table.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- DDL with dynamic table prefix cannot use prepare()
 $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_chat_log");
@@ -62,15 +56,6 @@ delete_option('opentrust_provider_keys');
 delete_option('opentrust_db_version');
 delete_option('opentrust_cache_version');
 delete_option('opentrust_faqs_seeded');
-
-// Legacy option from the removed weekly-digest system.
-delete_option('opentrust_notification_queue');
-
-// Legacy cron event from the removed weekly-digest system.
-$ot_legacy_digest = wp_next_scheduled('opentrust_weekly_digest');
-if ($ot_legacy_digest) {
-    wp_unschedule_event($ot_legacy_digest, 'opentrust_weekly_digest');
-}
 
 // Clean up any transients.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Bulk cleanup of plugin transients on uninstall, no user input

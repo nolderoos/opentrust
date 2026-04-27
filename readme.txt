@@ -4,7 +4,7 @@ Tags: trust-center, compliance, gdpr, privacy, subprocessors
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.9.7
+Stable tag: 1.0.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -167,44 +167,5 @@ Not automatically — that's intentional. Auto-rendered PDFs from HTML almost al
 
 == Changelog ==
 
-= 0.9.7 =
-* Default policy auto-summarize to ON for new installs (existing installs migrated). Improves AI chat routing on multi-policy sites; first publish triggers a debounced async summary via the configured provider. Off-switch lives on the AI Chat settings tab.
-* Added a scoped WP.org review-prompt admin notice on milestone events (≥3 published policies + 14 days active). Per-user dismiss; never repeats. Footer link only on OpenTrust admin screens.
-* Internal: split monolithic admin class into Settings, AI, Questions, and Review modules; added a read-side Repository data layer shared by Render and Chat Corpus. No behavior change.
-* Database schema bumped to v12. Additive only.
-
-= 0.9.6 =
-* Chat: tool-use status pill morphs verb tense after settling ("Searching for X" → "Searched for X").
-* Chat: between-turn model preambles now lock as their own segment instead of mashing into the answer body.
-* Chat: removed blinking caret on streaming answers — the typewriter cadence already signals "still typing."
-
-= 0.9.5 =
-* Chat (Anthropic): added an early `tool_intent` SSE event so the status pill appears within ~1–2 seconds of submit instead of waiting 6–8 seconds for tool-input planning to finish.
-
-= 0.9.0 =
-* Replaced the chat engine with agentic retrieval. The AI now reads a compact index of the trust center and fetches only the documents it needs to answer each question — instead of receiving every document on every request. Per-question API spend drops by ~80% on Anthropic.
-* Removed the 120K-token corpus size cap. Installs with hundreds of policies and subprocessors now work without manual configuration.
-* Added an optional AI-generated 2–3 sentence summary per policy; improves answer quality on multi-policy installs by helping the AI route synonym questions to the right document.
-* Added a "Looking up …" status indicator while the AI fetches documents.
-* All three providers (Anthropic, OpenAI, OpenRouter) migrated to the agentic engine. Anthropic remains the recommended provider for best citation accuracy.
-
-= 0.8.0 =
-* Added Policy ID reference field (e.g., POL-012) visible on the public listing and single-policy view.
-* Added framework citation repeater (SOC 2, ISO 27001, GDPR) rendered as pill badges.
-* Replaced the print-to-PDF stub with a real PDF attachment field. Visitors see a Download button only when the author uploads a PDF.
-* Refactored the public policy list from a table into a category-grouped document list with filter chips.
-* Curated the policy block-editor palette to a focused set with a starter template.
-
-= 0.7.0 =
-* Subscription and email-broadcast feature moved out to a separate branch so we can ship a tighter launch surface.
-
-= 0.1.0 =
-* Initial release: 4 custom post types, frontend rendering with theme isolation, admin settings with branding, policy versioning, revision history.
-
-== Upgrade Notice ==
-
-= 0.9.7 =
-Auto-summarize defaults to ON for new installs (existing sites migrated). Adds a one-time WP.org review prompt admin notice. Database schema bumped to v12 (additive only).
-
-= 0.9.0 =
-Major rewrite of the AI chat engine: now uses agentic retrieval. Per-question API cost drops ~80%; the 120K-token corpus cap is removed. Database schema bumped to v10 (additive only).
+= 1.0.0 =
+* Initial public release.

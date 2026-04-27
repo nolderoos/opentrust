@@ -164,132 +164,22 @@ final class OpenTrust {
         return $vars;
     }
 
-    public function maybe_upgrade(): void {
-        $current = (int) get_option('opentrust_db_version', 1);
-        if ($current < OPENTRUST_DB_VERSION) {
-            global $wpdb;
-
-            // v7: subscriptions + broadcasts feature moved to its own branch.
-            // Drop the subscriber / notification log tables and clear legacy cron
-            // state so production installs don't carry dead schema forward.
-            if ($current < 7) {
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
-                $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_subscribers");
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- DDL with dynamic table prefix cannot use prepare()
-                $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}opentrust_notification_log");
-                wp_clear_scheduled_hook('opentrust_weekly_digest');
-                delete_option('opentrust_notification_queue');
-            }
-
-            // v8: PDF printable-HTML route replaced by a real uploaded attachment.
-            // The "Allow PDF download" checkbox is gone — download visibility is
-            // now driven by whether _ot_policy_attachment_id is set.
-            if ($current < 8) {
-                delete_post_meta_by_key('_ot_policy_downloadable');
-            }
-
-            // v9: Turnstile secret is now encrypted at rest alongside AI provider
-            // keys. Detect legacy plaintext values and encrypt in place. We run
-            // on init:5, before OpenTrust_Admin::register_settings() attaches
-            // its sanitize callback on admin_init, so update_option here won't
-            // be intercepted by the carry-forward logic that would otherwise
-            // discard our new ciphertext.
-            if ($current < 9 && class_exists('OpenTrust_Chat_Secrets')) {
-                $settings = get_option('opentrust_settings');
-                if (is_array($settings)) {
-                    $secret = (string) ($settings['turnstile_secret_key'] ?? '');
-                    if ($secret !== '' && !str_starts_with($secret, 'ot_enc_v1:')) {
-                        $settings['turnstile_secret_key'] = OpenTrust_Chat_Secrets::encrypt($secret);
-                        update_option('opentrust_settings', $settings, false);
-                    }
-                }
-            }
-
-            OpenTrust_CPT::migrate_data_practices_v2();
-
-            // v10: agentic chat engine.
-            //   - ai_auto_summarize setting added (default off; opt-in only).
-            //   - chat-log table grew tool_turns + tool_names columns
-            //     (additive; dbDelta picks them up via create_table()).
-            //   - Corpus shape changed (index + bm25 + url_to_id); the cached
-            //     transient must be flushed so the next request rebuilds it.
-            //   - 120K corpus cap + over_budget flag are gone — installs that
-            //     were stuck on `ai_corpus_over_budget` reactivate cleanly.
-            if ($current < 10) {
-                $settings = get_option('opentrust_settings');
-                if (is_array($settings) && !array_key_exists('ai_auto_summarize', $settings)) {
-                    $settings['ai_auto_summarize'] = false;
-                    update_option('opentrust_settings', $settings, false);
-                }
-                if (class_exists('OpenTrust_Chat_Corpus')) {
-                    OpenTrust_Chat_Corpus::invalidate();
-                }
-            }
-
-            // v11: flip autoload=no on opentrust_settings + opentrust_db_version.
-            // Both options were created with the WP default (autoload=yes), which
-            // means they're loaded into memory on every WP request even on
-            // front-end pages that never touch OpenTrust. update_option() does
-            // not flip an existing row's autoload flag unless the value is also
-            // changing, so we either reach for wp_set_option_autoload() (added
-            // in WP 6.4) or fall back to a direct $wpdb->update on the options
-            // table. Both paths are safe and idempotent.
-            if ($current < 11) {
-                self::set_option_autoload_off('opentrust_settings');
-                self::set_option_autoload_off('opentrust_db_version');
-                self::set_option_autoload_off('opentrust_cache_version');
-                self::set_option_autoload_off('opentrust_faqs_seeded');
-            }
-
-            // v12: ai_auto_summarize flipped to default-on. Installs that
-            // inherited the v10 false-default get flipped here; installs
-            // where the operator explicitly chose false will be flipped too
-            // (intentional — the feature is materially load-bearing for
-            // routing quality, and the operator can always toggle it back).
-            if ($current < 12) {
-                $settings = get_option('opentrust_settings');
-                if (is_array($settings) && empty($settings['ai_auto_summarize'])) {
-                    $settings['ai_auto_summarize'] = true;
-                    update_option('opentrust_settings', $settings, false);
-                }
-            }
-
-            // Chat (OTC) schema migration. dbDelta is idempotent on real
-            // MySQL and adds the v10 tool_turns + tool_names columns to
-            // existing installs. (Note: WP Studio's sqlite-database-
-            // integration shim mishandles dbDelta column-adds on existing
-            // tables — a Studio-environment quirk, not a production bug.)
-            if (class_exists('OpenTrust_Chat_Log')) {
-                OpenTrust_Chat_Log::create_table();
-                OpenTrust_Chat_Log::schedule_cron();
-            }
-
-            // Trigger a rewrite flush so new endpoints register.
-            set_transient('opentrust_flush_rewrite', true);
-
-            update_option('opentrust_db_version', OPENTRUST_DB_VERSION, false);
-            $this->invalidate_cache();
-        }
-    }
-
     /**
-     * Flip an option's autoload flag to 'no' without rewriting its value.
-     * Prefers WP 6.4+'s wp_set_option_autoload(); falls back to a direct
-     * $wpdb->update on the options table on older cores. Idempotent.
+     * Schema upgrade hook. Runs on every init at priority 5. Empty in 1.0.0;
+     * future schema migrations land here, gated on the current value of
+     * opentrust_db_version vs. the OPENTRUST_DB_VERSION constant.
      */
-    private static function set_option_autoload_off(string $option_name): void {
-        if (function_exists('wp_set_option_autoload')) {
-            wp_set_option_autoload($option_name, false);
+    public function maybe_upgrade(): void {
+        $current = (int) get_option('opentrust_db_version', 0);
+        if ($current === (int) OPENTRUST_DB_VERSION) {
             return;
         }
-        global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- One-shot upgrade flip; bypasses the alloptions cache by design
-        $wpdb->update(
-            $wpdb->options,
-            ['autoload' => 'no'],
-            ['option_name' => $option_name]
-        );
-        wp_cache_delete('alloptions', 'options');
+
+        // Future migrations land here.
+
+        update_option('opentrust_db_version', OPENTRUST_DB_VERSION, false);
+        set_transient('opentrust_flush_rewrite', true);
+        $this->invalidate_cache();
     }
 
     public function maybe_flush_rewrites(): void {
@@ -323,9 +213,6 @@ final class OpenTrust {
         // this version in every key, so every cached locale variant is
         // instantly stale after the bump. Stale transients expire naturally
         // on their existing TTL and are garbage-collected by WordPress.
-        // Note: passing autoload=false on update_option only matters for the
-        // FIRST write — pre-existing autoload flags are preserved unless the
-        // v11 migration ran. (See set_option_autoload_off above.)
         $version = (int) get_option('opentrust_cache_version', 1);
         update_option('opentrust_cache_version', $version + 1, false);
     }

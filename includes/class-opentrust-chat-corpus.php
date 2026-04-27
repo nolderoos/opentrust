@@ -143,8 +143,7 @@ final class OpenTrust_Chat_Corpus {
         $documents = [];
 
         // Certifications, subprocessors, data_practices — indexed only when
-        // their section is visible on the public page. Mirrors the gating
-        // gather_data() applied before this rewire: a section hidden from
+        // their section is visible on the public page: a section hidden from
         // visitors is also hidden from the AI.
         if (!empty($visible['certifications'])) {
             foreach ($repo->fetch_certifications() as $cert) {
@@ -153,13 +152,8 @@ final class OpenTrust_Chat_Corpus {
         }
 
         // Policies — always indexed, regardless of $visible['policies'].
-        // This mirrors pre-rewire behavior: build() previously fetched
-        // policy posts via its own get_posts() call (full post_content
-        // is needed for the AI tool, not just gather_data's excerpt
-        // projection), which sat outside the visibility gate. Documented
-        // here as a latent asymmetry — possibly a bug — but preserved
-        // bit-exactly. Repository::fetch_policy_posts() is the single
-        // owner of that fetch now.
+        // The full post_content is needed for the AI tool (not just the
+        // excerpt projection), so policies sit outside the visibility gate.
         foreach ($repo->fetch_policy_posts() as $post) {
             $documents[] = self::format_policy($post, $settings);
         }

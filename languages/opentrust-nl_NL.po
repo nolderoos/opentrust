@@ -1,7 +1,7 @@
 # Copyright (C) 2026 OpenTrust. Licensed under GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: OpenTrust 0.6.0\n"
+"Project-Id-Version: OpenTrust 1.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/opentrust\n"
 "Last-Translator: OpenTrust bundled starter <noreply@opentrust.dev>\n"
 "Language-Team: Dutch (Netherlands)\n"

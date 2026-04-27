@@ -242,8 +242,7 @@ final class OpenTrust_Chat {
             // Pass the full corpus struct (documents + url_to_id + bm25 + …).
             // Providers pluck what they need: Anthropic uses url_to_id for
             // citation reverse-lookup; OpenAI consumes documents for
-            // [[cite:id]] resolution. The shape was previously the documents
-            // array directly; the agentic engine needs richer context.
+            // [[cite:id]] resolution.
             'corpus'   => $corpus,
             'messages' => $messages,
             'tools'    => self::tool_definitions(),
@@ -310,9 +309,9 @@ final class OpenTrust_Chat {
     }
 
     /**
-     * Reserve token budget for one chat request. Post-migration the request
-     * footprint scales with: conversation history, the (cached) index in the
-     * system prompt, and an upper bound for tool round-trips and the answer.
+     * Reserve token budget for one chat request. The request footprint scales
+     * with: conversation history, the (cached) index in the system prompt,
+     * and an upper bound for tool round-trips and the answer.
      * Intentionally generous — over-reservation is reclaimed on commit; an
      * under-reservation lets concurrent requests collectively exceed the cap.
      */

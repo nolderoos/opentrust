@@ -16,9 +16,7 @@
  *     the public page is also hidden from the AI's corpus index.
  *
  * Caching: each fetcher is memoized in a locale-scoped transient bumped by
- * opentrust_cache_version. Returns are plain projected arrays so the cached
- * shape is identical to what Render's per-CPT getters previously emitted —
- * no behavior change at consumer sites.
+ * opentrust_cache_version. Returns are plain projected arrays.
  */
 
 declare(strict_types=1);
@@ -288,7 +286,7 @@ final class OpenTrust_Repository {
 
     /**
      * Normalize the citations meta into a list of ["SOC 2 CC6.1", …] strings.
-     * Stored shape is [['name' => '…'], …]; defensive against legacy variants.
+     * Stored shape is [['name' => '…'], …].
      *
      * @param mixed $raw
      * @return array<int,string>

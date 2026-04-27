@@ -56,10 +56,9 @@ final class OpenTrust_Admin_Review {
 
     /**
      * Lazily record when this admin first loaded the plugin. Used as the
-     * floor for the 14-day milestone gate. We don't write this on the
-     * activation hook because we want existing installs (upgrading into
-     * this version) to also get the delay starting now — otherwise every
-     * long-time user would see the prompt on the very next page load.
+     * floor for the 14-day milestone gate. Recorded on first admin page
+     * load (not activation) so the delay starts the first time someone
+     * actually visits an admin screen.
      */
     public function capture_first_seen(): void {
         if (false === get_option(self::FIRST_SEEN_OPTION, false)) {

@@ -149,10 +149,7 @@ final class OpenTrust_Render {
     }
 
     /**
-     * Determine which state the chat page should render. With agentic
-     * retrieval there's no global corpus-size cap to check — the engine
-     * works at any corpus size, only individual oversized documents get
-     * truncated at retrieval time.
+     * Determine which state the chat page should render.
      */
     private function compute_chat_state(array $settings): string {
         if (empty($settings['ai_enabled']) || empty($settings['ai_provider']) || empty($settings['ai_model'])) {
