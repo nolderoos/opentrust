@@ -280,7 +280,8 @@ final class OpenTrust_Render {
     // ──────────────────────────────────────────────
 
     public function gather_data(array $settings): array {
-        $hsl = OpenTrust::hex_to_hsl($settings['accent_color'] ?? '#2563EB');
+        $hsl  = OpenTrust::hex_to_hsl($settings['accent_color'] ?? '#2563EB');
+        $repo = OpenTrust_Repository::instance();
 
         $data = [
             'settings'        => $settings,
@@ -309,7 +310,10 @@ final class OpenTrust_Render {
             $data['avatar_url'] = wp_get_attachment_image_url($avatar_id, 'thumbnail') ?: '';
         }
 
-        // Section data + last-updated timestamps.
+        // Section data + last-updated timestamps. Visibility is applied here
+        // so a hidden section yields an empty array and the template renders
+        // nothing. Repository returns all-published unconditionally; this
+        // gate is consumer-layer concern.
         $visible = $settings['sections_visible'] ?? [];
         $section_cpt_map = [
             'certifications' => 'ot_certification',
@@ -320,24 +324,24 @@ final class OpenTrust_Render {
         ];
 
         if (!empty($visible['certifications'])) {
-            $data['certifications'] = $this->get_certifications();
+            $data['certifications'] = $repo->fetch_certifications();
         }
         if (!empty($visible['policies'])) {
-            $data['policies'] = $this->get_policies();
+            $data['policies'] = $repo->fetch_policies();
         }
         if (!empty($visible['subprocessors'])) {
-            $data['subprocessors'] = $this->get_subprocessors();
+            $data['subprocessors'] = $repo->fetch_subprocessors();
         }
         if (!empty($visible['data_practices'])) {
-            $data['data_practices'] = $this->get_data_practices();
+            $data['data_practices'] = $repo->fetch_data_practices();
         }
         if (!empty($visible['faqs'])) {
-            $data['faqs'] = $this->get_faqs();
+            $data['faqs'] = $repo->fetch_faqs();
         }
 
         foreach ($section_cpt_map as $section => $cpt) {
             if (!empty($visible[$section])) {
-                $data['section_updated'][$section] = $this->get_section_last_updated($cpt);
+                $data['section_updated'][$section] = $repo->section_last_updated($cpt);
             }
         }
 
@@ -345,240 +349,8 @@ final class OpenTrust_Render {
     }
 
     // ──────────────────────────────────────────────
-    // Queries
+    // Per-policy view helpers
     // ──────────────────────────────────────────────
-
-    /**
-     * Build a locale-and-version-scoped transient key. The locale suffix
-     * keeps WPML/Polylang variants in separate buckets; the version counter
-     * lets invalidate_cache() bust every locale at once by bumping a single
-     * option, without having to enumerate every active language.
-     */
-    private function cache_key(string $bucket): string {
-        $version = (int) get_option('opentrust_cache_version', 1);
-        return 'opentrust_' . $bucket . '_' . sanitize_key(determine_locale()) . '_v' . $version;
-    }
-
-    private function get_certifications(): array {
-        return $this->cached_query(
-            'certifications',
-            [
-                'post_type'      => 'ot_certification',
-                'posts_per_page' => -1,
-                'post_status'    => 'publish',
-                'orderby'        => 'menu_order title',
-                'order'          => 'ASC',
-            ],
-            static function (WP_Post $post): array {
-                $badge_id    = (int) get_post_meta($post->ID, '_ot_cert_badge_id', true);
-                $artifact_id = (int) get_post_meta($post->ID, '_ot_cert_artifact_id', true);
-                return [
-                    'id'           => $post->ID,
-                    'title'        => $post->post_title,
-                    'type'         => get_post_meta($post->ID, '_ot_cert_type', true) ?: 'compliant',
-                    'issuing_body' => get_post_meta($post->ID, '_ot_cert_issuing_body', true) ?: '',
-                    'status'       => get_post_meta($post->ID, '_ot_cert_status', true) ?: 'active',
-                    'issue_date'   => get_post_meta($post->ID, '_ot_cert_issue_date', true) ?: '',
-                    'expiry_date'  => get_post_meta($post->ID, '_ot_cert_expiry_date', true) ?: '',
-                    'badge_url'    => $badge_id ? (wp_get_attachment_image_url($badge_id, 'thumbnail') ?: '') : '',
-                    'description'  => get_post_meta($post->ID, '_ot_cert_description', true) ?: '',
-                    'artifact_url' => $artifact_id ? (wp_get_attachment_url($artifact_id) ?: '') : '',
-                ];
-            }
-        );
-    }
-
-    private function get_policies(): array {
-        return $this->cached_query(
-            'policies',
-            [
-                'post_type'      => 'ot_policy',
-                'posts_per_page' => -1,
-                'post_status'    => 'publish',
-                'orderby'        => 'meta_value_num title',
-                'meta_key'       => '_ot_policy_sort_order', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Transient-cached; <100 posts
-                'order'          => 'ASC',
-            ],
-            function (WP_Post $post): array {
-                $eff        = get_post_meta($post->ID, '_ot_policy_effective_date', true) ?: '';
-                $attachment = $this->resolve_policy_attachment($post->ID);
-                return [
-                    'id'             => $post->ID,
-                    'title'          => $post->post_title,
-                    'slug'           => $post->post_name,
-                    'excerpt'        => $post->post_excerpt ?: wp_trim_words($post->post_content, 30),
-                    'version'        => (int) get_post_meta($post->ID, '_ot_version', true) ?: 1,
-                    'ref_id'         => (string) (get_post_meta($post->ID, '_ot_policy_ref_id', true) ?: ''),
-                    'category'       => get_post_meta($post->ID, '_ot_policy_category', true) ?: 'other',
-                    'citations'      => $this->normalize_citations(get_post_meta($post->ID, '_ot_policy_citations', true)),
-                    'effective_date' => $eff,
-                    'review_date'    => get_post_meta($post->ID, '_ot_policy_review_date', true) ?: '',
-                    'attachment'     => $attachment,
-                    'last_modified'  => $post->post_modified,
-                    'is_pending'     => $eff && strtotime($eff) > time(),
-                ];
-            }
-        );
-    }
-
-    /**
-     * Shared transient + WP_Query plumbing for the per-CPT projection methods.
-     * Each caller supplies a $bucket name (used in cache_key), a $query_args
-     * array, and a $mapper callable (WP_Post → array). The result is memoized
-     * for HOUR_IN_SECONDS and invalidated globally via opentrust_cache_version
-     * (see OpenTrust::invalidate_cache).
-     *
-     * @param array<string,mixed> $query_args
-     * @param callable(WP_Post):array<string,mixed> $mapper
-     * @return array<int, array<string,mixed>>
-     */
-    private function cached_query(string $bucket, array $query_args, callable $mapper): array {
-        $cached = get_transient($this->cache_key($bucket));
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $items = array_map($mapper, get_posts($query_args));
-
-        set_transient($this->cache_key($bucket), $items, HOUR_IN_SECONDS);
-        return $items;
-    }
-
-    /**
-     * Normalize the citations meta into a list of ["SOC 2 CC6.1", …] strings.
-     * Stored shape is [['name' => '…'], …]; defensive against legacy variants.
-     *
-     * @param mixed $raw
-     * @return array<int,string>
-     */
-    private function normalize_citations($raw): array {
-        if (!is_array($raw)) {
-            return [];
-        }
-        $out = [];
-        foreach ($raw as $entry) {
-            $name = is_array($entry) ? (string) ($entry['name'] ?? '') : (string) $entry;
-            $name = trim($name);
-            if ($name !== '') {
-                $out[] = $name;
-            }
-        }
-        return $out;
-    }
-
-    /**
-     * Resolve the policy's uploaded PDF into a display-ready struct, or return
-     * null when no attachment is set or the attachment has been deleted.
-     *
-     * @return array{url:string,filename:string,size_bytes:int,size_human:string}|null
-     */
-    private function resolve_policy_attachment(int $post_id): ?array {
-        $attachment_id = (int) get_post_meta($post_id, '_ot_policy_attachment_id', true);
-        if ($attachment_id <= 0 || get_post_type($attachment_id) !== 'attachment') {
-            return null;
-        }
-        $url = wp_get_attachment_url($attachment_id);
-        if (!$url) {
-            return null;
-        }
-        $path  = get_attached_file($attachment_id) ?: '';
-        $bytes = $path && file_exists($path) ? (int) wp_filesize($path) : 0;
-        return [
-            'url'        => $url,
-            'filename'   => get_the_title($attachment_id) ?: basename($url),
-            'size_bytes' => $bytes,
-            'size_human' => $bytes > 0 ? size_format($bytes, 1) : '',
-        ];
-    }
-
-    private function get_subprocessors(): array {
-        return $this->cached_query(
-            'subprocessors',
-            [
-                'post_type'      => 'ot_subprocessor',
-                'posts_per_page' => -1,
-                'post_status'    => 'publish',
-                'orderby'        => 'title',
-                'order'          => 'ASC',
-            ],
-            static fn(WP_Post $post): array => [
-                'id'             => $post->ID,
-                'name'           => $post->post_title,
-                'purpose'        => get_post_meta($post->ID, '_ot_sub_purpose', true) ?: '',
-                'data_processed' => get_post_meta($post->ID, '_ot_sub_data_processed', true) ?: '',
-                'country'        => get_post_meta($post->ID, '_ot_sub_country', true) ?: '',
-                'website'        => get_post_meta($post->ID, '_ot_sub_website', true) ?: '',
-                'dpa_signed'     => (bool) get_post_meta($post->ID, '_ot_sub_dpa_signed', true),
-            ]
-        );
-    }
-
-    private function get_data_practices(): array {
-        return $this->cached_query(
-            'data_practices',
-            [
-                'post_type'      => 'ot_data_practice',
-                'posts_per_page' => -1,
-                'post_status'    => 'publish',
-                'orderby'        => 'meta_value_num title',
-                'meta_key'       => '_ot_dp_sort_order', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Transient-cached; <100 posts
-                'order'          => 'ASC',
-            ],
-            static function (WP_Post $post): array {
-                $data_items = get_post_meta($post->ID, '_ot_dp_data_items', true);
-                $shared     = get_post_meta($post->ID, '_ot_dp_shared_with', true);
-                return [
-                    'id'               => $post->ID,
-                    'title'            => $post->post_title,
-                    'data_items'       => is_array($data_items) ? $data_items : [],
-                    'purpose'          => get_post_meta($post->ID, '_ot_dp_purpose', true) ?: '',
-                    'legal_basis'      => get_post_meta($post->ID, '_ot_dp_legal_basis', true) ?: '',
-                    'retention_period' => get_post_meta($post->ID, '_ot_dp_retention_period', true) ?: '',
-                    'shared_with'      => is_array($shared) ? $shared : [],
-                    'prop_collected'   => (bool) get_post_meta($post->ID, '_ot_dp_collected', true),
-                    'prop_stored'      => (bool) get_post_meta($post->ID, '_ot_dp_stored', true),
-                    'prop_shared'      => (bool) get_post_meta($post->ID, '_ot_dp_shared', true),
-                    'prop_sold'        => (bool) get_post_meta($post->ID, '_ot_dp_sold', true),
-                    'prop_encrypted'   => (bool) get_post_meta($post->ID, '_ot_dp_encrypted', true),
-                ];
-            }
-        );
-    }
-
-    private function get_faqs(): array {
-        $endpoint = OpenTrust::get_settings()['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG;
-
-        return $this->cached_query(
-            'faqs',
-            [
-                'post_type'      => 'ot_faq',
-                'posts_per_page' => -1,
-                'post_status'    => 'publish',
-                'orderby'        => ['menu_order' => 'ASC', 'title' => 'ASC'],
-            ],
-            static function (WP_Post $post) use ($endpoint): array {
-                $related_id    = (int) get_post_meta($post->ID, '_ot_faq_related_policy', true);
-                $related_url   = '';
-                $related_title = '';
-                if ($related_id && get_post_status($related_id) === 'publish') {
-                    $related_post  = get_post($related_id);
-                    $related_url   = home_url('/' . $endpoint . '/policy/' . $related_post->post_name . '/');
-                    $related_title = $related_post->post_title;
-                }
-                return [
-                    'id'            => $post->ID,
-                    'title'         => $post->post_title,
-                    'slug'          => $post->post_name,
-                    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress filter.
-                    'answer_html'   => apply_filters('the_content', $post->post_content),
-                    'answer_text'   => wp_strip_all_tags($post->post_content),
-                    'menu_order'    => (int) $post->menu_order,
-                    'related_url'   => $related_url,
-                    'related_title' => $related_title,
-                ];
-            }
-        );
-    }
 
     /**
      * Whether a policy's effective date is in the future.
@@ -657,27 +429,6 @@ final class OpenTrust_Render {
     // ──────────────────────────────────────────────
 
     /**
-     * Get the most recent post_modified timestamp for a given CPT.
-     */
-    private function get_section_last_updated(string $post_type): string {
-        $posts = get_posts([
-            'post_type'      => $post_type,
-            'posts_per_page' => 1,
-            'post_status'    => 'publish',
-            'orderby'        => 'modified',
-            'order'          => 'DESC',
-            'fields'         => 'ids',
-        ]);
-
-        if (empty($posts)) {
-            return '';
-        }
-
-        $time = get_post_modified_time('U', false, $posts[0]);
-        return $time ? (string) $time : '';
-    }
-
-    /**
      * Render an "Updated X ago" pill. Returns HTML string.
      */
     public static function updated_pill(string $section_key, array $data): string {
@@ -745,13 +496,14 @@ final class OpenTrust_Render {
     }
 
     private function get_policy_meta(int $post_id): array {
+        $repo = OpenTrust_Repository::instance();
         return [
             'ref_id'         => (string) (get_post_meta($post_id, '_ot_policy_ref_id', true) ?: ''),
             'category'       => get_post_meta($post_id, '_ot_policy_category', true) ?: 'other',
-            'citations'      => $this->normalize_citations(get_post_meta($post_id, '_ot_policy_citations', true)),
+            'citations'      => $repo->normalize_citations(get_post_meta($post_id, '_ot_policy_citations', true)),
             'effective_date' => get_post_meta($post_id, '_ot_policy_effective_date', true) ?: '',
             'review_date'    => get_post_meta($post_id, '_ot_policy_review_date', true) ?: '',
-            'attachment'     => $this->resolve_policy_attachment($post_id),
+            'attachment'     => $repo->resolve_policy_attachment($post_id),
         ];
     }
 
