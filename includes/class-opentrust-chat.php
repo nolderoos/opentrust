@@ -277,7 +277,7 @@ final class OpenTrust_Chat {
         try {
             if ($wants_sse) {
                 $this->setup_sse_response();
-                $result = $this->drive_stream($adapter, $args, $corpus);
+                $result = $this->drive_stream($adapter, $args);
                 OpenTrust_Chat_Budget::commit($estimated, $result['actual_tokens']);
                 OpenTrust_Chat_Log::record(array_merge($log_row, [
                     'tokens_in'      => $result['tokens_in'],
@@ -291,7 +291,7 @@ final class OpenTrust_Chat {
                 exit;
             }
 
-            $response = $this->drive_blocking($adapter, $args, $corpus, $blocking_stats);
+            $response = $this->drive_blocking($adapter, $args, $blocking_stats);
             OpenTrust_Chat_Budget::commit($estimated, (int) ($blocking_stats['actual_tokens'] ?? 0));
             OpenTrust_Chat_Log::record(array_merge($log_row, [
                 'tokens_in'      => (int) ($blocking_stats['tokens_in']      ?? 0),
@@ -377,8 +377,8 @@ final class OpenTrust_Chat {
      *     refused:bool, tool_turns:int, tool_names:string
      * }
      */
-    private function drive_stream(OpenTrust_Chat_Provider $adapter, array $args, array $corpus): array {
-        $collector = new OpenTrust_Chat_Stream_Collector($corpus['urls'] ?? []);
+    private function drive_stream(OpenTrust_Chat_Provider $adapter, array $args): array {
+        $collector = $this->build_collector($args);
 
         $on_chunk = static function (array $event) use ($collector): void {
             // ingest() returns true for events the client should also see live
@@ -389,21 +389,11 @@ final class OpenTrust_Chat {
             }
         };
 
-        // Per-request loop detection: same name + canonical args → guidance
-        // result instead of running the same query a second time. Ref-passed
-        // into the resolver so state spans every turn of this request.
-        $seen_calls = [];
-
-        $tool_resolver = function (string $name, array $tool_args) use ($corpus, &$seen_calls): array {
-            return self::resolve_tool($name, $tool_args, $corpus, $seen_calls);
-        };
-
-        try {
-            $adapter->stream_chat($args, $on_chunk, $tool_resolver);
-        } catch (\Throwable $e) {
+        $exception = $this->run_chat($adapter, $args, $on_chunk);
+        if ($exception !== null) {
             self::send_sse('error', [
                 'message' => __('Chat provider failed unexpectedly.', 'opentrust'),
-                'detail'  => $e->getMessage(),
+                'detail'  => $exception->getMessage(),
             ]);
         }
 
@@ -432,23 +422,16 @@ final class OpenTrust_Chat {
      * Used when the client cannot accept SSE (JS disabled). Same collector
      * as drive_stream — only the post-loop wrap-up differs.
      */
-    private function drive_blocking(OpenTrust_Chat_Provider $adapter, array $args, array $corpus, ?array &$stats = null): WP_REST_Response|WP_Error {
-        $collector = new OpenTrust_Chat_Stream_Collector($corpus['urls'] ?? []);
+    private function drive_blocking(OpenTrust_Chat_Provider $adapter, array $args, ?array &$stats = null): WP_REST_Response|WP_Error {
+        $collector = $this->build_collector($args);
 
         $on_chunk = static function (array $event) use ($collector): void {
             $collector->ingest($event); // blocking path doesn't forward live
         };
 
-        $seen_calls = [];
-
-        $tool_resolver = function (string $name, array $tool_args) use ($corpus, &$seen_calls): array {
-            return self::resolve_tool($name, $tool_args, $corpus, $seen_calls);
-        };
-
-        try {
-            $adapter->stream_chat($args, $on_chunk, $tool_resolver);
-        } catch (\Throwable $e) {
-            return new WP_Error('ai_provider_failed', $e->getMessage(), ['status' => 502]);
+        $exception = $this->run_chat($adapter, $args, $on_chunk);
+        if ($exception !== null) {
+            return new WP_Error('ai_provider_failed', $exception->getMessage(), ['status' => 502]);
         }
 
         if ($collector->error !== null) {
@@ -464,6 +447,46 @@ final class OpenTrust_Chat {
             'tokens_in'  => $collector->tokens_in,
             'tokens_out' => $collector->tokens_out,
         ], 200);
+    }
+
+    /**
+     * Build a fresh collector seeded with the corpus URL allowlist. Pulled
+     * out so both drive_* paths can't drift on which URLs they accept.
+     */
+    private function build_collector(array $args): OpenTrust_Chat_Stream_Collector {
+        $corpus = is_array($args['corpus'] ?? null) ? $args['corpus'] : [];
+        $urls   = is_array($corpus['urls'] ?? null) ? $corpus['urls'] : [];
+        return new OpenTrust_Chat_Stream_Collector($urls);
+    }
+
+    /**
+     * Wire the per-request seen_calls loop detector + tool_resolver and
+     * invoke the provider's stream_chat under a try/catch. Returns null on
+     * success, the caught exception otherwise. Both drive_stream and
+     * drive_blocking funnel through this so the moment provider behavior
+     * is engaged is the same in both paths.
+     */
+    private function run_chat(
+        OpenTrust_Chat_Provider $adapter,
+        array $args,
+        callable $on_chunk
+    ): ?\Throwable {
+        $corpus = is_array($args['corpus'] ?? null) ? $args['corpus'] : [];
+
+        // Per-request loop detection: same name + canonical args returns a
+        // guidance result instead of running the same query twice. Ref-passed
+        // into the resolver so state spans every turn of this request.
+        $seen_calls = [];
+        $tool_resolver = function (string $name, array $tool_args) use ($corpus, &$seen_calls): array {
+            return self::resolve_tool($name, $tool_args, $corpus, $seen_calls);
+        };
+
+        try {
+            $adapter->stream_chat($args, $on_chunk, $tool_resolver);
+            return null;
+        } catch (\Throwable $e) {
+            return $e;
+        }
     }
 
     // ──────────────────────────────────────────────
