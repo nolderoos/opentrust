@@ -20,6 +20,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class OpenTrust_Chat_Log {
 
     public const CRON_HOOK      = 'opentrust_chat_log_purge';
+    /**
+     * Daily purge cutoff. Three i18n strings in OpenTrust_Admin
+     * (the AI-tab logging-toggle label, the Questions-page intro, and the
+     * "%d questions logged in the last 90 days" plural) hardcode "90" in
+     * their copy — if you change this value, grep for "90 days" and
+     * "90-day" under includes/class-opentrust-admin.php and update those
+     * strings together (the translation .po files will need a re-run too).
+     */
     public const RETENTION_DAYS = 90;
     public const QUESTION_MAX   = 1000;
 

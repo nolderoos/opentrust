@@ -88,6 +88,12 @@ final class OpenTrust {
             'company_registration' => '',
             'vat_number'           => '',
 
+            // Per-site salt — written out-of-band by OpenTrust_Chat_Budget::site_salt()
+            // on first access. Empty here so a fresh install starts in the
+            // "needs lazy generation" state; once written, sanitize_settings
+            // carries it forward byte-for-byte.
+            'opentrust_site_salt'  => '',
+
             // ── AI chat (OTC) ──────────────────────────
             'ai_enabled'                => false,
             'ai_provider'               => '',

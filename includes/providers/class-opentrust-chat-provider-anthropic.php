@@ -21,6 +21,14 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
     private const API_VERSION     = '2023-06-01';
 
     /**
+     * Per-turn output cap. 4096 covers a typical answer plus a couple of
+     * tool-use blocks comfortably; the agentic loop runs MAX_TOOL_TURNS
+     * times so the per-request total can exceed this. Bumping past ~8192
+     * runs into Anthropic's per-model output cap on smaller models.
+     */
+    private const ANSWER_MAX_TOKENS = 4096;
+
+    /**
      * Model IDs (or ID prefixes) we recommend as defaults.
      * Sonnet 4.5 is the top recommendation — best Citations API + tool calling.
      */
@@ -154,7 +162,7 @@ final class OpenTrust_Chat_Provider_Anthropic extends OpenTrust_Chat_Provider {
     protected function stream_one_turn(array &$turn_loop_state, bool $has_called_tool, callable $on_chunk): ?array {
         $payload = [
             'model'      => $turn_loop_state['model'],
-            'max_tokens' => 4096,
+            'max_tokens' => self::ANSWER_MAX_TOKENS,
             'stream'     => true,
             'system'     => [
                 [
