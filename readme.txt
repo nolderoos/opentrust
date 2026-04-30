@@ -62,10 +62,31 @@ GPL-2.0-or-later. Modern PHP 8.1+ codebase with strict types and match expressio
 
 = Privacy-respecting by design =
 
-* **No telemetry, no analytics, no licence checks.** The only outbound HTTP calls the plugin can make are the AI chat requests you configure, and those go through an SSRF host allowlist.
-* **No third-party services required.** All catalogs are bundled. All rendering is local.
+* **No telemetry, no analytics, no licence checks.** Out of the box, with no API keys configured, the plugin makes zero outbound HTTP calls. The only external services it can contact are the ones you opt into — AI providers and Cloudflare Turnstile — documented in full below.
+* **No third-party services required.** All catalogs are bundled. All rendering is local. The Inter variable font (SIL OFL 1.1) is bundled too, so no Google Fonts request leaks visitor IPs to a third party.
 * **Capability-checked admin actions** with nonce verification on every save handler.
 * **Hashed identifiers** for any rate-limit or log state — never raw IPs, emails, sessions, user agents, or referers.
+
+== External services ==
+
+OpenTrust is opt-in for every external request. Out of the box, with no API keys or Turnstile keys configured, the plugin makes zero outbound HTTP calls. The services below are contacted only after you explicitly enable the corresponding feature in **OpenTrust → Settings → AI Chat**. All outbound URLs are restricted by an SSRF host allowlist.
+
+= AI providers (one of: Anthropic, OpenAI, OpenRouter) =
+
+Triggered when a visitor submits a question on `/trust-center/ask/`, after you have configured an API key. Each chat turn sends the visitor's question, a slim corpus index of your published trust-center content plus the specific documents the model retrieves via tool calls, and the conversation history within that session. No visitor PII is forwarded — only the question text the visitor types.
+
+* **Anthropic** — Endpoint: `https://api.anthropic.com/v1/messages`. Terms: https://www.anthropic.com/legal/commercial-terms. Privacy: https://www.anthropic.com/legal/privacy.
+* **OpenAI** — Endpoint: `https://api.openai.com/v1/chat/completions`. Terms: https://openai.com/policies/business-terms. Privacy: https://openai.com/policies/privacy-policy.
+* **OpenRouter** — Endpoint: `https://openrouter.ai/api/v1/chat/completions`. Terms: https://openrouter.ai/terms. Privacy: https://openrouter.ai/privacy.
+
+= Cloudflare Turnstile (optional bot defence) =
+
+Triggered when you enable Turnstile in **OpenTrust → Settings → AI Chat** by entering site and secret keys. The chat page loads a small JavaScript challenge widget from Cloudflare; the resulting token is verified server-side on the first message of each visitor session. No personal data is transmitted by OpenTrust — the token itself is opaque.
+
+* **Widget script:** `https://challenges.cloudflare.com/turnstile/v0/api.js`
+* **Token verification:** `https://challenges.cloudflare.com/turnstile/v0/siteverify`
+* **Terms:** https://www.cloudflare.com/website-terms/
+* **Privacy:** https://www.cloudflare.com/privacypolicy/
 
 == Installation ==
 
@@ -124,7 +145,7 @@ Yes, automatically. The corpus the model sees is cached as a transient and inval
 
 = Does the plugin phone home? =
 
-No. Zero telemetry, zero analytics, zero licence checks. The only outbound HTTP calls the plugin can make are the AI chat requests you configure, and those go through an SSRF host allowlist. Everything else is local to your WordPress install.
+No. Zero telemetry, zero analytics, zero licence checks. Out of the box, with no API keys configured, the plugin makes zero outbound HTTP calls. The only services it can contact are the ones you opt into — AI providers (when you add a chat API key) and Cloudflare Turnstile (when you enable it) — both fully documented in the **External services** section above and constrained by an SSRF host allowlist. Even fonts are bundled locally; nothing leaks to Google Fonts.
 
 = What do chat logs store about visitors? =
 

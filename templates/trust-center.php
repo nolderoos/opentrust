@@ -91,11 +91,15 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
             --ot-accent-contrast: <?php echo esc_attr($ot_accent_contrast); ?>;
         }
         <?php
-        // Inline the frontend CSS for zero-request rendering.
+        // Inline the frontend CSS for zero-request rendering. Substitute the
+        // @@OT_FONT_URL@@ token with the bundled-fonts URL so url() inside
+        // @font-face resolves correctly when the CSS is inlined.
         $ot_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/frontend.css';
         if (file_exists($ot_css_path)) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            echo file_get_contents($ot_css_path);
+            $ot_css = (string) file_get_contents($ot_css_path);
+            $ot_css = str_replace('@@OT_FONT_URL@@', esc_url(OPENTRUST_PLUGIN_URL . 'assets/fonts'), $ot_css);
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS contents are static; font URL escaped above.
+            echo $ot_css;
         }
         ?>
     </style>

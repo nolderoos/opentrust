@@ -80,10 +80,16 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
             --ot-accent-contrast: <?php echo esc_attr($ot_accent_contrast); ?>;
         }
         <?php
+        // Inline the frontend + chat CSS. Substitute the @@OT_FONT_URL@@
+        // token so url() inside @font-face resolves correctly when the CSS
+        // is inlined inside <style> instead of linked.
+        $ot_font_url = esc_url(OPENTRUST_PLUGIN_URL . 'assets/fonts');
         $ot_base_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/frontend.css';
         if (file_exists($ot_base_css_path)) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            echo file_get_contents($ot_base_css_path);
+            $ot_base_css = (string) file_get_contents($ot_base_css_path);
+            $ot_base_css = str_replace('@@OT_FONT_URL@@', $ot_font_url, $ot_base_css);
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS contents are static; font URL escaped above.
+            echo $ot_base_css;
         }
         $ot_chat_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/chat.css';
         if (file_exists($ot_chat_css_path)) {
