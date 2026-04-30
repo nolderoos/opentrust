@@ -4,7 +4,7 @@
 
 **A self-hosted, open-source trust center plugin for WordPress.**
 
-Publish security policies, subprocessors, certifications, and data practices on your own site — with an optional AI assistant grounded in your real corpus.
+Publish security policies, subprocessors, certifications, and data practices on your own site, with an optional AI assistant grounded in your policies.
 
 [![License: GPL v2 or later](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](LICENSE)
 [![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](https://www.php.net/)
@@ -41,7 +41,9 @@ OpenTrust is the open-source alternative to **Vanta Trust Center**, **Drata**, a
 4. Add content under **OpenTrust → Policies / Certifications / Subprocessors / Data Practices**.
 5. Visit `/trust-center/` on your site.
 
-## Optional: AI chat
+## AI chat
+
+Allow users to talk to your policies. AI will cite directly from policies. (Only via Anthropic Citations) 
 
 If you want visitors to be able to ask questions:
 
