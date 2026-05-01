@@ -612,7 +612,7 @@
     }
 
     function appendAssistantBubble(text, citations, refused, finalized) {
-        var scaffold = buildMessageScaffold('assistant', config.company_name || 'Assistant');
+        var scaffold = buildMessageScaffold('assistant', config.assistant_name || config.company_name || 'Assistant');
         if (refused) {
             scaffold.msgEl.classList.add('ot-chat-msg--refused');
         }

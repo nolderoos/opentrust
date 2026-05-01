@@ -16,6 +16,7 @@ defined('ABSPATH') || exit;
 $ot_settings     = $ot_data['settings'];
 $ot_hsl          = $ot_data['hsl'];
 $ot_company_name = (string) ($ot_settings['company_name'] ?? '');
+$ot_assistant_name = ($ot_company_name ?: get_bloginfo('name')) . ' AI';
 $ot_logo_url     = $ot_data['logo_url'] ?? '';
 $ot_avatar_url   = $ot_data['avatar_url'] ?? '';
 $ot_base_url     = $ot_data['base_url'] ?? '/';
@@ -201,7 +202,7 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
                                 </div>
                                 <div class="ot-chat-msg__content">
                                     <header class="ot-chat-msg__header">
-                                        <strong class="ot-chat-msg__name"><?php echo esc_html($ot_company_name); ?></strong>
+                                        <strong class="ot-chat-msg__name"><?php echo esc_html($ot_assistant_name); ?></strong>
                                         <span class="ot-chat-msg__separator">·</span>
                                         <time class="ot-chat-msg__time"><?php esc_html_e('just now', 'opentrust'); ?></time>
                                     </header>
@@ -329,6 +330,7 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
                 'max_length'     => $ot_max_len,
                 'base_url'       => esc_url_raw($ot_base_url),
                 'company_name'   => $ot_company_name,
+                'assistant_name' => $ot_assistant_name,
                 'avatar_url'     => esc_url_raw($ot_avatar_url),
                 'turnstile_key'  => $ot_ts_key,
                 'turnstile_required' => $ot_ts_key !== '',
