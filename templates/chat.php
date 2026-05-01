@@ -15,7 +15,7 @@ defined('ABSPATH') || exit;
 
 $ot_settings     = $ot_data['settings'];
 $ot_hsl          = $ot_data['hsl'];
-$ot_company_name = esc_html($ot_settings['company_name'] ?? '');
+$ot_company_name = (string) ($ot_settings['company_name'] ?? '');
 $ot_logo_url     = $ot_data['logo_url'] ?? '';
 $ot_avatar_url   = $ot_data['avatar_url'] ?? '';
 $ot_base_url     = $ot_data['base_url'] ?? '/';

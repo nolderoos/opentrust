@@ -26,7 +26,7 @@ $ot_dp_count     = (int) ($ot_counts['data_practices'] ?? 0);
         <h1 class="ot-chat-intro__title">
             <?php
             /* translators: %s: company name */
-            printf(esc_html__('Ask about %s\'s security and compliance', 'opentrust'), $ot_company_name); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Pre-escaped above
+            printf(esc_html__('Ask about %s\'s security and compliance', 'opentrust'), esc_html($ot_company_name));
             ?>
         </h1>
         <p class="ot-chat-intro__help">
