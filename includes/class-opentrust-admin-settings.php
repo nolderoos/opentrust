@@ -545,7 +545,7 @@ final class OpenTrust_Admin_Settings {
         $tc_url   = home_url('/' . ($settings['endpoint_slug'] ?? OpenTrust::DEFAULT_ENDPOINT_SLUG) . '/');
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab switch on admin settings page.
         $tab      = isset($_GET['tab']) ? sanitize_key((string) wp_unslash($_GET['tab'])) : 'general';
-        if (!in_array($tab, ['general', 'contact', 'ai'], true)) {
+        if (!in_array($tab, ['general', 'contact', 'ai', 'io'], true)) {
             $tab = 'general';
         }
         $base_url = admin_url('admin.php?page=opentrust');
@@ -577,9 +577,15 @@ final class OpenTrust_Admin_Settings {
                         </span>
                     <?php endif; ?>
                 </a>
+                <a href="<?php echo esc_url(add_query_arg('tab', 'io', $base_url)); ?>"
+                   class="nav-tab <?php echo $tab === 'io' ? 'nav-tab-active' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Hardcoded string ?>">
+                    <?php esc_html_e('Import & Export', 'opentrust'); ?>
+                </a>
             </h2>
 
-            <?php if ($tab === 'ai'): ?>
+            <?php if ($tab === 'io'): ?>
+                <?php OpenTrust_Admin_Tools::instance()->render_tab(); ?>
+            <?php elseif ($tab === 'ai'): ?>
                 <?php OpenTrust_Admin_AI::instance()->render_ai_tab($settings); ?>
             <?php elseif ($tab === 'contact'): ?>
                 <form method="post" action="options.php">

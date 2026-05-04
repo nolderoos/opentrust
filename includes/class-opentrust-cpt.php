@@ -53,6 +53,7 @@ final class OpenTrust_CPT {
     private function __construct() {
         add_action('init', [self::class, 'register_post_types']);
         add_action('add_meta_boxes', [$this, 'add_meta_boxes']);
+        add_action('save_post', [$this, 'ensure_uuid'], 5, 2);
         add_action('save_post', [$this, 'save_meta'], 10, 2);
 
         // Admin columns.
@@ -713,6 +714,27 @@ final class OpenTrust_CPT {
             <p class="description"><?php esc_html_e('Lower numbers appear first.', 'opentrust'); ?></p>
         </div>
         <?php
+    }
+
+    // ──────────────────────────────────────────────
+    // UUID stamp
+    // ──────────────────────────────────────────────
+
+    // Stable cross-site identity for the IO layer. Slugs and post IDs both drift.
+    public function ensure_uuid(int $post_id, \WP_Post $post): void {
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
+            return;
+        }
+        if (!in_array($post->post_type, self::ALL, true)) {
+            return;
+        }
+        if (get_post_meta($post_id, '_ot_uuid', true)) {
+            return;
+        }
+        update_post_meta($post_id, '_ot_uuid', wp_generate_uuid4());
     }
 
     // ──────────────────────────────────────────────

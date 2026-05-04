@@ -767,3 +767,128 @@
     color: #b45309;
     font-weight: 600;
 }
+
+/* Tools page — Import / Export */
+.ot-tools-intro {
+    color: #50575e;
+    max-width: 760px;
+}
+
+.ot-tools-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+    .ot-tools-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ot-tools-panel {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 20px;
+}
+
+.ot-tools-panel h2 {
+    margin-top: 0;
+}
+
+.ot-tools-warn {
+    background: #fef9c3;
+    border-left: 3px solid #854d0e;
+    padding: 10px 14px;
+    margin: 0 0 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #78350f;
+    border-radius: 3px;
+}
+
+.ot-tools-warn strong {
+    display: block;
+    margin-bottom: 2px;
+}
+
+.ot-tools-fieldset {
+    margin-bottom: 16px;
+}
+
+.ot-tools-fieldset legend {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.ot-tools-radio {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.ot-tools-cpt-group {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+
+.ot-tools-cpt-group summary {
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 0;
+}
+
+.ot-tools-cpt-group ul {
+    margin: 8px 0 0 4px;
+    padding: 0;
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.ot-tools-cpt-group li {
+    padding: 2px 0;
+    font-size: 13px;
+}
+
+.ot-tools-count {
+    color: #6b7280;
+    font-weight: normal;
+}
+
+.ot-tools-status {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.ot-tools-hint {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.ot-tools-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.ot-tools-preview-table th,
+.ot-tools-preview-table td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+}
+
+.ot-tools-uuid {
+    font-family: monospace;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.ot-tools-action--create { color: #166534; font-weight: 600; }
+.ot-tools-action--update { color: #854d0e; font-weight: 600; }
+.ot-tools-action--skip   { color: #6b7280; }

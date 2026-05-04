@@ -22,7 +22,7 @@ define('OPENTRUST_VERSION', '1.0.0');
 define('OPENTRUST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('OPENTRUST_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('OPENTRUST_PLUGIN_FILE', __FILE__);
-define('OPENTRUST_DB_VERSION', 1);
+define('OPENTRUST_DB_VERSION', 2);
 
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin.php';
@@ -35,6 +35,8 @@ require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-catalog.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-repository.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-render.php';
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-version.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-io.php';
+require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-admin-tools.php';
 
 // Chat (OTC) — policy chat feature.
 require_once OPENTRUST_PLUGIN_DIR . 'includes/class-opentrust-chat-secrets.php';

@@ -42,6 +42,7 @@ final class OpenTrust_Admin {
         OpenTrust_Admin_Questions::instance();
         OpenTrust_Admin_AI::instance();
         OpenTrust_Admin_Review::instance();
+        OpenTrust_Admin_Tools::instance();
     }
 
     // ──────────────────────────────────────────────

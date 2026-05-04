@@ -175,11 +175,32 @@ final class OpenTrust {
             return;
         }
 
-        // Future migrations land here.
+        // v1 → v2: back-fill _ot_uuid on existing CPT posts.
+        if ($current < 2) {
+            self::backfill_uuids();
+        }
 
         update_option('opentrust_db_version', OPENTRUST_DB_VERSION, false);
         set_transient('opentrust_flush_rewrite', true);
         $this->invalidate_cache();
+    }
+
+    private static function backfill_uuids(): void {
+        $posts = get_posts([
+            'post_type'      => OpenTrust_CPT::ALL,
+            'post_status'    => 'any',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'meta_query'     => [
+                [
+                    'key'     => '_ot_uuid',
+                    'compare' => 'NOT EXISTS',
+                ],
+            ],
+        ]);
+        foreach ($posts as $post_id) {
+            update_post_meta((int) $post_id, '_ot_uuid', wp_generate_uuid4());
+        }
     }
 
     public function maybe_flush_rewrites(): void {
