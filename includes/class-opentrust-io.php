@@ -183,12 +183,12 @@ final class OpenTrust_IO {
     // Returns the path to a temp ZIP. Caller deletes it when done.
     public static function write_zip(array $manifest, string $filename_prefix): string {
         if (!class_exists('ZipArchive')) {
-            throw new \RuntimeException(__('PHP ZipArchive extension is required for export.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('PHP ZipArchive extension is required for export.', 'opentrust'));
         }
 
         $tmp = wp_tempnam($filename_prefix . '.zip');
         if (!$tmp) {
-            throw new \RuntimeException(__('Could not create temp file for export.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('Could not create temp file for export.', 'opentrust'));
         }
 
         // Source paths are local-only — pull them out before the manifest is encoded.
@@ -202,7 +202,7 @@ final class OpenTrust_IO {
 
         $zip = new \ZipArchive();
         if ($zip->open($tmp, \ZipArchive::OVERWRITE | \ZipArchive::CREATE) !== true) {
-            throw new \RuntimeException(__('Could not open ZIP for writing.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('Could not open ZIP for writing.', 'opentrust'));
         }
 
         $zip->addFromString('manifest.json', wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -381,20 +381,20 @@ final class OpenTrust_IO {
 
     public static function read_zip(string $zip_path): array {
         if (!class_exists('ZipArchive')) {
-            throw new \RuntimeException(__('PHP ZipArchive extension is required.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('PHP ZipArchive extension is required.', 'opentrust'));
         }
         $zip = new \ZipArchive();
         if ($zip->open($zip_path) !== true) {
-            throw new \RuntimeException(__('Could not open uploaded archive.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('Could not open uploaded archive.', 'opentrust'));
         }
         $raw = $zip->getFromName('manifest.json');
         $zip->close();
         if ($raw === false) {
-            throw new \RuntimeException(__('Archive is missing manifest.json.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('Archive is missing manifest.json.', 'opentrust'));
         }
         $manifest = json_decode($raw, true);
         if (!is_array($manifest)) {
-            throw new \RuntimeException(__('manifest.json could not be parsed.', 'opentrust'));
+            throw new \RuntimeException(esc_html__('manifest.json could not be parsed.', 'opentrust'));
         }
         return ['manifest' => $manifest, 'zip_path' => $zip_path];
     }
@@ -562,7 +562,7 @@ final class OpenTrust_IO {
         }
 
         if (is_wp_error($post_id)) {
-            throw new \RuntimeException($post_id->get_error_message());
+            throw new \RuntimeException(esc_html($post_id->get_error_message()));
         }
         $post_id = (int) $post_id;
 
@@ -676,7 +676,7 @@ final class OpenTrust_IO {
 
             if (is_wp_error($att_id) || !$att_id) {
                 $errors[] = is_wp_error($att_id) ? $att_id->get_error_message() : __('Could not create attachment.', 'opentrust');
-                @unlink($dest_path);
+                wp_delete_file($dest_path);
                 continue;
             }
 

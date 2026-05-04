@@ -298,8 +298,9 @@ final class OpenTrust_Admin_Tools {
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . $name . '"');
         header('Content-Length: ' . (string) filesize($zip_path));
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- Streaming download. WP_Filesystem has no streaming-to-output equivalent; file_get_contents would buffer the whole archive in memory.
         readfile($zip_path);
-        @unlink($zip_path);
+        wp_delete_file($zip_path);
         exit;
     }
 
@@ -326,6 +327,7 @@ final class OpenTrust_Admin_Tools {
         }
         $stash_path = $stash_dir . '/import-' . wp_generate_password(12, false) . '.zip';
 
+        // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- Required for $_FILES handling. Higher-level WP wrappers impose a MIME allowlist that rejects file types we deliberately accept (admin-only, nonce + size cap + is_uploaded_file already gate this path).
         if (!move_uploaded_file((string) $_FILES['ot_import_file']['tmp_name'], $stash_path)) {
             $this->bounce_error(__('Could not store uploaded file.', 'opentrust'));
             return;
@@ -356,7 +358,7 @@ final class OpenTrust_Admin_Tools {
 
             set_transient('opentrust_io_preview_' . get_current_user_id(), $preview, 30 * MINUTE_IN_SECONDS);
         } catch (\Throwable $e) {
-            @unlink($stash_path);
+            wp_delete_file($stash_path);
             $this->bounce_error($e->getMessage());
             return;
         }
@@ -373,7 +375,7 @@ final class OpenTrust_Admin_Tools {
 
         if (!empty($_POST['ot_cancel']) || !is_array($preview)) {
             if (is_array($preview) && !empty($preview['zip_path'])) {
-                @unlink((string) $preview['zip_path']);
+                wp_delete_file((string) $preview['zip_path']);
             }
             delete_transient($stash_key);
             $this->bounce_notice(__('Import cancelled.', 'opentrust'), 'success');
@@ -416,7 +418,7 @@ final class OpenTrust_Admin_Tools {
         } catch (\Throwable $e) {
             $this->bounce_error($e->getMessage());
         } finally {
-            @unlink($zip_path);
+            wp_delete_file($zip_path);
             delete_transient($stash_key);
         }
     }
