@@ -75,7 +75,7 @@ There's no SaaS subscription. You only pay your AI provider for tokens consumed 
 ## Local development
 
 ```bash
-git clone https://github.com/nolderoos/opentrust.git
+git clone https://github.com/EtticDevelopment/opentrust.git
 cd opentrust
 
 # Symlink into a local WordPress install (e.g. WP Studio, Local, Lando, etc.)
