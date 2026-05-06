@@ -1,6 +1,6 @@
 <?php
 /**
- * Data practices section — Vanta-style category cards.
+ * Data practices section — category cards.
  *
  * Each card = one data practice category (e.g. "Account Information").
  * Inside: a list of data items with green checkmark icons.

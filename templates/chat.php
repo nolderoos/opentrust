@@ -73,32 +73,32 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
     <meta name="robots" content="noindex, nofollow">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="canonical" href="<?php echo esc_url(trailingslashit($ot_base_url) . 'ask/'); ?>">
-    <style>
-        :root {
-            --ot-accent-h: <?php echo (int) $ot_hsl['h']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>;
-            --ot-accent-s: <?php echo (int) $ot_hsl['s']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>%;
-            --ot-accent-l: <?php echo (int) $ot_hsl['l']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>%;
-            --ot-accent-contrast: <?php echo esc_attr($ot_accent_contrast); ?>;
-        }
-        <?php
-        // Inline the frontend + chat CSS. Substitute the @@OT_FONT_URL@@
-        // token so url() inside @font-face resolves correctly when the CSS
-        // is inlined inside <style> instead of linked.
-        $ot_font_url = esc_url(OPENTRUST_PLUGIN_URL . 'assets/fonts');
-        $ot_base_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/frontend.css';
-        if (file_exists($ot_base_css_path)) {
-            $ot_base_css = (string) file_get_contents($ot_base_css_path);
-            $ot_base_css = str_replace('@@OT_FONT_URL@@', $ot_font_url, $ot_base_css);
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS contents are static; font URL escaped above.
-            echo $ot_base_css;
-        }
-        $ot_chat_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/chat.css';
-        if (file_exists($ot_chat_css_path)) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            echo file_get_contents($ot_chat_css_path);
-        }
-        ?>
-    </style>
+    <?php
+    // Inline the frontend + chat CSS via a synthetic style handle so the
+    // standalone document still routes through WordPress's enqueue API.
+    $ot_root_vars = sprintf(
+        ':root{--ot-accent-h:%d;--ot-accent-s:%d%%;--ot-accent-l:%d%%;--ot-accent-contrast:%s;}',
+        (int) $ot_hsl['h'],
+        (int) $ot_hsl['s'],
+        (int) $ot_hsl['l'],
+        $ot_accent_contrast === '#ffffff' ? '#ffffff' : '#111827'
+    );
+    $ot_font_url      = esc_url(OPENTRUST_PLUGIN_URL . 'assets/fonts');
+    $ot_css_body      = '';
+    $ot_base_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/frontend.css';
+    if (file_exists($ot_base_css_path)) {
+        $ot_base_css = (string) file_get_contents($ot_base_css_path);
+        $ot_css_body .= str_replace('@@OT_FONT_URL@@', $ot_font_url, $ot_base_css);
+    }
+    $ot_chat_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/chat.css';
+    if (file_exists($ot_chat_css_path)) {
+        $ot_css_body .= "\n" . (string) file_get_contents($ot_chat_css_path);
+    }
+    wp_register_style('opentrust-chat', false, [], OPENTRUST_VERSION);
+    wp_enqueue_style('opentrust-chat');
+    wp_add_inline_style('opentrust-chat', $ot_root_vars . "\n" . $ot_css_body);
+    wp_print_styles(['opentrust-chat']);
+    ?>
     <?php if ($ot_ts_key !== ''): ?>
         <?php
         // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent, PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent, WordPress.WP.EnqueuedResourceParameters.MissingVersion -- Turnstile must load from Cloudflare CDN
@@ -319,8 +319,7 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
 
     <?php if ($ot_state === 'ready'): ?>
         <script id="ot-chat-config" type="application/json"><?php
-            // Config block consumed by chat.js. We build it as a JSON string so the
-            // JS layer never has to parse HTML-escaped PHP values.
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON_HEX_* flags hex-escape <, >, &, ', " for safe in-DOM <script> embedding.
             echo wp_json_encode([
                 'rest_url'       => $ot_rest_url,
                 'nonce'          => $ot_nonce,
@@ -358,17 +357,17 @@ if (!empty($ot_visible['faqs']) && !empty($ot_data['faqs']))                    
                     'empty_response'    => __('No content returned by the model.', 'opentrust'),
                     'disclaimer'        => __('AI-generated answer. Not legal, security, or compliance advice. Verify against the sources above.', 'opentrust'),
                 ],
-            ]);
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         ?></script>
-        <script>
-            <?php
-            $ot_chat_js_path = OPENTRUST_PLUGIN_DIR . 'assets/js/chat.js';
-            if (file_exists($ot_chat_js_path)) {
-                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-                echo file_get_contents($ot_chat_js_path);
-            }
-            ?>
-        </script>
+        <?php
+        $ot_chat_js_path = OPENTRUST_PLUGIN_DIR . 'assets/js/chat.js';
+        if (file_exists($ot_chat_js_path)) {
+            wp_register_script('opentrust-chat', false, [], OPENTRUST_VERSION, true);
+            wp_enqueue_script('opentrust-chat');
+            wp_add_inline_script('opentrust-chat', (string) file_get_contents($ot_chat_js_path));
+            wp_print_scripts(['opentrust-chat']);
+        }
+        ?>
     <?php endif; ?>
 
 </body>

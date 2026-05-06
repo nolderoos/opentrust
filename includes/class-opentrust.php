@@ -67,6 +67,7 @@ final class OpenTrust {
             'avatar_id'        => 0,
             'accent_color'        => '#2563EB',
             'accent_force_exact'  => false,
+            'show_powered_by'     => false,
             'sections_visible' => [
                 'certifications' => true,
                 'policies'       => true,

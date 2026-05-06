@@ -304,8 +304,9 @@ final class OpenTrust_Chat_Budget {
      * Best-effort visitor IP extraction. We only care about it to compute a hash.
      */
     public static function visitor_ip(): string {
-        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- preg_replace below strips to [0-9a-f\.:].
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+        $ip = isset($_SERVER['REMOTE_ADDR'])
+            ? sanitize_text_field((string) wp_unslash($_SERVER['REMOTE_ADDR']))
+            : '';
         $ip = preg_replace('/[^0-9a-f\.:]/i', '', $ip);
         return (string) $ip;
     }
@@ -314,11 +315,11 @@ final class OpenTrust_Chat_Budget {
      * Read the short-lived session cookie (or empty string if none set).
      */
     public static function session_token(): string {
-        // phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- preg_replace below strips to [a-zA-Z0-9].
-        return isset($_COOKIE['opentrust_chat_session'])
-            ? preg_replace('/[^a-zA-Z0-9]/', '', (string) $_COOKIE['opentrust_chat_session'])
-            : '';
-        // phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+        if (!isset($_COOKIE['opentrust_chat_session'])) {
+            return '';
+        }
+        $raw = sanitize_text_field((string) wp_unslash($_COOKIE['opentrust_chat_session']));
+        return (string) preg_replace('/[^a-zA-Z0-9]/', '', $raw);
     }
 
     /**

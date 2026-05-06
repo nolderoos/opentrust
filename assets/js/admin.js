@@ -827,3 +827,27 @@
     apply();
 })();
 
+/**
+ * Policy version-summary toggle.
+ *
+ * Reveals the "what changed?" summary field when the admin ticks the
+ * "publish as new version" checkbox in the policy meta box.
+ */
+(function () {
+    'use strict';
+
+    var toggle = document.getElementById('ot_publish_new_version');
+    if (!toggle) return;
+
+    toggle.addEventListener('change', function () {
+        var wrap = document.getElementById('ot-version-summary-wrap');
+        if (wrap) {
+            wrap.style.display = this.checked ? 'block' : 'none';
+        }
+        if (this.checked) {
+            var summary = document.getElementById('ot_version_summary');
+            if (summary) summary.focus();
+        }
+    });
+})();
+

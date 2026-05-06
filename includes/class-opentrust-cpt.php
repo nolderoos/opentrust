@@ -129,7 +129,7 @@ final class OpenTrust_CPT {
      */
     public function filter_enter_title_here(string $text, \WP_Post $post): string {
         if ($post->post_type === 'ot_subprocessor') {
-            return __('Pick from the catalog or type your own, e.g. Datadog, Stripe, or AWS', 'opentrust');
+            return __('Pick from the catalog or type your own subprocessor name', 'opentrust');
         }
         if ($post->post_type === 'ot_data_practice') {
             return __('Pick from the catalog or type your own, e.g. Analytics or Transactional Email', 'opentrust');
@@ -495,7 +495,6 @@ final class OpenTrust_CPT {
                 <p class="description" style="margin-top:2px;font-size:11px;"><?php esc_html_e('Shown in the public version history.', 'opentrust'); ?></p>
             </div>
         </div>
-        <script>document.getElementById('ot_publish_new_version').addEventListener('change',function(){document.getElementById('ot-version-summary-wrap').style.display=this.checked?'block':'none';if(this.checked)document.getElementById('ot_version_summary').focus();});</script>
         <?php endif; ?>
 
         <div class="ot-meta-field">

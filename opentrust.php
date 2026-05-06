@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name: OpenTrust
- * Plugin URI:  https://ettic.nl/opentrust
+ * Plugin URI:  https://plugins.ettic.nl/opentrust
  * Description: A self-hosted, open-source trust center for publishing security policies, subprocessors, certifications, and data practices.
  * Version:     1.0.0
  * Requires PHP: 8.1
  * Requires at least: 6.0
  * Author:      Ettic
- * Author URI:  https://ettic.nl
+ * Author URI:  https://plugins.ettic.nl
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: opentrust

@@ -84,6 +84,8 @@ final class OpenTrust_Admin_Settings {
             'description' => __('Used for buttons, links, and highlights. Choose a color that matches your brand.', 'opentrust'),
         ]);
 
+        $this->add_field('show_powered_by', __('Credit Link', 'opentrust'), 'render_show_powered_by_field', 'opentrust_branding', 'opentrust-settings-general');
+
         // Sections visibility (General tab).
         add_settings_section(
             'opentrust_sections',
@@ -120,7 +122,7 @@ final class OpenTrust_Admin_Settings {
         ]);
 
         $this->add_field('contact_form_url', __('Contact Form URL', 'opentrust'), 'render_url_field', 'opentrust_contact', 'opentrust-settings-contact', [
-            'description' => __('Optional link to a gated contact form (e.g. HubSpot, Typeform).', 'opentrust'),
+            'description' => __('Optional link to a gated contact form.', 'opentrust'),
         ]);
 
         $this->add_field('contact_address', __('Mailing Address', 'opentrust'), 'render_textarea_field', 'opentrust_contact', 'opentrust-settings-contact', [
@@ -298,6 +300,20 @@ final class OpenTrust_Admin_Settings {
         <?php
     }
 
+    public function render_show_powered_by_field(array $args): void {
+        $settings = OpenTrust::get_settings();
+        $checked  = !empty($settings['show_powered_by']);
+        printf(
+            '<label><input type="checkbox" id="opentrust_show_powered_by" name="opentrust_settings[show_powered_by]" value="1" %s> %s</label>',
+            checked($checked, true, false),
+            esc_html__('Show a "Powered by OpenTrust" credit in the trust center footer.', 'opentrust')
+        );
+        printf(
+            '<p class="description">%s</p>',
+            esc_html__('Off by default. Public credits are opt-in.', 'opentrust')
+        );
+    }
+
     public function render_sections_field(array $args): void {
         $settings = OpenTrust::get_settings();
         $visible  = $settings['sections_visible'] ?? [];
@@ -431,6 +447,7 @@ final class OpenTrust_Admin_Settings {
                 'sanitize' => static fn($v) => sanitize_hex_color((string) ($v ?? '#2563EB')) ?: '#2563EB',
             ],
             'accent_force_exact' => ['tab' => 'general', 'default' => false,     'sanitize' => $bool],
+            'show_powered_by'    => ['tab' => 'general', 'default' => false,     'sanitize' => $bool],
             'sections_visible' => [
                 'tab' => 'general',
                 'default' => $sections_default,
@@ -525,7 +542,9 @@ final class OpenTrust_Admin_Settings {
         if ($new_value === '' || $new_value === str_repeat('•', 20) || str_starts_with($new_value, '••••')) {
             return $old_value;
         }
-        $clean = sanitize_text_field($new_value);
+        // Secrets pass through byte-for-byte; only strip non-printable characters
+        // (which never appear in real Cloudflare Turnstile keys anyway).
+        $clean = trim((string) preg_replace('/[^\x20-\x7E]/', '', $new_value));
         if ($clean === '') {
             return $old_value;
         }

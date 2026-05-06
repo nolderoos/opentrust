@@ -17,12 +17,12 @@ Publish security policies, subprocessors, certifications, and data practices on 
 
 ---
 
-OpenTrust is the open-source alternative to **Vanta Trust Center**, **Drata**, and **SafeBase**. Procurement teams want a URL they can read. Buyers want receipts. Auditors want a version trail. OpenTrust gives you all three on a branded page that lives on your own WordPress site.
+OpenTrust is a self-hosted, open-source trust center for WordPress. Procurement teams want a URL they can read. Buyers want receipts. Auditors want a version trail. OpenTrust gives you all three on a branded page that lives on your own WordPress site.
 
 ## What's inside
 
 - **Security policies** with auto-incrementing version numbers and archived revisions reachable at stable URLs (`/trust-center/policy/{slug}/version/{n}/`).
-- **Subprocessors** with pre-filled metadata for 200+ common vendors (AWS, Stripe, Cloudflare, GitHub, etc.).
+- **Subprocessors** with pre-filled metadata for 200+ common cloud vendors and SaaS providers.
 - **Compliance certifications** with status badges (active, in progress, expired) and a bundled catalog covering SOC 2, ISO 27001, ISO 27701, HIPAA, PCI-DSS, and others.
 - **Data practices** organised by category — the full GDPR Article 30 surface, made public.
 - **FAQ** seeded with sensible defaults; edit, add, or remove freely.
@@ -136,4 +136,4 @@ Issues and pull requests welcome. Before opening a PR:
 
 ## Acknowledgements
 
-Built and maintained by **[Ettic](https://ettic.nl)**.
+Built and maintained by **[Ettic](https://plugins.ettic.nl)**.

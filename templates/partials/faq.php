@@ -66,7 +66,7 @@ foreach ($ot_faqs as $ot_faq_item) {
 
     <?php if (!empty($ot_faq_ld['mainEntity'])): ?>
         <script type="application/ld+json">
-            <?php echo wp_json_encode($ot_faq_ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode output is safe inside <script type="application/ld+json"> ?>
+            <?php echo wp_json_encode($ot_faq_ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON_HEX_* flags hex-escape <, >, &, ', " for safe in-DOM <script> embedding. ?>
         </script>
     <?php endif; ?>
 </section>

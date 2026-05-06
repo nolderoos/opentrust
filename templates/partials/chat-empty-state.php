@@ -34,7 +34,7 @@ $ot_dp_count     = (int) ($ot_counts['data_practices'] ?? 0);
                 <?php
                 printf(
                     /* translators: 1: model identifier, 2: sources summary */
-                    esc_html__('Powered by %1$s. Grounded in %2$s.', 'opentrust'),
+                    esc_html__('Using model %1$s. Grounded in %2$s.', 'opentrust'),
                     '<strong>' . esc_html($ot_model_id) . '</strong>',
                     esc_html(sprintf(
                         '%d policies, %d certifications, %d subprocessors, %d data practices',

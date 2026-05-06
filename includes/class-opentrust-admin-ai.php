@@ -408,7 +408,7 @@ final class OpenTrust_Admin_AI {
                     <td>
                         <label>
                             <input type="checkbox" name="opentrust_settings[ai_show_model_attribution]" value="1" <?php checked(!empty($settings['ai_show_model_attribution'])); ?>>
-                            <?php esc_html_e('Show "Powered by {model}" under the chat input', 'opentrust'); ?>
+                            <?php esc_html_e('Show the active model name under the chat input', 'opentrust'); ?>
                         </label>
                     </td>
                 </tr>
@@ -533,7 +533,7 @@ final class OpenTrust_Admin_AI {
         check_admin_referer('opentrust_ai_save_key');
 
         $provider = isset($_POST['provider']) ? sanitize_key((string) wp_unslash($_POST['provider'])) : '';
-        $api_key  = isset($_POST['api_key'])  ? trim((string) wp_unslash($_POST['api_key']))          : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Trimmed secret token; sanitize_text_field() would strip characters valid in API keys.
+        $api_key  = isset($_POST['api_key'])  ? trim(sanitize_text_field((string) wp_unslash($_POST['api_key']))) : '';
 
         $adapter = OpenTrust_Chat_Provider::for($provider);
         if (!$adapter) {

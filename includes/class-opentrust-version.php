@@ -6,8 +6,7 @@
  * a new version via a checkbox in the meta box. Regular saves/edits
  * do not change the version number.
  *
- * This matches industry practice (Vanta, Drata, Secureframe) and
- * compliance requirements (SOC 2, ISO 27001) where only formally
+ * This matches compliance practice (SOC 2, ISO 27001) where only formally
  * published versions are tracked, not every internal edit.
  */
 

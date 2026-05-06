@@ -82,27 +82,29 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
     <meta name="description" content="<?php echo esc_attr($ot_tagline); ?>">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?php echo esc_url($ot_base_url); ?>">
-    <style>
-        :root {
-            --ot-accent-h: <?php echo (int) $ot_hsl['h']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>;
-            --ot-accent-s: <?php echo (int) $ot_hsl['s']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>%;
-            --ot-accent-l: <?php echo (int) $ot_hsl['l']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>%;
-            --ot-accent-l-safe: <?php echo (int) $ot_accent_l_safe; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Integer cast ?>%;
-            --ot-accent-contrast: <?php echo esc_attr($ot_accent_contrast); ?>;
-        }
-        <?php
-        // Inline the frontend CSS for zero-request rendering. Substitute the
-        // @@OT_FONT_URL@@ token with the bundled-fonts URL so url() inside
-        // @font-face resolves correctly when the CSS is inlined.
-        $ot_css_path = OPENTRUST_PLUGIN_DIR . 'assets/css/frontend.css';
-        if (file_exists($ot_css_path)) {
-            $ot_css = (string) file_get_contents($ot_css_path);
-            $ot_css = str_replace('@@OT_FONT_URL@@', esc_url(OPENTRUST_PLUGIN_URL . 'assets/fonts'), $ot_css);
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS contents are static; font URL escaped above.
-            echo $ot_css;
-        }
-        ?>
-    </style>
+    <?php
+    // Inline the frontend CSS for zero-request rendering. We register a
+    // synthetic handle (src=false) and push the CSS through wp_add_inline_style
+    // so the standalone document still routes through WordPress's enqueue API.
+    $ot_root_vars = sprintf(
+        ':root{--ot-accent-h:%d;--ot-accent-s:%d%%;--ot-accent-l:%d%%;--ot-accent-l-safe:%d%%;--ot-accent-contrast:%s;}',
+        (int) $ot_hsl['h'],
+        (int) $ot_hsl['s'],
+        (int) $ot_hsl['l'],
+        (int) $ot_accent_l_safe,
+        $ot_accent_contrast === '#ffffff' ? '#ffffff' : '#111827'
+    );
+    $ot_css_body  = '';
+    $ot_css_path  = OPENTRUST_PLUGIN_DIR . 'assets/css/frontend.css';
+    if (file_exists($ot_css_path)) {
+        $ot_css_body = (string) file_get_contents($ot_css_path);
+        $ot_css_body = str_replace('@@OT_FONT_URL@@', esc_url(OPENTRUST_PLUGIN_URL . 'assets/fonts'), $ot_css_body);
+    }
+    wp_register_style('opentrust-frontend', false, [], OPENTRUST_VERSION);
+    wp_enqueue_style('opentrust-frontend');
+    wp_add_inline_style('opentrust-frontend', $ot_root_vars . "\n" . $ot_css_body);
+    wp_print_styles(['opentrust-frontend']);
+    ?>
 </head>
 <body class="ot-body">
 
@@ -222,23 +224,25 @@ $ot_accent_l_safe = !empty($ot_settings['accent_force_exact'])
                     esc_html($ot_company_name ?: get_bloginfo('name'))
                 );
                 ?>
-                &nbsp;·&nbsp;
-                <a href="https://ettic.nl/opentrust" target="_blank" rel="noopener">
-                    <?php esc_html_e('Powered by OpenTrust', 'opentrust'); ?>
-                </a>
+                <?php if (!empty($ot_settings['show_powered_by'])): ?>
+                    &nbsp;·&nbsp;
+                    <a href="https://plugins.ettic.nl/opentrust" target="_blank" rel="noopener">
+                        <?php esc_html_e('Powered by OpenTrust', 'opentrust'); ?>
+                    </a>
+                <?php endif; ?>
             </p>
         </div>
     </footer>
 
-    <script>
-        <?php
-        $ot_js_path = OPENTRUST_PLUGIN_DIR . 'assets/js/frontend.js';
-        if (file_exists($ot_js_path)) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            echo file_get_contents($ot_js_path);
-        }
-        ?>
-    </script>
+    <?php
+    $ot_js_path = OPENTRUST_PLUGIN_DIR . 'assets/js/frontend.js';
+    if (file_exists($ot_js_path)) {
+        wp_register_script('opentrust-frontend', false, [], OPENTRUST_VERSION, true);
+        wp_enqueue_script('opentrust-frontend');
+        wp_add_inline_script('opentrust-frontend', (string) file_get_contents($ot_js_path));
+        wp_print_scripts(['opentrust-frontend']);
+    }
+    ?>
 
 </body>
 </html>

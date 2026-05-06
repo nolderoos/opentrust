@@ -12,7 +12,7 @@ Self-hosted trust center: policies, subprocessors, certifications, data practice
 
 == Description ==
 
-**OpenTrust is the open-source, self-hosted alternative to Vanta Trust Center, Drata, and SafeBase.** Publish your security policies, list your subprocessors, display your compliance certifications, and document your data practices on a single branded page that lives on your own WordPress site. No SaaS subscription. No vendor lock-in. No "phone home."
+**OpenTrust is a self-hosted, open-source trust center for WordPress.** Publish your security policies, list your subprocessors, display your compliance certifications, and document your data practices on a single branded page that lives on your own WordPress site. No SaaS subscription. No vendor lock-in. No "phone home."
 
 Procurement teams want a URL they can read. Buyers want receipts. Auditors want a version trail. OpenTrust gives you all three in a plugin, and lets you optionally bolt on an AI assistant that answers visitor questions from your real, published corpus — with citations.
 

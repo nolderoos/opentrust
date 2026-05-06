@@ -17,6 +17,17 @@ dist/
 PLUGIN-CHECK-FINDINGS.md
 PLUGIN-CHECK-BASELINE.md
 
+# Plugin review working docs (never ship)
+PLUGIN_REVIEW_NOTES.md
+PLUGIN_REVIEW_RESEARCH.md
+PLUGIN_REVIEW_EMAIL_AUDIT.md
+PLUGIN_SCOPE.md
+PLUGIN_TRADEMARK_AUDIT.md
+ETTIC_URI_ANSWER.md
+REPLY_DRAFT.md
+*Review in Progress*.pdf
+*.pdf
+
 # Repo metadata
 .distignore
 .gitignore
